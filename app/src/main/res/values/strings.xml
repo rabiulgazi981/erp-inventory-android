@@ -64,11 +64,17 @@
         <item quantity="other">%1$d sales</item>
     </plurals>
     <string name="home_cash">Cash in hand</string>
-    <string name="home_invoices">%1$d invoices</string>
+    <plurals name="home_invoices">
+        <item quantity="one">%1$d invoice</item>
+        <item quantity="other">%1$d invoices</item>
+    </plurals>
     <string name="home_due">Due to collect</string>
     <string name="home_due_customers">%1$d customers</string>
     <string name="home_low_stock">Low stock</string>
-    <string name="home_items">%1$d items</string>
+    <plurals name="home_items">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
     <string name="home_tap_reorder">Tap to reorder</string>
     <string name="home_new_sale">New sale</string>
     <string name="home_purchase">Purchase</string>

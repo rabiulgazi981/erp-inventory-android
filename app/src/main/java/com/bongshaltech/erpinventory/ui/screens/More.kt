@@ -205,7 +205,7 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                                     .onFailure { open("https://play.google.com/store/apps/details?id=$appId") }
                             }.padding(horizontal = 12.dp),
                         contentAlignment = Alignment.Center,
-                    ) { T(stringResource(R.string.rate_now), 13.sp, FontWeight.SemiBold, Color.White) }
+                    ) { T(stringResource(R.string.rate_now), 13.sp, FontWeight.SemiBold, Color.White, shadow = true) }
                 })
                 ListRow(stringResource(R.string.more_share), trailing = { Icon(Icons.Outlined.Share, null, tint = Color(0xFF9CA3AF), modifier = Modifier.size(16.dp)) }) {
                     val send = Intent(Intent.ACTION_SEND).setType("text/plain")
