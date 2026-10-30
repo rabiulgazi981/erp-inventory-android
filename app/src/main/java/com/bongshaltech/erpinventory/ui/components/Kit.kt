@@ -44,6 +44,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -80,9 +81,11 @@ fun T(
     modifier: Modifier = Modifier,
     align: TextAlign? = null,
     maxLines: Int = Int.MAX_VALUE,
+    shadow: Boolean = false,
 ) {
     Text(
         text, modifier,
+        style = if (shadow) LocalTextStyle.current.copy(shadow = TextShadow) else LocalTextStyle.current,
         color = if (color == Color.Unspecified) Ui.c.text else color,
         fontSize = size, fontWeight = weight, textAlign = align, maxLines = maxLines,
         overflow = if (maxLines == Int.MAX_VALUE) TextOverflow.Clip else TextOverflow.Ellipsis,
@@ -129,11 +132,8 @@ fun Panel(title: String, grad: Brush, borderColor: Color, modifier: Modifier = M
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Box(
-                Modifier.size(18.dp).clip(RoundedCornerShape(5.dp)).background(Color.White.copy(alpha = 0.25f))
-                    .border(2.dp, Color.White.copy(alpha = 0.75f), RoundedCornerShape(5.dp))
-            )
-            T(title, 15.sp, FontWeight.Bold, Color.White)
+            Box(Modifier.size(8.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.85f)))
+            T(title, 15.sp, FontWeight.Bold, Color.White, shadow = true)
         }
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
     }
@@ -183,12 +183,13 @@ fun GradButton(text: String, grad: Brush, modifier: Modifier = Modifier, height:
         modifier.height(height)
             .let { if (enabled) it.shadow(8.dp, shape, ambientColor = Brand.Blue, spotColor = Brand.Blue) else it }
             .clip(shape)
-            .background(if (enabled) grad else SolidColor(Color(0xFF9CA3AF)))
+            .background(if (enabled) grad else SolidColor(Ui.c.soft))
+            .let { if (enabled) it else it.border(1.dp, Ui.c.inputBorder, shape) }
             .drawBehind { drawRect(Color(0x26000000), topLeft = Offset(0f, size.height - 3.dp.toPx())) }
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
-    ) { T(text, 16.sp, FontWeight.SemiBold, Color.White, maxLines = 1) }
+    ) { T(text, 16.sp, FontWeight.SemiBold, if (enabled) Color.White else Ui.c.muted, maxLines = 1, shadow = enabled) }
 }
 
 @Composable
@@ -269,13 +270,16 @@ fun Input(
     }
 }
 
+/** Soft shadow that keeps white text readable on the pale end of a gradient. */
+private val TextShadow = Shadow(Color(0x66000000), Offset(0f, 1.5f), 3f)
+
 /** Gradient on/off switch from the design (green when on). */
 @Composable
 fun Toggle(on: Boolean, onChange: (Boolean) -> Unit, width: Dp = 44.dp, height: Dp = 26.dp) {
     val knob = height - 6.dp
     Row(
         Modifier.width(width).height(height).clip(CircleShape)
-            .background(if (on) Brand.GreenGrad else SolidColor(Color(0xFFD1D5DB)))
+            .background(if (on) Brand.GreenGrad else SolidColor(if (Ui.c.dark) Ui.c.inputBorder else Color(0xFFD1D5DB)))
             .clickable { onChange(!on) }.padding(3.dp),
         horizontalArrangement = if (on) Arrangement.End else Arrangement.Start,
     ) { Box(Modifier.size(knob).shadow(2.dp, CircleShape).clip(CircleShape).background(Color.White)) }

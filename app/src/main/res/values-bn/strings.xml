@@ -58,7 +58,10 @@
     <string name="home_today_date">আজ, %1$s</string>
     <string name="home_today_sales">আজকের বিক্রি</string>
     <string name="home_vs_yesterday">গতকালের চেয়ে %1$s%%</string>
-    <string name="home_sales_count">%1$dটি বিক্রি</string>
+    <plurals name="home_sales_count">
+        <item quantity="one">%1$dটি বিক্রি</item>
+        <item quantity="other">%1$dটি বিক্রি</item>
+    </plurals>
     <string name="home_cash">হাতে ক্যাশ</string>
     <string name="home_invoices">%1$dটি ইনভয়েস</string>
     <string name="home_due">আদায় বাকি</string>

@@ -236,9 +236,9 @@ fun LoginScreen(go: (String) -> Unit) {
     }
 }
 
-private data class TypeOption(val type: ShopType, val label: Int, val note: Int)
+internal data class TypeOption(val type: ShopType, val label: Int, val note: Int)
 
-private val typeOptions = listOf(
+internal val typeOptions = listOf(
     TypeOption(ShopType.GENERAL, R.string.type_general, R.string.type_note_general),
     TypeOption(ShopType.GROCERY, R.string.type_grocery, R.string.type_note_grocery),
     TypeOption(ShopType.SUPER_SHOP, R.string.type_super, R.string.type_note_super),
@@ -269,10 +269,6 @@ fun OnboardingScreen(go: (String) -> Unit) {
             Image(painterResource(R.drawable.logo), "ERP Inventory", Modifier.width(120.dp))
             T(stringResource(R.string.onb_title), 22.sp, FontWeight.Bold)
             T(stringResource(R.string.onb_sub), 14.sp, color = Ui.c.muted, align = TextAlign.Center)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
-                Box(Modifier.size(28.dp, 6.dp).clip(CircleShape).background(Brand.BlueGrad))
-                Box(Modifier.size(28.dp, 6.dp).clip(CircleShape).background(Color(0xFFD1D5DB)))
-            }
         }
         Card(Modifier.fillMaxWidth(), padding = 16.dp) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
