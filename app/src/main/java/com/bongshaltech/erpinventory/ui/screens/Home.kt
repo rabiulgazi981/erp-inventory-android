@@ -147,14 +147,15 @@ fun HomeScreen(go: (String) -> Unit, tab: (Tab) -> Unit) {
                             ?: pluralStringResource(R.plurals.home_sales_count, count, count),
                         highlight = true,
                     )
-                    Stat(stringResource(R.string.home_cash), cash.taka0(), stringResource(R.string.home_invoices, count))
+                    Stat(stringResource(R.string.home_cash), cash.taka0(), pluralStringResource(R.plurals.home_invoices, count, count))
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Stat(stringResource(R.string.home_due), due.taka0(), stringResource(R.string.home_due_customers, dueCount), valueColor = Brand.Amber) {
                     go(Routes.SOON)
                 }
-                Stat(stringResource(R.string.home_low_stock), stringResource(R.string.home_items, low), stringResource(R.string.home_tap_reorder), valueColor = Brand.Red) {
+                Stat(stringResource(R.string.home_low_stock), pluralStringResource(R.plurals.home_items, low, low), stringResource(R.string.home_tap_reorder),
+                    valueColor = if (low > 0) Brand.Red else Ui.c.text) {
                     go(Routes.PRODUCTS_LOW)
                 }
             }

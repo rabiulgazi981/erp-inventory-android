@@ -63,11 +63,17 @@
         <item quantity="other">%1$dটি বিক্রি</item>
     </plurals>
     <string name="home_cash">হাতে ক্যাশ</string>
-    <string name="home_invoices">%1$dটি ইনভয়েস</string>
+    <plurals name="home_invoices">
+        <item quantity="one">%1$dটি ইনভয়েস</item>
+        <item quantity="other">%1$dটি ইনভয়েস</item>
+    </plurals>
     <string name="home_due">আদায় বাকি</string>
     <string name="home_due_customers">%1$d জন কাস্টমার</string>
     <string name="home_low_stock">স্টক কম</string>
-    <string name="home_items">%1$dটি পণ্য</string>
+    <plurals name="home_items">
+        <item quantity="one">%1$dটি পণ্য</item>
+        <item quantity="other">%1$dটি পণ্য</item>
+    </plurals>
     <string name="home_tap_reorder">অর্ডার দিতে চাপুন</string>
     <string name="home_new_sale">নতুন বিক্রি</string>
     <string name="home_purchase">ক্রয়</string>
