@@ -211,8 +211,9 @@ fun LinkButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit)
 /** Bottom action bar on forms (white, top border). */
 @Composable
 fun BottomBar(content: @Composable RowScope.() -> Unit) {
+    val line = Ui.c.border
     Row(
-        Modifier.fillMaxWidth().background(Ui.c.card).drawBehind { drawRect(Color(0xFFE5E7EB), size = size.copy(height = 1.dp.toPx())) }
+        Modifier.fillMaxWidth().background(Ui.c.card).drawBehind { drawRect(line, size = size.copy(height = 1.dp.toPx())) }
             .navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         content = content,
@@ -286,7 +287,7 @@ fun Chip(text: String, selected: Boolean, onClick: () -> Unit, soft: Boolean = f
     val shape = CircleShape
     val base = Modifier.height(36.dp).clip(shape)
     val m = when {
-        selected && soft -> base.background(Brush.horizontalGradient(listOf(Color(0xFFDBE6FE), Color(0xFFD6F0E3)))).border(2.dp, Brand.Blue, shape)
+        selected && soft -> base.background(Brush.horizontalGradient(listOf(Ui.c.infoA, Ui.c.infoB))).border(2.dp, Brand.Blue, shape)
         selected -> base.background(Brand.BlueGrad)
         else -> base.background(Ui.c.card).border(1.dp, Ui.c.inputBorder, shape)
     }
