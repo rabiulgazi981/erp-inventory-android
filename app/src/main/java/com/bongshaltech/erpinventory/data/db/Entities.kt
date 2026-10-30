@@ -1,5 +1,6 @@
 package com.bongshaltech.erpinventory.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -13,6 +14,7 @@ data class ProductEntity(
     val name: String,
     val barcode: String? = null,
     val unit: String = "pcs",
+    @ColumnInfo(defaultValue = "") val category: String = "",
     val costPaisa: Long = 0,
     val pricePaisa: Long,
     /** Stock × 1000. */
@@ -77,6 +79,7 @@ data class StaffEntity(
     /** Comma separated [com.bongshaltech.erpinventory.data.StaffMenu] names. */
     val menus: String,
     val active: Boolean = true,
+    @ColumnInfo(defaultValue = "") val role: String = "",
 )
 
 /** Last serial used per document type per year, so numbers restart every year and never repeat. */

@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.bongshaltech.erpinventory.ui.components.Tab
 
 object Routes {
     const val SPLASH = "splash"
@@ -15,6 +16,7 @@ object Routes {
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
     const val PRODUCTS = "products"
+    const val PRODUCTS_LOW = "products_low"
     const val PRODUCT_EDIT = "product/{id}"
     const val SALE = "sale"
     const val MORE = "more"
@@ -31,27 +33,38 @@ private fun NavHostController.goRoot(route: String) = navigate(route) {
     launchSingleTop = true
 }
 
+/** Bottom tabs: Home stays at the root, other tabs sit on top of it so Back returns Home. */
+private fun NavHostController.goTab(t: Tab) {
+    val route = tabRoute(t)
+    if (route == Routes.HOME) {
+        popBackStack(Routes.HOME, inclusive = false)
+    } else navigate(route) {
+        popUpTo(Routes.HOME) { inclusive = false }
+        launchSingleTop = true
+    }
+}
+
 @Composable
 fun ErpNavHost() {
     val nav = rememberNavController()
+    val back: () -> Unit = { nav.popBackStack() }
     NavHost(nav, startDestination = Routes.SPLASH) {
         composable(Routes.SPLASH) { SplashScreen { nav.goRoot(it) } }
-        composable(Routes.LOGIN) { LoginScreen { nav.goRoot(it) } }
-        composable(Routes.STAFF_LOGIN) { StaffLoginScreen(onBack = { nav.popBackStack() }) { nav.goRoot(it) } }
+        composable(Routes.LOGIN) { LoginScreen { if (it == Routes.STAFF_LOGIN) nav.navigate(it) else nav.goRoot(it) } }
+        composable(Routes.STAFF_LOGIN) { StaffLoginScreen(onBack = back) { nav.goRoot(it) } }
         composable(Routes.ONBOARDING) { OnboardingScreen { nav.goRoot(it) } }
-        composable(Routes.HOME) { HomeScreen { nav.navigate(it) } }
-        composable(Routes.PRODUCTS) {
-            ProductsScreen(onBack = { nav.popBackStack() }, onEdit = { nav.navigate(Routes.productEdit(it)) })
-        }
+        composable(Routes.HOME) { HomeScreen(go = { nav.navigate(it) }, tab = { nav.goTab(it) }) }
+        composable(Routes.PRODUCTS) { ProductsScreen(false, go = { nav.navigate(it) }, tab = { nav.goTab(it) }) }
+        composable(Routes.PRODUCTS_LOW) { ProductsScreen(true, go = { nav.navigate(it) }, tab = { nav.goTab(it) }) }
         composable(Routes.PRODUCT_EDIT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
-            ProductEditScreen(e.arguments?.getLong("id") ?: 0L) { nav.popBackStack() }
+            ProductEditScreen(e.arguments?.getLong("id") ?: 0L, back)
         }
-        composable(Routes.SALE) { SaleScreen { nav.popBackStack() } }
+        composable(Routes.SALE) { SaleScreen(back) }
         composable(Routes.MORE) {
-            MoreScreen(onBack = { nav.popBackStack() }, go = { nav.navigate(it) }, signedOut = { nav.goRoot(Routes.LOGIN) })
+            MoreScreen(go = { nav.navigate(it) }, tab = { nav.goTab(it) }, signedOut = { nav.goRoot(Routes.LOGIN) })
         }
-        composable(Routes.BIZ) { BizProfileScreen { nav.popBackStack() } }
-        composable(Routes.STAFF_MANAGE) { StaffManageScreen { nav.popBackStack() } }
-        composable(Routes.SOON) { SoonScreen { nav.popBackStack() } }
+        composable(Routes.BIZ) { BizProfileScreen(back) }
+        composable(Routes.STAFF_MANAGE) { StaffManageScreen(back) }
+        composable(Routes.SOON) { SoonScreen(back) }
     }
 }

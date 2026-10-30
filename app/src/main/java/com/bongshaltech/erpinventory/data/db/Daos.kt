@@ -16,8 +16,17 @@ interface ProductDao {
     @Query("SELECT * FROM product WHERE id = :id")
     suspend fun get(id: Long): ProductEntity?
 
+    @Query("SELECT * FROM product WHERE active = 1 AND stockMilli <= lowStockMilli AND (:q = '' OR name LIKE '%' || :q || '%' OR barcode = :q) ORDER BY name COLLATE NOCASE")
+    fun searchLow(q: String): Flow<List<ProductEntity>>
+
     @Query("SELECT COUNT(*) FROM product WHERE active = 1 AND stockMilli <= lowStockMilli")
     fun lowStockCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM product WHERE active = 1")
+    fun count(): Flow<Int>
+
+    @Query("SELECT * FROM product WHERE active = 1 AND barcode = :code LIMIT 1")
+    suspend fun byBarcode(code: String): ProductEntity?
 
     @Upsert
     suspend fun upsert(p: ProductEntity): Long
@@ -43,6 +52,9 @@ interface CustomerDao {
 
     @Query("SELECT COALESCE(SUM(duePaisa), 0) FROM customer")
     fun totalDue(): Flow<Long>
+
+    @Query("SELECT COUNT(*) FROM customer WHERE duePaisa > 0")
+    fun dueCount(): Flow<Int>
 }
 
 data class SaleRow(
@@ -51,6 +63,7 @@ data class SaleRow(
     val totalPaisa: Long,
     val createdAt: Long,
     val customerName: String?,
+    val duePaisa: Long,
     val items: Int,
 )
 
@@ -68,11 +81,15 @@ interface SaleDao {
     @Query("SELECT COUNT(*) FROM sale WHERE createdAt >= :from")
     fun countSince(from: Long): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM sale WHERE createdAt >= :from")
-    suspend fun countSinceNow(from: Long): Int
+    @Query("SELECT COALESCE(SUM(totalPaisa), 0) FROM sale WHERE createdAt >= :from AND createdAt < :to")
+    fun totalBetween(from: Long, to: Long): Flow<Long>
+
+    /** Cash taken today: what was paid on cash sales. */
+    @Query("SELECT COALESCE(SUM(paidPaisa), 0) FROM sale WHERE createdAt >= :from AND method = 'CASH'")
+    fun cashSince(from: Long): Flow<Long>
 
     @Query(
-        """SELECT s.id, s.number, s.totalPaisa, s.createdAt, c.name AS customerName,
+        """SELECT s.id, s.number, s.totalPaisa, s.createdAt, c.name AS customerName, s.totalPaisa - s.paidPaisa AS duePaisa,
                   (SELECT COUNT(*) FROM sale_item i WHERE i.saleId = s.id) AS items
            FROM sale s LEFT JOIN customer c ON c.id = s.customerId
            ORDER BY s.createdAt DESC LIMIT :limit"""
@@ -99,6 +116,9 @@ interface StaffDao {
 interface DocCounterDao {
     @Query("SELECT last FROM doc_counter WHERE type = :type AND year = :year")
     suspend fun last(type: String, year: Int): Int?
+
+    @Query("SELECT last FROM doc_counter WHERE type = :type AND year = :year")
+    fun lastFlow(type: String, year: Int): Flow<Int?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun set(c: DocCounterEntity)

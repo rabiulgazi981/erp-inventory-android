@@ -1,5 +1,6 @@
 package com.bongshaltech.erpinventory.ui.screens
 
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -7,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,18 +19,18 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CloudQueue
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Print
+import androidx.compose.material.icons.outlined.WifiOff
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,54 +45,99 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bongshaltech.erpinventory.ErpApp
 import com.bongshaltech.erpinventory.R
 import com.bongshaltech.erpinventory.data.Session
 import com.bongshaltech.erpinventory.data.ShopType
+import com.bongshaltech.erpinventory.ui.components.Card
+import com.bongshaltech.erpinventory.ui.components.Chip
 import com.bongshaltech.erpinventory.ui.components.DevFooter
-import com.bongshaltech.erpinventory.ui.components.Field
+import com.bongshaltech.erpinventory.ui.components.GradButton
+import com.bongshaltech.erpinventory.ui.components.Header
+import com.bongshaltech.erpinventory.ui.components.Initials
+import com.bongshaltech.erpinventory.ui.components.Input
+import com.bongshaltech.erpinventory.ui.components.LinkButton
+import com.bongshaltech.erpinventory.ui.components.Muted
+import com.bongshaltech.erpinventory.ui.components.Segmented
+import com.bongshaltech.erpinventory.ui.components.T
+import com.bongshaltech.erpinventory.ui.components.TintIcon
 import com.bongshaltech.erpinventory.ui.theme.Brand
+import com.bongshaltech.erpinventory.ui.theme.Tint
+import com.bongshaltech.erpinventory.ui.theme.Tints
+import com.bongshaltech.erpinventory.ui.theme.Ui
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
 fun app(): ErpApp = LocalContext.current.applicationContext as ErpApp
 
+/** Current UI language: 0 = device, 1 = English, 2 = Bangla. */
+fun currentLangIndex(): Int = when (AppCompatDelegate.getApplicationLocales().toLanguageTags()) {
+    "" -> 0
+    "en" -> 1
+    else -> 2
+}
+
+fun setLang(index: Int) = AppCompatDelegate.setApplicationLocales(
+    when (index) {
+        1 -> LocaleListCompat.forLanguageTags("en")
+        2 -> LocaleListCompat.forLanguageTags("bn")
+        else -> LocaleListCompat.getEmptyLocaleList()
+    }
+)
+
+/** Slogan box under the logo: dark-blue gradient, orange border and glow, English over Bangla. */
 @Composable
-fun LogoWithSlogan() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Image(painterResource(R.drawable.logo), contentDescription = "ERP Inventory", modifier = Modifier.size(width = 259.dp, height = 153.dp))
-        Spacer(Modifier.height(14.dp))
-        // Dark-blue pill with an orange glow, never wider than the logo.
-        Text(
-            stringResource(R.string.slogan),
-            color = Color.White,
-            style = MaterialTheme.typography.titleSmall,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .widthIn(max = 220.dp)
-                .shadow(10.dp, CircleShape, ambientColor = Brand.Orange, spotColor = Brand.Orange)
-                .clip(CircleShape)
-                .background(Brush.horizontalGradient(listOf(Color(0xFF173A9E), Brand.Blue)))
-                .border(1.dp, Brand.Orange.copy(alpha = 0.7f), CircleShape)
-                .padding(horizontal = 14.dp, vertical = 6.dp),
+fun SloganBox() {
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        Modifier.widthIn(max = 220.dp)
+            .shadow(10.dp, shape, ambientColor = Color(0xFFF39A2B), spotColor = Color(0xFFF39A2B))
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(Color(0xFF2563D9), Color(0xFF0F2F7A))))
+            .border(1.dp, Color(0xFFF39A2B), shape)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        androidx.compose.material3.Text(
+            "Your whole shop in one app",
+            style = TextStyle(
+                brush = Brush.verticalGradient(listOf(Color.White, Color(0xFFDFE6F1), Color(0xFFB9C4D6))),
+                fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                shadow = Shadow(Color(0x59000000), androidx.compose.ui.geometry.Offset(0f, 2f), 2f),
+            ),
+            maxLines = 1,
+        )
+        androidx.compose.material3.Text(
+            "দোকানের সব হিসাব, এক অ্যাপে",
+            style = TextStyle(
+                brush = Brush.horizontalGradient(listOf(Color(0xFF6FDC4A), Color(0xFFF4D04C), Color(0xFFF39A2B))),
+                fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            ),
+            maxLines = 1,
         )
     }
 }
 
-/** Shown briefly after the system splash, then routes to the right place. */
 @Composable
 fun SplashScreen(go: (String) -> Unit) {
     val app = app()
     LaunchedEffect(Unit) {
         app.settings.ensureInstalledAt()
-        delay(900)
+        delay(1100)
         val s = app.settings.current()
         go(
             when {
@@ -99,9 +147,31 @@ fun SplashScreen(go: (String) -> Unit) {
             }
         )
     }
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Box(Modifier.align(Alignment.Center)) { LogoWithSlogan() }
-        DevFooter(Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+    Box(Modifier.fillMaxSize().background(Brand.SplashGrad)) {
+        Column(
+            Modifier.align(Alignment.Center).padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            Image(
+                painterResource(R.drawable.logo), "ERP Inventory",
+                Modifier.size(width = 259.dp, height = 153.dp),
+            )
+            SloganBox()
+            Spacer(Modifier.height(28.dp))
+            Box(Modifier.width(120.dp).height(4.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.25f))) {
+                Box(Modifier.width(48.dp).height(4.dp).clip(CircleShape).background(Color.White))
+            }
+        }
+        DevFooter(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 24.dp), light = true)
+    }
+}
+
+@Composable
+private fun Feature(icon: ImageVector, tint: Tint, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        TintIcon(icon, tint, 36.dp, 18.dp, 10.dp)
+        T(text, 14.sp)
     }
 }
 
@@ -110,37 +180,59 @@ fun LoginScreen(go: (String) -> Unit) {
     val app = app()
     val scope = rememberCoroutineScope()
     var googleNote by remember { mutableStateOf(false) }
+    val lang = currentLangIndex()
+    fun openShop() = scope.launch {
+        app.settings.setSession(Session.Owner)
+        go(if (app.settings.current().onboarded) Routes.HOME else Routes.ONBOARDING)
+    }
+
     Column(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        Modifier.fillMaxSize().background(Ui.c.bg).statusBarsPadding().navigationBarsPadding()
+            .verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        Spacer(Modifier.weight(1f))
-        LogoWithSlogan()
-        Spacer(Modifier.height(28.dp))
-        Text(stringResource(R.string.login_title), style = MaterialTheme.typography.headlineMedium)
-        Text(stringResource(R.string.login_sub), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(24.dp))
-        // Google sign-in needs the Firebase project, which is set up when the app goes on Play.
-        OutlinedButton(onClick = { googleNote = true }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-            Text(stringResource(R.string.login_google))
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+            Segmented(listOf("EN", "বাংলা"), if (lang == 2) 1 else 0) { setLang(if (it == 1) 2 else 1) }
         }
-        if (googleNote) Text(stringResource(R.string.login_google_soon), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
-        Spacer(Modifier.height(10.dp))
-        Button(
-            onClick = {
-                scope.launch {
-                    app.settings.setSession(Session.Owner)
-                    go(if (app.settings.current().onboarded) Routes.HOME else Routes.ONBOARDING)
-                }
-            },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-        ) { Text(stringResource(R.string.login_owner)) }
-        Spacer(Modifier.height(10.dp))
-        OutlinedButton(onClick = { go(Routes.STAFF_LOGIN) }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-            Text(stringResource(R.string.login_staff))
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Image(painterResource(R.drawable.logo), "ERP Inventory", Modifier.width(250.dp))
+            T(stringResource(R.string.login_title), 26.sp, FontWeight.Bold, align = TextAlign.Center)
+            T(stringResource(R.string.login_sub), 15.sp, color = Ui.c.muted, align = TextAlign.Center, modifier = Modifier.widthIn(max = 300.dp))
         }
-        Spacer(Modifier.weight(1f))
-        DevFooter()
+        Card(Modifier.fillMaxWidth(), padding = 16.dp) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Feature(Icons.Outlined.WifiOff, Tints.Blue, stringResource(R.string.login_f1))
+                Feature(Icons.Outlined.CloudQueue, Tints.Green, stringResource(R.string.login_f2))
+                Feature(Icons.Outlined.Print, Tints.Orange, stringResource(R.string.login_f3))
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val shape = RoundedCornerShape(14.dp)
+            Row(
+                Modifier.fillMaxWidth().height(54.dp).shadow(8.dp, shape).clip(shape).background(Color.White)
+                    .border(1.dp, Color(0xFFD1D5DB), shape).clickable { googleNote = true },
+                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Image(painterResource(R.drawable.ic_google), null, Modifier.size(22.dp))
+                T(stringResource(R.string.login_google), 16.sp, FontWeight.SemiBold, Color(0xFF1F1F1F))
+            }
+            if (googleNote) Muted(stringResource(R.string.login_google_soon), align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            LinkButton(stringResource(R.string.login_without)) { openShop() }
+            val sShape = RoundedCornerShape(12.dp)
+            Row(
+                Modifier.fillMaxWidth().height(46.dp).clip(sShape)
+                    .background(Brush.linearGradient(listOf(Color(0xFFEEF3FF), Color(0xFFE8F6EF))))
+                    .border(1.dp, Color(0xFFBFD2FD), sShape).clickable { go(Routes.STAFF_LOGIN) },
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.Person, null, tint = Color(0xFF1E3A8A), modifier = Modifier.size(18.dp))
+                T(stringResource(R.string.login_staff), 15.sp, FontWeight.SemiBold, Color(0xFF1E3A8A))
+            }
+            Muted(stringResource(R.string.login_note), align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            DevFooter()
+        }
     }
 }
 
@@ -154,6 +246,7 @@ private val typeOptions = listOf(
     TypeOption(ShopType.RESTAURANT, R.string.type_restaurant, R.string.type_note_restaurant),
 )
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun OnboardingScreen(go: (String) -> Unit) {
     val app = app()
@@ -161,52 +254,62 @@ fun OnboardingScreen(go: (String) -> Unit) {
     var type by rememberSaveable { mutableStateOf(ShopType.GENERAL) }
     var name by rememberSaveable { mutableStateOf("") }
     var phone by rememberSaveable { mutableStateOf("") }
+    var address by rememberSaveable { mutableStateOf("") }
     var code by rememberSaveable { mutableStateOf("") }
     var tried by rememberSaveable { mutableStateOf(false) }
     val required = stringResource(R.string.required)
+    val selected = typeOptions.first { it.type == type }
 
     Column(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding()
-            .verticalScroll(rememberScrollState()).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier.fillMaxSize().background(Ui.c.bg).statusBarsPadding().navigationBarsPadding()
+            .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(stringResource(R.string.onb_title), style = MaterialTheme.typography.headlineMedium)
-        Text(stringResource(R.string.onb_type), style = MaterialTheme.typography.titleMedium)
-        LazyVerticalGrid(GridCells.Fixed(2), Modifier.height(250.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(typeOptions) { o ->
-                val selected = o.type == type
-                Text(
-                    stringResource(o.label),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(if (selected) Brand.Blue else MaterialTheme.colorScheme.surface)
-                        .border(1.dp, if (selected) Brand.Blue else MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp))
-                        .clickable { type = o.type }
-                        .padding(vertical = 16.dp, horizontal = 8.dp),
-                )
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Image(painterResource(R.drawable.logo), "ERP Inventory", Modifier.width(120.dp))
+            T(stringResource(R.string.onb_title), 22.sp, FontWeight.Bold)
+            T(stringResource(R.string.onb_sub), 14.sp, color = Ui.c.muted, align = TextAlign.Center)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
+                Box(Modifier.size(28.dp, 6.dp).clip(CircleShape).background(Brand.BlueGrad))
+                Box(Modifier.size(28.dp, 6.dp).clip(CircleShape).background(Color(0xFFD1D5DB)))
             }
         }
-        Text(stringResource(typeOptions.first { it.type == type }.note), style = MaterialTheme.typography.bodySmall)
-        Field(name, { name = it }, stringResource(R.string.onb_shop_name), error = required.takeIf { tried && name.isBlank() })
-        Field(phone, { phone = it }, stringResource(R.string.onb_phone), phone = true)
-        Field(
-            code, { code = it.filter(Char::isLetterOrDigit).uppercase().take(4) }, stringResource(R.string.onb_code),
-            error = required.takeIf { tried && code.length < 2 },
-        )
-        Text(stringResource(R.string.onb_code_hint), style = MaterialTheme.typography.bodySmall)
-        Button(
-            onClick = {
-                tried = true
-                if (name.isNotBlank() && code.length >= 2) scope.launch {
-                    app.settings.finishOnboarding(type, name.trim(), phone.trim(), code)
-                    go(Routes.HOME)
+        Card(Modifier.fillMaxWidth(), padding = 16.dp) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Input(name, { name = it }, label = stringResource(R.string.onb_shop_name), error = required.takeIf { tried && name.isBlank() })
+                Input(phone, { phone = it }, label = stringResource(R.string.onb_phone), keyboard = KeyboardType.Phone)
+                Input(address, { address = it }, label = stringResource(R.string.onb_address))
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    T(stringResource(R.string.onb_type), 13.sp, FontWeight.SemiBold, Ui.c.label)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        typeOptions.forEach { o -> Chip(stringResource(o.label), o.type == type, { type = o.type }, soft = true) }
+                    }
+                    Column(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                            .background(Brush.linearGradient(listOf(Color(0xFFDBE6FE), Color(0xFFD6F0E3))))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        T(stringResource(R.string.onb_turns_on, stringResource(selected.label)), 13.sp, FontWeight.Bold, Color(0xFF1E3A8A))
+                        T(stringResource(selected.note), 12.sp, color = Color(0xFF1F2937))
+                    }
                 }
-            },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-        ) { Text(stringResource(R.string.onb_start)) }
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Input(
+                        code, { code = it.filter(Char::isLetterOrDigit).uppercase().take(4) }, label = stringResource(R.string.onb_code),
+                        placeholder = "DMS", error = required.takeIf { tried && code.length < 2 },
+                    )
+                    Muted(stringResource(R.string.onb_code_hint, (code.ifEmpty { "DMS" }) + "-26-0001"))
+                }
+            }
+        }
+        GradButton(stringResource(R.string.onb_continue), Brand.BlueGrad, Modifier.fillMaxWidth(), height = 52.dp) {
+            tried = true
+            if (name.isNotBlank() && code.length >= 2) scope.launch {
+                app.settings.finishOnboarding(type, name.trim(), phone.trim(), address.trim(), code)
+                go(Routes.HOME)
+            }
+        }
     }
 }
 
@@ -215,49 +318,93 @@ fun StaffLoginScreen(onBack: () -> Unit, go: (String) -> Unit) {
     val app = app()
     val scope = rememberCoroutineScope()
     val staff by remember { app.repo.staff.all() }.collectAsStateWithLifecycle(emptyList())
+    val settings by app.settings.settings.collectAsStateWithLifecycle(null)
     var picked by remember { mutableStateOf<Long?>(null) }
     var pin by remember { mutableStateOf("") }
     var wrong by remember { mutableStateOf(false) }
+    val sel = staff.firstOrNull { it.id == picked } ?: staff.firstOrNull()
 
-    Column(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding().padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("‹", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.clickable(onClick = onBack).padding(end = 12.dp))
-            Text(stringResource(R.string.staff_login_title), style = MaterialTheme.typography.headlineSmall)
+    fun press(k: String) {
+        val who = sel ?: return
+        wrong = false
+        if (k == "del") { pin = pin.dropLast(1); return }
+        val p = pin + k
+        if (p.length < 4) { pin = p; return }
+        pin = ""
+        scope.launch {
+            if (app.repo.checkStaffPin(who.id, p)) {
+                app.settings.setSession(Session.Staff(who.id))
+                go(Routes.HOME)
+            } else wrong = true
         }
-        if (staff.isEmpty()) {
-            Text(stringResource(R.string.staff_none))
-            return@Column
-        }
-        Text(stringResource(R.string.staff_pick), style = MaterialTheme.typography.titleMedium)
-        staff.forEach { s ->
-            val sel = picked == s.id
-            Text(
-                s.name,
-                color = if (sel) Color.White else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                    .background(if (sel) Brand.Blue else MaterialTheme.colorScheme.surface)
-                    .clickable { picked = s.id; pin = ""; wrong = false }.padding(14.dp),
-            )
-        }
-        if (picked != null) {
-            Field(pin, { v -> pin = v.filter(Char::isDigit).take(4); wrong = false }, stringResource(R.string.staff_pin), number = true,
-                error = stringResource(R.string.staff_wrong_pin).takeIf { wrong })
-            Button(
-                enabled = pin.length == 4,
-                onClick = {
-                    val id = picked ?: return@Button
-                    scope.launch {
-                        if (app.repo.checkStaffPin(id, pin)) {
-                            app.settings.setSession(Session.Staff(id))
-                            go(Routes.HOME)
-                        } else wrong = true
+    }
+
+    Column(Modifier.fillMaxSize().background(Ui.c.bg)) {
+        Header(stringResource(R.string.staff_login_title), onBack)
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                T(settings?.profile?.name.orEmpty(), 16.sp, FontWeight.Bold)
+                Muted(stringResource(R.string.staff_pick), 13.sp)
+            }
+            if (staff.isEmpty()) {
+                Muted(stringResource(R.string.staff_none), 14.sp, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            } else {
+                staff.chunked(3).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        row.forEach { s ->
+                            val on = s.id == sel?.id
+                            val shape = RoundedCornerShape(14.dp)
+                            Column(
+                                Modifier.weight(1f).shadow(6.dp, shape).clip(shape)
+                                    .background(if (on) Brush.verticalGradient(listOf(Color(0xFFEEF3FF), Ui.c.card)) else Brush.verticalGradient(listOf(Ui.c.card, Ui.c.card)))
+                                    .border(if (on) 2.dp else 1.dp, if (on) Brand.Blue else Ui.c.border, shape)
+                                    .clickable { picked = s.id; pin = ""; wrong = false }
+                                    .padding(vertical = 10.dp, horizontal = 6.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Initials(s.name)
+                                T(s.name, 13.sp, FontWeight.SemiBold, maxLines = 1)
+                                Muted(s.role.ifBlank { " " }, 11.sp)
+                            }
+                        }
+                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
-                },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-            ) { Text(stringResource(R.string.login_staff)) }
+                }
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    T(stringResource(R.string.staff_enter_pin, sel?.name.orEmpty()), 14.sp, FontWeight.SemiBold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        repeat(4) { i ->
+                            Box(
+                                Modifier.size(16.dp).clip(CircleShape)
+                                    .background(if (i < pin.length) Brand.BlueGrad else Brush.linearGradient(listOf(Color.Transparent, Color.Transparent)))
+                                    .border(2.dp, Brand.Blue, CircleShape)
+                            )
+                        }
+                    }
+                    T(if (wrong) stringResource(R.string.staff_wrong_pin) else " ", 12.sp, color = Brand.Red)
+                }
+                Column(Modifier.padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("", "0", "del")).forEach { keys ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            keys.forEach { k ->
+                                val shape = RoundedCornerShape(16.dp)
+                                if (k.isEmpty()) Spacer(Modifier.weight(1f).height(58.dp)) else Box(
+                                    Modifier.weight(1f).height(58.dp).shadow(4.dp, shape).clip(shape)
+                                        .background(if (k == "del") Ui.c.soft else Ui.c.card).border(1.dp, Ui.c.border, shape)
+                                        .clickable { press(k) },
+                                    contentAlignment = Alignment.Center,
+                                ) { T(if (k == "del") "⌫" else k, 22.sp, FontWeight.SemiBold) }
+                            }
+                        }
+                    }
+                }
+                Muted(stringResource(R.string.staff_forgot), align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            }
+            LinkButton(stringResource(R.string.staff_owner_link)) { onBack() }
         }
     }
 }

@@ -13,6 +13,7 @@ import com.bongshaltech.erpinventory.data.db.SaleItemEntity
 import com.bongshaltech.erpinventory.data.db.StaffEntity
 import com.bongshaltech.erpinventory.security.PinHasher
 import java.time.LocalDate
+import kotlinx.coroutines.flow.map
 
 data class CartLine(val product: ProductEntity, val qtyMilli: Long) {
     /** price × qty, rounded to the nearest paisa. */
@@ -91,12 +92,19 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
         }
     }
 
-    suspend fun addStaff(name: String, pin: String, menus: Set<StaffMenu>): Long {
+    suspend fun addStaff(name: String, role: String, pin: String, menus: Set<StaffMenu>): Long {
         val salt = PinHasher.newSalt()
         return db.staff().insert(
-            StaffEntity(name = name.trim(), pinHash = PinHasher.hash(pin, salt), pinSalt = salt, menus = menus.joinToString(",") { it.name })
+            StaffEntity(
+                name = name.trim(), role = role.trim(), pinHash = PinHasher.hash(pin, salt), pinSalt = salt,
+                menus = menus.joinToString(",") { it.name },
+            )
         )
     }
+
+    /** The number the next sale will get, shown in the Sale header. */
+    fun nextSaleNumber(shopCode: String) = db.docCounters().lastFlow(DocType.SALE.name, LocalDate.now().year)
+        .map { DocNumber.format(shopCode, DocType.SALE, LocalDate.now().year, DocNumber.next(it)) }
 
     suspend fun checkStaffPin(id: Long, pin: String): Boolean {
         val s = db.staff().get(id) ?: return false
@@ -108,3 +116,8 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
 
 fun StaffEntity.menuSet(): Set<StaffMenu> =
     menus.split(",").mapNotNull { runCatching { StaffMenu.valueOf(it) }.getOrNull() }.toSet()
+
+/** A sale put on hold with the Hold button, kept until the app is closed. */
+object HeldSale {
+    var lines: List<CartLine> = emptyList()
+}
