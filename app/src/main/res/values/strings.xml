@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">ERP Inventory</string>
+    <string name="slogan">Your whole shop in one app</string>
+    <string name="dev_footer">Developed by Bongshal Tech</string>
+
+    <!-- Login -->
+    <string name="login_title">Welcome</string>
+    <string name="login_sub">Sales, stock, dues and reports. Works without internet.</string>
+    <string name="login_google">Continue with Google</string>
+    <string name="login_google_soon">Google sign-in turns on once the app is on Play Store.</string>
+    <string name="login_owner">Open my shop on this phone</string>
+    <string name="login_staff">Staff login with PIN</string>
+
+    <!-- Staff -->
+    <string name="staff_login_title">Staff login</string>
+    <string name="staff_pick">Who is selling?</string>
+    <string name="staff_pin">Enter 4-digit PIN</string>
+    <string name="staff_wrong_pin">Wrong PIN. Try again.</string>
+    <string name="staff_none">No staff yet. The owner adds staff from More › Staff and PIN.</string>
+    <string name="staff_manage">Staff and PIN</string>
+    <string name="staff_add">Add staff</string>
+    <string name="staff_name">Name</string>
+    <string name="staff_menus">Allowed menus</string>
+    <string name="staff_saved">Staff saved</string>
+
+    <!-- Onboarding -->
+    <string name="onb_title">Set up your shop</string>
+    <string name="onb_type">What kind of shop?</string>
+    <string name="onb_shop_name">Shop name</string>
+    <string name="onb_phone">Phone</string>
+    <string name="onb_code">Short code for memo numbers</string>
+    <string name="onb_code_hint">3 letters, like DMS. Memos become DMS-26-0001.</string>
+    <string name="onb_start">Start selling</string>
+    <string name="type_general">General shop</string>
+    <string name="type_grocery">Grocery (mudi)</string>
+    <string name="type_super">Super shop</string>
+    <string name="type_pharmacy">Pharmacy</string>
+    <string name="type_restaurant">Restaurant</string>
+    <string name="type_note_general">Products, sales, dues and reports.</string>
+    <string name="type_note_grocery">Loose items by kg or litre, quick sale, customer dues.</string>
+    <string name="type_note_super">Barcode scan, quick checkout, VAT on memo.</string>
+    <string name="type_note_pharmacy">Medicine batches with expiry, sells soonest-expiring first.</string>
+    <string name="type_note_restaurant">Tables, orders and kitchen tickets (KOT).</string>
+
+    <!-- Home -->
+    <string name="home_today_sales">Today\'s sales</string>
+    <string name="home_today_count">%1$d sales today</string>
+    <string name="home_due">Customer dues</string>
+    <string name="home_low_stock">Low stock</string>
+    <string name="home_new_sale">New sale</string>
+    <string name="home_products">Products</string>
+    <string name="home_customers">Customers</string>
+    <string name="home_reports">Reports</string>
+    <string name="home_more">More</string>
+    <string name="home_recent">Recent sales</string>
+    <string name="home_no_sales">No sales yet. Tap New sale to make the first one.</string>
+    <string name="hello">Hello, %1$s</string>
+
+    <!-- Products -->
+    <string name="products_title">Products</string>
+    <string name="products_search">Search name or barcode</string>
+    <string name="products_empty">No products yet. Add your first product.</string>
+    <string name="product_add">Add product</string>
+    <string name="product_edit">Edit product</string>
+    <string name="product_name">Product name</string>
+    <string name="product_barcode">Barcode / SKU</string>
+    <string name="product_unit">Unit</string>
+    <string name="product_cost">Buying price</string>
+    <string name="product_price">Selling price</string>
+    <string name="product_stock">Stock</string>
+    <string name="product_low_at">Warn when stock is at or below</string>
+    <string name="product_stock_short">Stock: %1$s %2$s</string>
+    <string name="save">Save</string>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
+    <string name="required">Required</string>
+
+    <!-- Sale -->
+    <string name="sale_title">New sale</string>
+    <string name="sale_cart_empty">Tap a product to add it.</string>
+    <string name="sale_subtotal">Subtotal</string>
+    <string name="sale_discount">Discount</string>
+    <string name="sale_total">Total</string>
+    <string name="sale_paid">Paid</string>
+    <string name="sale_due">Due</string>
+    <string name="sale_change">Change</string>
+    <string name="sale_customer">Customer phone (optional)</string>
+    <string name="sale_customer_name">Customer name (optional)</string>
+    <string name="sale_method">Payment</string>
+    <string name="pay_cash">Cash</string>
+    <string name="pay_bkash">bKash</string>
+    <string name="pay_nagad">Nagad</string>
+    <string name="pay_card">Card</string>
+    <string name="sale_sms">SMS receipt to customer</string>
+    <string name="sale_sms_needs_phone">Add a phone number to send SMS.</string>
+    <string name="sale_save">Save sale</string>
+    <string name="sale_saved">Sale %1$s saved</string>
+    <string name="sale_not_enough">Not enough stock for %1$s</string>
+    <string name="sale_due_needs_customer">Add the customer\'s phone to keep a due.</string>
+    <string name="sale_new">New sale</string>
+    <string name="sale_done">Done</string>
+
+    <!-- More -->
+    <string name="more_title">More</string>
+    <string name="more_business">Business profile</string>
+    <string name="more_rate">Rate ERP Inventory</string>
+    <string name="more_share">Share app</string>
+    <string name="more_help">Help on WhatsApp</string>
+    <string name="more_sign_out">Sign out</string>
+    <string name="more_language">ভাষা: বাংলা</string>
+    <string name="biz_title">Business profile</string>
+    <string name="biz_note">These print on your memo and invoice.</string>
+    <string name="biz_slogan">Slogan</string>
+    <string name="biz_address">Address</string>
+    <string name="biz_email">Email</string>
+    <string name="biz_web">Facebook page or website</string>
+    <string name="biz_bin">BIN / trade licence</string>
+    <string name="biz_thanks">Thank-you line</string>
+    <string name="biz_return">Return policy line</string>
+    <string name="coming_soon">Coming in the next update</string>
+    <string name="back">Back</string>
+</resources>

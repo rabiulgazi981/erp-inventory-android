@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="slogan">দোকানের সব হিসাব, এক অ্যাপে</string>
+    <string name="dev_footer">ডেভেলপ করেছে Bongshal Tech</string>
+
+    <string name="login_title">স্বাগতম</string>
+    <string name="login_sub">বিক্রি, স্টক, বাকি আর রিপোর্ট। ইন্টারনেট ছাড়াই চলে।</string>
+    <string name="login_google">Google দিয়ে চালিয়ে যান</string>
+    <string name="login_google_soon">অ্যাপ Play Store-এ আসার পর Google লগইন চালু হবে।</string>
+    <string name="login_owner">এই ফোনে আমার দোকান খুলুন</string>
+    <string name="login_staff">স্টাফ PIN দিয়ে লগইন</string>
+
+    <string name="staff_login_title">স্টাফ লগইন</string>
+    <string name="staff_pick">কে বিক্রি করছেন?</string>
+    <string name="staff_pin">৪ সংখ্যার PIN দিন</string>
+    <string name="staff_wrong_pin">PIN ভুল। আবার চেষ্টা করুন।</string>
+    <string name="staff_none">এখনো কোনো স্টাফ নেই। মালিক আরও › স্টাফ ও PIN থেকে যোগ করবেন।</string>
+    <string name="staff_manage">স্টাফ ও PIN</string>
+    <string name="staff_add">স্টাফ যোগ করুন</string>
+    <string name="staff_name">নাম</string>
+    <string name="staff_menus">যেসব মেনু দেখতে পারবে</string>
+    <string name="staff_saved">স্টাফ সেভ হয়েছে</string>
+
+    <string name="onb_title">দোকান সেটআপ করুন</string>
+    <string name="onb_type">কী ধরনের দোকান?</string>
+    <string name="onb_shop_name">দোকানের নাম</string>
+    <string name="onb_phone">ফোন</string>
+    <string name="onb_code">মেমো নম্বরের ছোট কোড</string>
+    <string name="onb_code_hint">৩ অক্ষর, যেমন DMS। মেমো হবে DMS-26-0001।</string>
+    <string name="onb_start">বিক্রি শুরু করুন</string>
+    <string name="type_general">সাধারণ দোকান</string>
+    <string name="type_grocery">মুদি দোকান</string>
+    <string name="type_super">সুপার শপ</string>
+    <string name="type_pharmacy">ফার্মেসি</string>
+    <string name="type_restaurant">রেস্টুরেন্ট</string>
+    <string name="type_note_general">পণ্য, বিক্রি, বাকি আর রিপোর্ট।</string>
+    <string name="type_note_grocery">কেজি/লিটারে খোলা পণ্য, দ্রুত বিক্রি, কাস্টমারের বাকি।</string>
+    <string name="type_note_super">বারকোড স্ক্যান, দ্রুত চেকআউট, মেমোতে VAT।</string>
+    <string name="type_note_pharmacy">মেয়াদসহ ওষুধের ব্যাচ, আগে মেয়াদ শেষ হবে এমনটা আগে বিক্রি।</string>
+    <string name="type_note_restaurant">টেবিল, অর্ডার আর কিচেন টিকিট (KOT)।</string>
+
+    <string name="home_today_sales">আজকের বিক্রি</string>
+    <string name="home_today_count">আজ %1$dটি বিক্রি</string>
+    <string name="home_due">কাস্টমারের বাকি</string>
+    <string name="home_low_stock">স্টক কম</string>
+    <string name="home_new_sale">নতুন বিক্রি</string>
+    <string name="home_products">পণ্য</string>
+    <string name="home_customers">কাস্টমার</string>
+    <string name="home_reports">রিপোর্ট</string>
+    <string name="home_more">আরও</string>
+    <string name="home_recent">সাম্প্রতিক বিক্রি</string>
+    <string name="home_no_sales">এখনো বিক্রি নেই। প্রথম বিক্রি করতে নতুন বিক্রি চাপুন।</string>
+    <string name="hello">হ্যালো, %1$s</string>
+
+    <string name="products_title">পণ্য</string>
+    <string name="products_search">নাম বা বারকোড খুঁজুন</string>
+    <string name="products_empty">এখনো পণ্য নেই। প্রথম পণ্য যোগ করুন।</string>
+    <string name="product_add">পণ্য যোগ করুন</string>
+    <string name="product_edit">পণ্য এডিট</string>
+    <string name="product_name">পণ্যের নাম</string>
+    <string name="product_barcode">বারকোড / SKU</string>
+    <string name="product_unit">একক</string>
+    <string name="product_cost">কেনা দাম</string>
+    <string name="product_price">বিক্রি দাম</string>
+    <string name="product_stock">স্টক</string>
+    <string name="product_low_at">স্টক এর সমান বা কম হলে জানাবে</string>
+    <string name="product_stock_short">স্টক: %1$s %2$s</string>
+    <string name="save">সেভ</string>
+    <string name="delete">ডিলিট</string>
+    <string name="cancel">বাতিল</string>
+    <string name="required">দরকার</string>
+
+    <string name="sale_title">নতুন বিক্রি</string>
+    <string name="sale_cart_empty">পণ্যে চাপ দিয়ে যোগ করুন।</string>
+    <string name="sale_subtotal">সাবটোটাল</string>
+    <string name="sale_discount">ছাড়</string>
+    <string name="sale_total">মোট</string>
+    <string name="sale_paid">পরিশোধ</string>
+    <string name="sale_due">বাকি</string>
+    <string name="sale_change">ফেরত</string>
+    <string name="sale_customer">কাস্টমারের ফোন (ঐচ্ছিক)</string>
+    <string name="sale_customer_name">কাস্টমারের নাম (ঐচ্ছিক)</string>
+    <string name="sale_method">পেমেন্ট</string>
+    <string name="pay_cash">ক্যাশ</string>
+    <string name="pay_bkash">বিকাশ</string>
+    <string name="pay_nagad">নগদ</string>
+    <string name="pay_card">কার্ড</string>
+    <string name="sale_sms">কাস্টমারকে SMS রসিদ</string>
+    <string name="sale_sms_needs_phone">SMS পাঠাতে ফোন নম্বর দিন।</string>
+    <string name="sale_save">বিক্রি সেভ করুন</string>
+    <string name="sale_saved">বিক্রি %1$s সেভ হয়েছে</string>
+    <string name="sale_not_enough">%1$s এর স্টক যথেষ্ট নেই</string>
+    <string name="sale_due_needs_customer">বাকি রাখতে কাস্টমারের ফোন দিন।</string>
+    <string name="sale_new">নতুন বিক্রি</string>
+    <string name="sale_done">শেষ</string>
+
+    <string name="more_title">আরও</string>
+    <string name="more_business">ব্যবসার প্রোফাইল</string>
+    <string name="more_rate">ERP Inventory রেট করুন</string>
+    <string name="more_share">অ্যাপ শেয়ার করুন</string>
+    <string name="more_help">WhatsApp-এ সাহায্য</string>
+    <string name="more_sign_out">সাইন আউট</string>
+    <string name="more_language">Language: English</string>
+    <string name="biz_title">ব্যবসার প্রোফাইল</string>
+    <string name="biz_note">এগুলো আপনার মেমো আর ইনভয়েসে ছাপা হবে।</string>
+    <string name="biz_slogan">স্লোগান</string>
+    <string name="biz_address">ঠিকানা</string>
+    <string name="biz_email">ইমেইল</string>
+    <string name="biz_web">ফেসবুক পেজ বা ওয়েবসাইট</string>
+    <string name="biz_bin">BIN / ট্রেড লাইসেন্স</string>
+    <string name="biz_thanks">ধন্যবাদ লাইন</string>
+    <string name="biz_return">রিটার্ন পলিসি লাইন</string>
+    <string name="coming_soon">পরের আপডেটে আসছে</string>
+    <string name="back">ফিরে যান</string>
+</resources>
