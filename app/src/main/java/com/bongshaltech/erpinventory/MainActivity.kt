@@ -3,6 +3,10 @@ package com.bongshaltech.erpinventory
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.ui.Modifier
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.getValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -21,7 +25,8 @@ class MainActivity : AppCompatActivity() {
         val themeFlow = (application as ErpApp).settings.settings.map { it.theme }
         setContent {
             val mode by themeFlow.collectAsStateWithLifecycle(ThemeMode.SYSTEM)
-            ErpTheme(mode) { ErpNavHost() }
+            // Edge-to-edge ignores adjustResize, so lift every screen above the keyboard here.
+            ErpTheme(mode) { Box(Modifier.fillMaxSize().imePadding()) { ErpNavHost() } }
         }
     }
 }

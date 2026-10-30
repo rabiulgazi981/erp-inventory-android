@@ -77,6 +77,11 @@ data class Palette(
     val divider: Color,
     val soft: Color,
     val dark: Boolean,
+    // Pale blue-to-green "info" surfaces (selected chip, notes, staff button) and the text on them.
+    val infoA: Color,
+    val infoB: Color,
+    val infoBorder: Color,
+    val infoText: Color,
 )
 
 val LightPalette = Palette(
@@ -84,6 +89,7 @@ val LightPalette = Palette(
     text = Color(0xFF111827), muted = Color(0xFF5B6472), label = Color(0xFF374151),
     border = Color(0xFFE5E7EB), inputBorder = Color(0xFFD1D5DB), input = Color.White,
     divider = Color(0xFFF3F4F6), soft = Color(0xFFF3F4F6), dark = false,
+    infoA = Color(0xFFDBE6FE), infoB = Color(0xFFD6F0E3), infoBorder = Color(0xFFBFD2FD), infoText = Color(0xFF1E3A8A),
 )
 
 val DarkPalette = Palette(
@@ -91,6 +97,7 @@ val DarkPalette = Palette(
     text = Color(0xFFF1F5F9), muted = Color(0xFF94A3B8), label = Color(0xFFCBD5E1),
     border = Color(0xFF243049), inputBorder = Color(0xFF334155), input = Color(0xFF0F172A),
     divider = Color(0xFF1E293B), soft = Color(0xFF1E293B), dark = true,
+    infoA = Color(0xFF1C2B4F), infoB = Color(0xFF15302A), infoBorder = Color(0xFF2C4373), infoText = Color(0xFFA5C0FF),
 )
 
 val LocalPalette = staticCompositionLocalOf { LightPalette }

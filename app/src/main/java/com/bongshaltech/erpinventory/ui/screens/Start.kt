@@ -209,26 +209,26 @@ fun LoginScreen(go: (String) -> Unit) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val shape = RoundedCornerShape(14.dp)
             Row(
-                Modifier.fillMaxWidth().height(54.dp).shadow(8.dp, shape).clip(shape).background(Color.White)
-                    .border(1.dp, Color(0xFFD1D5DB), shape).clickable { googleNote = true },
+                Modifier.fillMaxWidth().height(54.dp).shadow(8.dp, shape).clip(shape).background(if (Ui.c.dark) Color(0xFF131314) else Color.White)
+                    .border(1.dp, if (Ui.c.dark) Color(0xFF8E918F) else Color(0xFFD1D5DB), shape).clickable { googleNote = true },
                 horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Image(painterResource(R.drawable.ic_google), null, Modifier.size(22.dp))
-                T(stringResource(R.string.login_google), 16.sp, FontWeight.SemiBold, Color(0xFF1F1F1F))
+                T(stringResource(R.string.login_google), 16.sp, FontWeight.SemiBold, if (Ui.c.dark) Color(0xFFE3E3E3) else Color(0xFF1F1F1F))
             }
             if (googleNote) Muted(stringResource(R.string.login_google_soon), align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             LinkButton(stringResource(R.string.login_without)) { openShop() }
             val sShape = RoundedCornerShape(12.dp)
             Row(
                 Modifier.fillMaxWidth().height(46.dp).clip(sShape)
-                    .background(Brush.linearGradient(listOf(Color(0xFFEEF3FF), Color(0xFFE8F6EF))))
-                    .border(1.dp, Color(0xFFBFD2FD), sShape).clickable { go(Routes.STAFF_LOGIN) },
+                    .background(Brush.linearGradient(if (Ui.c.dark) listOf(Ui.c.infoA, Ui.c.infoB) else listOf(Color(0xFFEEF3FF), Color(0xFFE8F6EF))))
+                    .border(1.dp, Ui.c.infoBorder, sShape).clickable { go(Routes.STAFF_LOGIN) },
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Outlined.Person, null, tint = Color(0xFF1E3A8A), modifier = Modifier.size(18.dp))
-                T(stringResource(R.string.login_staff), 15.sp, FontWeight.SemiBold, Color(0xFF1E3A8A))
+                Icon(Icons.Outlined.Person, null, tint = Ui.c.infoText, modifier = Modifier.size(18.dp))
+                T(stringResource(R.string.login_staff), 15.sp, FontWeight.SemiBold, Ui.c.infoText)
             }
             Muted(stringResource(R.string.login_note), align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             DevFooter()
@@ -286,12 +286,12 @@ fun OnboardingScreen(go: (String) -> Unit) {
                     }
                     Column(
                         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                            .background(Brush.linearGradient(listOf(Color(0xFFDBE6FE), Color(0xFFD6F0E3))))
+                            .background(Brush.linearGradient(listOf(Ui.c.infoA, Ui.c.infoB)))
                             .padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
-                        T(stringResource(R.string.onb_turns_on, stringResource(selected.label)), 13.sp, FontWeight.Bold, Color(0xFF1E3A8A))
-                        T(stringResource(selected.note), 12.sp, color = Color(0xFF1F2937))
+                        T(stringResource(R.string.onb_turns_on, stringResource(selected.label)), 13.sp, FontWeight.Bold, Ui.c.infoText)
+                        T(stringResource(selected.note), 12.sp, color = Ui.c.label)
                     }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -359,7 +359,7 @@ fun StaffLoginScreen(onBack: () -> Unit, go: (String) -> Unit) {
                             val shape = RoundedCornerShape(14.dp)
                             Column(
                                 Modifier.weight(1f).shadow(6.dp, shape).clip(shape)
-                                    .background(if (on) Brush.verticalGradient(listOf(Color(0xFFEEF3FF), Ui.c.card)) else Brush.verticalGradient(listOf(Ui.c.card, Ui.c.card)))
+                                    .background(if (on) Brush.verticalGradient(listOf(if (Ui.c.dark) Ui.c.infoA else Color(0xFFEEF3FF), Ui.c.card)) else Brush.verticalGradient(listOf(Ui.c.card, Ui.c.card)))
                                     .border(if (on) 2.dp else 1.dp, if (on) Brand.Blue else Ui.c.border, shape)
                                     .clickable { picked = s.id; pin = ""; wrong = false }
                                     .padding(vertical = 10.dp, horizontal = 6.dp),
