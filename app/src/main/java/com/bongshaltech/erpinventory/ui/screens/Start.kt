@@ -236,7 +236,7 @@ fun LoginScreen(go: (String) -> Unit) {
     }
 }
 
-private data class TypeOption(val type: ShopType, val label: Int, val note: Int)
+internal data class TypeOption(val type: ShopType, val label: Int, val note: Int)
 
 internal val typeOptions = listOf(
     TypeOption(ShopType.GENERAL, R.string.type_general, R.string.type_note_general),
