@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -143,7 +144,7 @@ fun HomeScreen(go: (String) -> Unit, tab: (Tab) -> Unit) {
                     Stat(
                         stringResource(R.string.home_today_sales), total.taka0(),
                         change?.let { stringResource(R.string.home_vs_yesterday, (if (it >= 0) "+" else "") + it) }
-                            ?: stringResource(R.string.home_sales_count, count),
+                            ?: pluralStringResource(R.plurals.home_sales_count, count, count),
                         highlight = true,
                     )
                     Stat(stringResource(R.string.home_cash), cash.taka0(), stringResource(R.string.home_invoices, count))

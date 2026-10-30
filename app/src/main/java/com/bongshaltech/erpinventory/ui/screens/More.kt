@@ -139,7 +139,10 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     Column(Modifier.weight(1f)) {
                         T(who.name.ifBlank { s?.profile?.name.orEmpty() }, 15.sp, FontWeight.Bold, maxLines = 1)
                         Muted(
-                            if (who.owner) listOf(s?.profile?.name, s?.profile?.phone).filter { !it.isNullOrBlank() }.joinToString(" · ")
+                            if (who.owner) listOfNotNull(
+                                s?.let { st -> stringResource(typeOptions.first { it.type == st.shopType }.label) },
+                                s?.profile?.phone?.takeIf { it.isNotBlank() },
+                            ).joinToString(" · ")
                             else stringResource(R.string.signed_in_staff)
                         )
                     }
