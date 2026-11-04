@@ -32,6 +32,8 @@ object Routes {
     const val SUPPLIERS = "suppliers"
     const val SUPPLIER = "supplier/{id}"
     const val SUPPLIER_EDIT = "supplier_edit/{id}"
+    const val EXPENSES = "expenses"
+    const val EXPENSE_NEW = "expense_new"
 
     fun productEdit(id: Long) = "product/$id"
     fun customer(id: Long) = "customer/$id"
@@ -96,5 +98,7 @@ fun ErpNavHost() {
         composable(Routes.SUPPLIER_EDIT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
             SupplierEditScreen(e.arguments?.getLong("id") ?: 0L, back)
         }
+        composable(Routes.EXPENSES) { ExpensesScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.EXPENSE_NEW) { ExpenseNewScreen(back) }
     }
 }

@@ -271,4 +271,27 @@
     <string name="sup_txn_purchase">কেনা</string>
     <string name="sup_save">সাপ্লায়ার সেভ করুন</string>
     <string name="pur_remove">সরান</string>
+    <string name="exp_rent">ভাড়া</string>
+    <string name="exp_electricity">বিদ্যুৎ বিল</string>
+    <string name="exp_salary">বেতন</string>
+    <string name="exp_transport">যাতায়াত</string>
+    <string name="exp_tea">চা-নাস্তা</string>
+    <string name="exp_internet">ইন্টারনেট ও মোবাইল</string>
+    <string name="exp_repair">মেরামত</string>
+    <string name="exp_other">অন্যান্য</string>
+    <string name="exp_today">আজ</string>
+    <string name="exp_month">এই মাস</string>
+    <string name="exp_year">এই বছর</string>
+    <string name="exp_total">মোট খরচ</string>
+    <string name="exp_all_categories">সব</string>
+    <string name="exp_empty">এই সময়ে কোনো খরচ নেই।</string>
+    <string name="exp_add">খরচ যোগ</string>
+    <string name="exp_delete">খরচ মুছুন</string>
+    <string name="exp_delete_confirm">মুছতে আবার ডাস্টবিন চাপুন।</string>
+    <string name="exp_saved">খরচ সেভ হয়েছে</string>
+    <string name="exp_panel">খরচের তথ্য</string>
+    <string name="exp_category">খাত</string>
+    <string name="exp_custom_category">অথবা খাত লিখুন</string>
+    <string name="exp_amount">পরিমাণ</string>
+    <string name="exp_save">খরচ সেভ করুন</string>
 </resources>

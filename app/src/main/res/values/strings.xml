@@ -272,4 +272,27 @@
     <string name="sup_txn_purchase">Purchase</string>
     <string name="sup_save">Save supplier</string>
     <string name="pur_remove">Remove</string>
+    <string name="exp_rent">Rent</string>
+    <string name="exp_electricity">Electricity</string>
+    <string name="exp_salary">Salary</string>
+    <string name="exp_transport">Transport</string>
+    <string name="exp_tea">Tea &amp; snacks</string>
+    <string name="exp_internet">Internet &amp; mobile</string>
+    <string name="exp_repair">Repair</string>
+    <string name="exp_other">Other</string>
+    <string name="exp_today">Today</string>
+    <string name="exp_month">This month</string>
+    <string name="exp_year">This year</string>
+    <string name="exp_total">Total expense</string>
+    <string name="exp_all_categories">All</string>
+    <string name="exp_empty">No expenses in this period.</string>
+    <string name="exp_add">Add expense</string>
+    <string name="exp_delete">Delete expense</string>
+    <string name="exp_delete_confirm">Tap the bin again to delete.</string>
+    <string name="exp_saved">Expense saved</string>
+    <string name="exp_panel">Expense Details</string>
+    <string name="exp_category">Category</string>
+    <string name="exp_custom_category">Or type a category</string>
+    <string name="exp_amount">Amount</string>
+    <string name="exp_save">Save expense</string>
 </resources>

@@ -220,6 +220,34 @@ interface PurchaseDao {
     fun totalSince(from: Long): Flow<Long>
 }
 
+data class CategoryTotal(val category: String, val totalPaisa: Long)
+
+@Dao
+interface ExpenseDao {
+    @Insert
+    suspend fun insert(e: ExpenseEntity): Long
+
+    @Query("DELETE FROM expense WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    /** [category] '' means every category. */
+    @Query("SELECT * FROM expense WHERE createdAt >= :from AND (:category = '' OR category = :category) ORDER BY createdAt DESC")
+    fun since(from: Long, category: String): Flow<List<ExpenseEntity>>
+
+    @Query("SELECT COALESCE(SUM(amountPaisa), 0) FROM expense WHERE createdAt >= :from")
+    fun totalSince(from: Long): Flow<Long>
+
+    @Query("SELECT COALESCE(SUM(amountPaisa), 0) FROM expense WHERE createdAt >= :from AND createdAt < :to")
+    fun totalBetween(from: Long, to: Long): Flow<Long>
+
+    @Query("SELECT category, SUM(amountPaisa) AS totalPaisa FROM expense WHERE createdAt >= :from GROUP BY category ORDER BY totalPaisa DESC")
+    fun byCategory(from: Long): Flow<List<CategoryTotal>>
+
+    /** Categories used before, most used first, for the quick-pick chips. */
+    @Query("SELECT category FROM expense GROUP BY category ORDER BY COUNT(*) DESC LIMIT 12")
+    fun usedCategories(): Flow<List<String>>
+}
+
 @Dao
 interface StaffDao {
     @Query("SELECT * FROM staff WHERE active = 1 ORDER BY name COLLATE NOCASE")
