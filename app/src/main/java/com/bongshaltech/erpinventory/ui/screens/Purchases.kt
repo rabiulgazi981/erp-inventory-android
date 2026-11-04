@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -156,7 +157,7 @@ private fun PurchaseRowCard(p: PurchaseRow) {
             TintIcon(Icons.Outlined.LocalShipping, Tints.Orange, 40.dp, 20.dp, 10.dp)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 T(p.number, 14.sp, FontWeight.SemiBold, maxLines = 1)
-                Muted(listOfNotNull(p.supplierName, fmt.format(Date(p.createdAt)), stringResource(R.string.pur_items, p.items)).joinToString(" · "))
+                Muted(listOfNotNull(p.supplierName, fmt.format(Date(p.createdAt)), pluralStringResource(R.plurals.pur_items, p.items, p.items)).joinToString(" · "))
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 T(p.totalPaisa.taka0(), 14.sp, FontWeight.Bold)

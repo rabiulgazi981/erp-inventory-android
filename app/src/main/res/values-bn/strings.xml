@@ -62,13 +62,16 @@
         <item quantity="one">%1$dটি বিক্রি</item>
         <item quantity="other">%1$dটি বিক্রি</item>
     </plurals>
-    <string name="home_cash">হাতে ক্যাশ</string>
+    <string name="home_cash">আজকের ক্যাশ</string>
     <plurals name="home_invoices">
         <item quantity="one">%1$dটি ইনভয়েস</item>
         <item quantity="other">%1$dটি ইনভয়েস</item>
     </plurals>
     <string name="home_due">আদায় বাকি</string>
-    <string name="home_due_customers">%1$d জন কাস্টমার</string>
+    <plurals name="home_due_customers">
+        <item quantity="one">%1$d জন কাস্টমার</item>
+        <item quantity="other">%1$d জন কাস্টমার</item>
+    </plurals>
     <string name="home_low_stock">স্টক কম</string>
     <plurals name="home_items">
         <item quantity="one">%1$dটি পণ্য</item>
@@ -109,7 +112,7 @@
     <string name="panel_customer">কাস্টমারের তথ্য</string>
     <string name="panel_product">পণ্যের তথ্য</string>
     <string name="panel_amount">টাকার হিসাব</string>
-    <string name="sale_customer">কাস্টমারের মোবাইল (ঐচ্ছিক)</string>
+    <string name="sale_customer">কাস্টমারের মোবাইল বা নাম (ঐচ্ছিক)</string>
     <string name="sale_customer_name">কাস্টমারের নাম</string>
     <string name="add_customer">নতুন কাস্টমার</string>
     <string name="prev_due">আগের বাকি: %1$s</string>
@@ -219,6 +222,7 @@
     <string name="cust_due_only">বাকি আছে · %1$d</string>
     <string name="cust_empty">এখনো কোনো কাস্টমার নেই। বাকিতে বিক্রি করলে কাস্টমার যোগ হয়, অথবা নতুন কাস্টমার যোগ করুন চাপুন।</string>
     <string name="cust_no_match">কোনো কাস্টমার পাওয়া যায়নি।</string>
+    <string name="cust_due_at_sale">বিক্রির সময় বাকি %1$s</string>
     <string name="cust_due_amount">বাকি %1$s</string>
     <string name="cust_no_due">বাকি নেই</string>
     <string name="cust_payment_saved">টাকা জমা হয়েছে</string>
@@ -241,7 +245,10 @@
     <string name="pur_we_owe">সাপ্লায়ারের কাছে দেনা</string>
     <string name="pur_empty">এখনো কোনো কেনা নেই। মাল এলে নতুন কেনা চাপুন।</string>
     <string name="pur_new">নতুন কেনা</string>
-    <string name="pur_items">%1$dটি পণ্য</string>
+    <plurals name="pur_items">
+        <item quantity="one">%1$dটি পণ্য</item>
+        <item quantity="other">%1$dটি পণ্য</item>
+    </plurals>
     <string name="pur_due_needs_supplier">বাকি রাখতে সাপ্লায়ার বাছুন বা যোগ করুন।</string>
     <string name="pur_bad_qty">প্রতিটা লাইনে ০-এর বেশি পরিমাণ দিন।</string>
     <string name="pur_panel_supplier">সাপ্লায়ারের তথ্য</string>
