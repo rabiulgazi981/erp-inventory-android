@@ -23,8 +23,14 @@ object Routes {
     const val BIZ = "biz"
     const val STAFF_MANAGE = "staff_manage"
     const val SOON = "soon"
+    const val CUSTOMERS = "customers"
+    const val CUSTOMERS_DUE = "customers_due"
+    const val CUSTOMER = "customer/{id}"
+    const val CUSTOMER_EDIT = "customer_edit/{id}"
 
     fun productEdit(id: Long) = "product/$id"
+    fun customer(id: Long) = "customer/$id"
+    fun customerEdit(id: Long) = "customer_edit/$id"
 }
 
 /** Top-level moves (after login, sign out) clear the back stack so Back never returns to a signed-out screen. */
@@ -66,5 +72,13 @@ fun ErpNavHost() {
         composable(Routes.BIZ) { BizProfileScreen(back) }
         composable(Routes.STAFF_MANAGE) { StaffManageScreen(back) }
         composable(Routes.SOON) { SoonScreen(back) }
+        composable(Routes.CUSTOMERS) { CustomersScreen(false, go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.CUSTOMERS_DUE) { CustomersScreen(true, go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.CUSTOMER, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            CustomerDetailScreen(e.arguments?.getLong("id") ?: 0L, go = { nav.navigate(it) }, onBack = back)
+        }
+        composable(Routes.CUSTOMER_EDIT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            CustomerEditScreen(e.arguments?.getLong("id") ?: 0L, back)
+        }
     }
 }

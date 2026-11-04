@@ -55,7 +55,51 @@ interface CustomerDao {
 
     @Query("SELECT COUNT(*) FROM customer WHERE duePaisa > 0")
     fun dueCount(): Flow<Int>
+
+    /** [type] '' means every type. */
+    @Query(
+        """SELECT * FROM customer
+           WHERE (:q = '' OR name LIKE '%' || :q || '%' OR phone LIKE '%' || :q || '%')
+             AND (:type = '' OR type = :type) AND (:dueOnly = 0 OR duePaisa > 0)
+           ORDER BY duePaisa > 0 DESC, name COLLATE NOCASE"""
+    )
+    fun search(q: String, type: String, dueOnly: Boolean): Flow<List<CustomerEntity>>
+
+    @Query("SELECT COUNT(*) FROM customer")
+    fun count(): Flow<Int>
+
+    @Query("SELECT * FROM customer WHERE id = :id")
+    fun watch(id: Long): Flow<CustomerEntity?>
+
+    @Query("SELECT * FROM customer WHERE id = :id")
+    suspend fun get(id: Long): CustomerEntity?
+
+    @Update
+    suspend fun update(c: CustomerEntity)
+
+    @Insert
+    suspend fun insertPayment(p: DuePaymentEntity): Long
+
+    /** Sales and due payments for one customer, newest first. */
+    @Query(
+        """SELECT id, number, createdAt, totalPaisa AS amountPaisa, totalPaisa - paidPaisa AS duePaisa, 0 AS isPayment
+           FROM sale WHERE customerId = :id
+           UNION ALL
+           SELECT id, number, createdAt, amountPaisa, 0 AS duePaisa, 1 AS isPayment
+           FROM due_payment WHERE customerId = :id
+           ORDER BY createdAt DESC LIMIT 100"""
+    )
+    fun history(id: Long): Flow<List<CustomerTxn>>
 }
+
+data class CustomerTxn(
+    val id: Long,
+    val number: String,
+    val createdAt: Long,
+    val amountPaisa: Long,
+    val duePaisa: Long,
+    val isPayment: Boolean,
+)
 
 data class SaleRow(
     val id: Long,

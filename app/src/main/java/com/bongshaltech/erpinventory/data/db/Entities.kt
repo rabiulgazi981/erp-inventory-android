@@ -31,6 +31,24 @@ data class CustomerEntity(
     val phone: String,
     val duePaisa: Long = 0,
     val createdAt: Long = System.currentTimeMillis(),
+    /** [CustomerType] name. */
+    @ColumnInfo(defaultValue = "RETAIL") val type: String = CustomerType.RETAIL.name,
+    @ColumnInfo(defaultValue = "") val address: String = "",
+)
+
+enum class CustomerType { RETAIL, WHOLESALE }
+
+/** Money a customer paid against their due, outside a sale. */
+@Entity(tableName = "due_payment", indices = [Index("customerId"), Index("createdAt")])
+data class DuePaymentEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val number: String,
+    val customerId: Long,
+    val amountPaisa: Long,
+    val method: PayMethod,
+    val note: String = "",
+    val staffId: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
 )
 
 enum class PayMethod { CASH, BKASH, NAGAD, CARD }
