@@ -123,6 +123,12 @@ interface SaleDao {
     @Insert
     suspend fun insertItems(items: List<SaleItemEntity>)
 
+    @Query("SELECT * FROM sale WHERE id = :id")
+    suspend fun get(id: Long): SaleEntity?
+
+    @Query("SELECT * FROM sale_item WHERE saleId = :saleId ORDER BY id")
+    suspend fun items(saleId: Long): List<SaleItemEntity>
+
     @Query("SELECT COALESCE(SUM(totalPaisa), 0) FROM sale WHERE createdAt >= :from")
     fun totalSince(from: Long): Flow<Long>
 
