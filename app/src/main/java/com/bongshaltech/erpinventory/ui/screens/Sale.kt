@@ -324,7 +324,13 @@ fun SaleScreen(onBack: () -> Unit) {
                         )
                     )
                     when (r) {
-                        is SaleResult.Saved -> { saved = r; message = null }
+                        is SaleResult.Saved -> {
+                            saved = r; message = null
+                            if (sms && hasPhone) {
+                                val due = (total - paidPaisa).coerceAtLeast(0)
+                                sendSmsFromSim(ctx, digits, smsPreview(settings?.profile?.name.orEmpty(), r.number, total, due))
+                            }
+                        }
                         is SaleResult.NotEnoughStock -> message = notEnough.replace("%s", r.productName)
                         SaleResult.DueNeedsCustomer -> message = dueNeeds
                     }
@@ -346,6 +352,18 @@ fun SaleScreen(onBack: () -> Unit) {
 }
 
 /** What the receipt SMS will say, used to count SMS parts before sending. */
-fun smsPreview(shop: String, number: String, totalPaisa: Long) =
-    "$shop: Memo $number, total Tk ${totalPaisa / 100}. Thank you!"
+fun smsPreview(shop: String, number: String, totalPaisa: Long, duePaisa: Long = 0) =
+    "$shop: Memo $number, total Tk ${totalPaisa / 100}" + (if (duePaisa > 0) ", due Tk ${duePaisa / 100}" else "") + ". Thank you!"
+
+/**
+ * Opens the phone's SMS app with the receipt filled in, so it goes from the shop's own SIM at the
+ * SIM's normal rate. The shopkeeper taps Send there; the app never sends SMS by itself.
+ */
+fun sendSmsFromSim(ctx: android.content.Context, phone: String, text: String) {
+    val i = android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("smsto:$phone"))
+        .putExtra("sms_body", text)
+    runCatching { ctx.startActivity(i) }.onFailure {
+        Toast.makeText(ctx, ctx.getString(R.string.sms_no_app), Toast.LENGTH_LONG).show()
+    }
+}
 

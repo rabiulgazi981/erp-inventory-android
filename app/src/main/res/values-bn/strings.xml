@@ -130,7 +130,7 @@
     <string name="sale_due">বাকি</string>
     <string name="sale_change">ফেরত</string>
     <string name="sale_sms">কাস্টমারকে SMS রসিদ</string>
-    <string name="sms_on_note">%1$s নম্বরে যাবে · %2$dটি SMS</string>
+    <string name="sms_on_note">%1$s নম্বরে আপনার SIM থেকে · %2$dটি SMS</string>
     <string name="sms_off_note">এই বিক্রিতে বন্ধ · কোনো SMS খরচ হবে না</string>
     <string name="sale_sms_needs_phone">SMS পাঠাতে কাস্টমারের মোবাইল দিন</string>
     <string name="sale_hold">হোল্ড</string>
@@ -319,4 +319,5 @@
     <string name="rep_customers_owe">কাস্টমারের কাছে পাওনা (এখন)</string>
     <string name="rep_top_products">সবচেয়ে বেশি বিক্রি</string>
     <string name="rep_by_day">দিনভিত্তিক বিক্রি</string>
+    <string name="sms_no_app">এই ফোনে SMS অ্যাপ খোলা যায়নি।</string>
 </resources>

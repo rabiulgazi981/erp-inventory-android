@@ -131,7 +131,7 @@
     <string name="sale_due">Due</string>
     <string name="sale_change">Change</string>
     <string name="sale_sms">SMS receipt to customer</string>
-    <string name="sms_on_note">Sends to %1$s · %2$d SMS</string>
+    <string name="sms_on_note">Opens your SMS app for %1$s · %2$d SMS from your SIM</string>
     <string name="sms_off_note">Off for this sale · No SMS used</string>
     <string name="sale_sms_needs_phone">Add the customer\'s mobile to send SMS</string>
     <string name="sale_hold">Hold</string>
@@ -320,4 +320,5 @@
     <string name="rep_customers_owe">Customers owe (now)</string>
     <string name="rep_top_products">Top products</string>
     <string name="rep_by_day">Sales by day</string>
+    <string name="sms_no_app">Could not open an SMS app on this phone.</string>
 </resources>
