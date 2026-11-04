@@ -7,6 +7,7 @@ import com.bongshaltech.erpinventory.data.db.AppDatabase
 import com.bongshaltech.erpinventory.data.db.CustomerEntity
 import com.bongshaltech.erpinventory.data.db.DocCounterEntity
 import com.bongshaltech.erpinventory.data.db.DuePaymentEntity
+import com.bongshaltech.erpinventory.data.db.ExpenseEntity
 import com.bongshaltech.erpinventory.data.db.PurchaseEntity
 import com.bongshaltech.erpinventory.data.db.PurchaseItemEntity
 import com.bongshaltech.erpinventory.data.db.SupplierEntity
@@ -70,6 +71,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     val staff get() = db.staff()
     val suppliers get() = db.suppliers()
     val purchases get() = db.purchases()
+    val expenses get() = db.expenses()
 
     suspend fun saveProduct(p: ProductEntity) = db.products().upsert(p)
 
@@ -197,6 +199,17 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                 SupplierPaymentEntity(number = number, supplierId = supplierId, amountPaisa = amount, method = method, note = note.trim(), staffId = staffId)
             )
             db.suppliers().addDue(supplierId, -amount)
+            number
+        }
+    }
+
+    suspend fun addExpense(category: String, amountPaisa: Long, method: PayMethod, note: String, staffId: Long?): String {
+        val code = settings.current().shopCode
+        return db.withTransaction {
+            val number = nextNumber(code, DocType.EXPENSE)
+            db.expenses().insert(
+                ExpenseEntity(number = number, category = category.trim(), amountPaisa = amountPaisa, method = method, note = note.trim(), staffId = staffId)
+            )
             number
         }
     }

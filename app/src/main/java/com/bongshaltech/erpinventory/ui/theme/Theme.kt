@@ -35,10 +35,13 @@ object Brand {
     val Red = Color(0xFFB91C1C)
     val Amber = Color(0xFFB45309)
     val DarkGreen = Color(0xFF15803D)
+    val Purple = Color(0xFF7E22CE)
+    val Pink = Color(0xFFC0397E)
 
     val BlueGrad = Brush.horizontalGradient(listOf(Blue, Sky))
     val GreenGrad = Brush.horizontalGradient(listOf(Green, Lime))
     val OrangeGrad = Brush.horizontalGradient(listOf(Orange, Yellow))
+    val PurpleGrad = Brush.horizontalGradient(listOf(Purple, Pink))
     val TotalGrad = Brush.linearGradient(listOf(Blue, Mint), start = Offset.Zero, end = Offset(900f, 500f))
     val SplashGrad = Brush.linearGradient(listOf(Blue, Sky, Mint), start = Offset(0f, 0f), end = Offset(700f, 2000f))
 }

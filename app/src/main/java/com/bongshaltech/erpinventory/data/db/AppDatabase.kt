@@ -21,8 +21,9 @@ class Converters {
         ProductEntity::class, CustomerEntity::class, SaleEntity::class, SaleItemEntity::class,
         StaffEntity::class, DocCounterEntity::class, DuePaymentEntity::class,
         SupplierEntity::class, PurchaseEntity::class, PurchaseItemEntity::class, SupplierPaymentEntity::class,
+        ExpenseEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -34,6 +35,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun docCounters(): DocCounterDao
     abstract fun suppliers(): SupplierDao
     abstract fun purchases(): PurchaseDao
+    abstract fun expenses(): ExpenseDao
 
     companion object {
         // Schema changes must be additive migrations: shop data on the phone is never wiped.
@@ -92,12 +94,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `expense` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, " +
+                        "`category` TEXT NOT NULL, `amountPaisa` INTEGER NOT NULL, `method` TEXT NOT NULL, `note` TEXT NOT NULL, " +
+                        "`staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_expense_createdAt` ON `expense` (`createdAt`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_expense_category` ON `expense` (`category`)")
+            }
+        }
+
         fun open(context: Context): AppDatabase {
             System.loadLibrary("sqlcipher")
             val factory = SupportOpenHelperFactory(DbKey.get(context))
             return Room.databaseBuilder(context, AppDatabase::class.java, "shop.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
         }
     }

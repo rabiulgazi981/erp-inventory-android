@@ -96,6 +96,19 @@ data class PurchaseItemEntity(
     val lineTotalPaisa: Long,
 )
 
+/** Shop running costs: rent, bills, salary and so on. [category] is free text so shops can add their own. */
+@Entity(tableName = "expense", indices = [Index("createdAt"), Index("category")])
+data class ExpenseEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val number: String,
+    val category: String,
+    val amountPaisa: Long,
+    val method: PayMethod,
+    val note: String = "",
+    val staffId: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
 /** Money the shop paid a supplier against what it owes, outside a purchase. */
 @Entity(tableName = "supplier_payment", indices = [Index("supplierId"), Index("createdAt")])
 data class SupplierPaymentEntity(
