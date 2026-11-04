@@ -34,6 +34,10 @@ interface ProductDao {
     @Query("UPDATE product SET active = 0 WHERE id = :id")
     suspend fun archive(id: Long)
 
+    /** Goods received: stock goes up and the cost becomes the latest buying price. */
+    @Query("UPDATE product SET stockMilli = stockMilli + :qtyMilli, costPaisa = :costPaisa WHERE id = :id")
+    suspend fun receive(id: Long, qtyMilli: Long, costPaisa: Long)
+
     /** Returns rows changed: 0 means there was not enough stock. */
     @Query("UPDATE product SET stockMilli = stockMilli - :qtyMilli WHERE id = :id AND stockMilli >= :qtyMilli")
     suspend fun takeStock(id: Long, qtyMilli: Long): Int
@@ -139,6 +143,81 @@ interface SaleDao {
            ORDER BY s.createdAt DESC LIMIT :limit"""
     )
     fun recent(limit: Int): Flow<List<SaleRow>>
+}
+
+@Dao
+interface SupplierDao {
+    @Query(
+        """SELECT * FROM supplier
+           WHERE (:q = '' OR name LIKE '%' || :q || '%' OR phone LIKE '%' || :q || '%') AND (:dueOnly = 0 OR duePaisa > 0)
+           ORDER BY duePaisa > 0 DESC, name COLLATE NOCASE"""
+    )
+    fun search(q: String, dueOnly: Boolean): Flow<List<SupplierEntity>>
+
+    @Query("SELECT COUNT(*) FROM supplier")
+    fun count(): Flow<Int>
+
+    @Query("SELECT COALESCE(SUM(duePaisa), 0) FROM supplier")
+    fun totalDue(): Flow<Long>
+
+    @Query("SELECT * FROM supplier WHERE id = :id")
+    fun watch(id: Long): Flow<SupplierEntity?>
+
+    @Query("SELECT * FROM supplier WHERE id = :id")
+    suspend fun get(id: Long): SupplierEntity?
+
+    @Insert
+    suspend fun insert(s: SupplierEntity): Long
+
+    @Update
+    suspend fun update(s: SupplierEntity)
+
+    @Query("UPDATE supplier SET duePaisa = duePaisa + :delta WHERE id = :id")
+    suspend fun addDue(id: Long, delta: Long)
+
+    @Insert
+    suspend fun insertPayment(p: SupplierPaymentEntity): Long
+
+    /** Purchases and payments for one supplier, newest first. */
+    @Query(
+        """SELECT id, number, createdAt, totalPaisa AS amountPaisa, totalPaisa - paidPaisa AS duePaisa, 0 AS isPayment
+           FROM purchase WHERE supplierId = :id
+           UNION ALL
+           SELECT id, number, createdAt, amountPaisa, 0 AS duePaisa, 1 AS isPayment
+           FROM supplier_payment WHERE supplierId = :id
+           ORDER BY createdAt DESC LIMIT 100"""
+    )
+    fun history(id: Long): Flow<List<CustomerTxn>>
+}
+
+data class PurchaseRow(
+    val id: Long,
+    val number: String,
+    val totalPaisa: Long,
+    val createdAt: Long,
+    val supplierName: String?,
+    val duePaisa: Long,
+    val items: Int,
+)
+
+@Dao
+interface PurchaseDao {
+    @Insert
+    suspend fun insert(p: PurchaseEntity): Long
+
+    @Insert
+    suspend fun insertItems(items: List<PurchaseItemEntity>)
+
+    @Query(
+        """SELECT p.id, p.number, p.totalPaisa, p.createdAt, s.name AS supplierName, p.totalPaisa - p.paidPaisa AS duePaisa,
+                  (SELECT COUNT(*) FROM purchase_item i WHERE i.purchaseId = p.id) AS items
+           FROM purchase p LEFT JOIN supplier s ON s.id = p.supplierId
+           ORDER BY p.createdAt DESC LIMIT :limit"""
+    )
+    fun recent(limit: Int): Flow<List<PurchaseRow>>
+
+    @Query("SELECT COALESCE(SUM(totalPaisa), 0) FROM purchase WHERE createdAt >= :from")
+    fun totalSince(from: Long): Flow<Long>
 }
 
 @Dao
