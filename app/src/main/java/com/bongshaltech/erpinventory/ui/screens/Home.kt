@@ -163,7 +163,7 @@ fun HomeScreen(go: (String) -> Unit, tab: (Tab) -> Unit) {
                 Row {
                     QuickAction(Icons.Outlined.ShoppingCart, Tints.Blue, stringResource(R.string.home_new_sale)) { go(Routes.SALE) }
                     if (who.can(StaffMenu.PRODUCTS)) QuickAction(Icons.Outlined.Add, Tints.Green, stringResource(R.string.product_add)) { go(Routes.productEdit(0)) }
-                    if (who.can(StaffMenu.PURCHASE)) QuickAction(Icons.Outlined.Inventory2, Tints.Orange, stringResource(R.string.home_purchase)) { go(Routes.SOON) }
+                    if (who.can(StaffMenu.PURCHASE)) QuickAction(Icons.Outlined.Inventory2, Tints.Orange, stringResource(R.string.home_purchase)) { go(Routes.PURCHASE_NEW) }
                     if (who.can(StaffMenu.CUSTOMERS)) QuickAction(Icons.Outlined.Payments, Tints.Purple, stringResource(R.string.home_collect_due)) { go(Routes.CUSTOMERS_DUE) }
                 }
             }

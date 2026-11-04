@@ -5,7 +5,7 @@ package com.bongshaltech.erpinventory.core
  * Each document type has its own counter that restarts every year. Old numbers are never renumbered.
  */
 enum class DocType(val tag: String?) {
-    SALE(null), PURCHASE("PUR"), EXPENSE("EXP"), RETURN("RET"), PAYMENT("PAY"), MFS("MFS"), KOT("KOT")
+    SALE(null), PURCHASE("PUR"), EXPENSE("EXP"), RETURN("RET"), PAYMENT("PAY"), SUPPLIER_PAYMENT("SPAY"), MFS("MFS"), KOT("KOT")
 }
 
 object DocNumber {
