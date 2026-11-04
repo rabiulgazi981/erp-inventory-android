@@ -34,6 +34,7 @@ object Routes {
     const val SUPPLIER_EDIT = "supplier_edit/{id}"
     const val EXPENSES = "expenses"
     const val EXPENSE_NEW = "expense_new"
+    const val REPORTS = "reports"
 
     fun productEdit(id: Long) = "product/$id"
     fun customer(id: Long) = "customer/$id"
@@ -100,5 +101,6 @@ fun ErpNavHost() {
         }
         composable(Routes.EXPENSES) { ExpensesScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.EXPENSE_NEW) { ExpenseNewScreen(back) }
+        composable(Routes.REPORTS) { ReportsScreen(tab = { nav.goTab(it) }) }
     }
 }

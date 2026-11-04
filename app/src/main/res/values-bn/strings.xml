@@ -294,4 +294,22 @@
     <string name="exp_custom_category">অথবা খাত লিখুন</string>
     <string name="exp_amount">পরিমাণ</string>
     <string name="exp_save">খরচ সেভ করুন</string>
+    <string name="rep_yesterday">গতকাল</string>
+    <string name="rep_week">শেষ ৭ দিন</string>
+    <string name="rep_last_month">গত মাস</string>
+    <string name="rep_sales">বিক্রি</string>
+    <string name="rep_net_profit">নিট লাভ</string>
+    <string name="rep_after_expenses">কেনা দাম আর খরচ বাদে</string>
+    <string name="rep_expenses">খরচ</string>
+    <string name="rep_summary">লাভ-ক্ষতি</string>
+    <string name="rep_discounts">দেওয়া ছাড়</string>
+    <string name="rep_cost_of_sales">বিক্রি পণ্যের কেনা দাম</string>
+    <string name="rep_gross_profit">মোট লাভ</string>
+    <string name="rep_money">টাকা এসেছে</string>
+    <string name="rep_no_sales">এই সময়ে কোনো বিক্রি নেই।</string>
+    <string name="rep_due_given">বাকিতে বিক্রি</string>
+    <string name="rep_due_collected">বাকি আদায়</string>
+    <string name="rep_customers_owe">কাস্টমারের কাছে পাওনা (এখন)</string>
+    <string name="rep_top_products">সবচেয়ে বেশি বিক্রি</string>
+    <string name="rep_by_day">দিনভিত্তিক বিক্রি</string>
 </resources>
