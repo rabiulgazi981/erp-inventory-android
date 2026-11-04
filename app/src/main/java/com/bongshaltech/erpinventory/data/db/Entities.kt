@@ -155,6 +155,8 @@ data class SaleItemEntity(
     val qtyMilli: Long,
     val unitPricePaisa: Long,
     val lineTotalPaisa: Long,
+    /** Buying price at the time of sale, for profit. 0 on sales made before version 6. */
+    @ColumnInfo(defaultValue = "0") val unitCostPaisa: Long = 0,
 )
 
 @Entity(tableName = "staff")

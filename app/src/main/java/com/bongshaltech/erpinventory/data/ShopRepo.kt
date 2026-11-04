@@ -72,6 +72,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     val suppliers get() = db.suppliers()
     val purchases get() = db.purchases()
     val expenses get() = db.expenses()
+    val reports get() = db.reports()
 
     suspend fun saveProduct(p: ProductEntity) = db.products().upsert(p)
 
@@ -113,6 +114,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                     SaleItemEntity(
                         saleId = saleId, productId = it.product.id, name = it.product.name,
                         qtyMilli = it.qtyMilli, unitPricePaisa = it.product.pricePaisa, lineTotalPaisa = it.totalPaisa,
+                        unitCostPaisa = it.product.costPaisa,
                     )
                 })
                 SaleResult.Saved(number, total)

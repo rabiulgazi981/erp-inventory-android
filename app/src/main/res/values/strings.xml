@@ -295,4 +295,22 @@
     <string name="exp_custom_category">Or type a category</string>
     <string name="exp_amount">Amount</string>
     <string name="exp_save">Save expense</string>
+    <string name="rep_yesterday">Yesterday</string>
+    <string name="rep_week">Last 7 days</string>
+    <string name="rep_last_month">Last month</string>
+    <string name="rep_sales">Sales</string>
+    <string name="rep_net_profit">Net profit</string>
+    <string name="rep_after_expenses">After cost and expenses</string>
+    <string name="rep_expenses">Expenses</string>
+    <string name="rep_summary">Profit &amp; Loss</string>
+    <string name="rep_discounts">Discounts given</string>
+    <string name="rep_cost_of_sales">Cost of goods sold</string>
+    <string name="rep_gross_profit">Gross profit</string>
+    <string name="rep_money">Money In</string>
+    <string name="rep_no_sales">No sales in this period.</string>
+    <string name="rep_due_given">Sold on due</string>
+    <string name="rep_due_collected">Due collected</string>
+    <string name="rep_customers_owe">Customers owe (now)</string>
+    <string name="rep_top_products">Top products</string>
+    <string name="rep_by_day">Sales by day</string>
 </resources>

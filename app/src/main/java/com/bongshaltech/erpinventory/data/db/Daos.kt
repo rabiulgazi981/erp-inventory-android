@@ -248,6 +248,61 @@ interface ExpenseDao {
     fun usedCategories(): Flow<List<String>>
 }
 
+data class MethodTotal(val method: String, val totalPaisa: Long)
+data class TopProduct(val name: String, val qtyMilli: Long, val totalPaisa: Long)
+data class DayTotal(val day: String, val count: Int, val totalPaisa: Long)
+
+/** Totals for the Reports screen, all for [from, to). */
+@Dao
+interface ReportDao {
+    @Query("SELECT COALESCE(SUM(totalPaisa), 0) FROM sale WHERE createdAt >= :from AND createdAt < :to")
+    fun sales(from: Long, to: Long): Flow<Long>
+
+    @Query("SELECT COUNT(*) FROM sale WHERE createdAt >= :from AND createdAt < :to")
+    fun saleCount(from: Long, to: Long): Flow<Int>
+
+    @Query("SELECT COALESCE(SUM(discountPaisa), 0) FROM sale WHERE createdAt >= :from AND createdAt < :to")
+    fun discounts(from: Long, to: Long): Flow<Long>
+
+    /** Cost of the goods sold. Older lines without a saved cost use the product's current cost. */
+    @Query(
+        """SELECT COALESCE(SUM((COALESCE(NULLIF(i.unitCostPaisa, 0), p.costPaisa, 0) * i.qtyMilli + 500) / 1000), 0)
+           FROM sale_item i JOIN sale s ON s.id = i.saleId LEFT JOIN product p ON p.id = i.productId
+           WHERE s.createdAt >= :from AND s.createdAt < :to"""
+    )
+    fun costOfSales(from: Long, to: Long): Flow<Long>
+
+    @Query("SELECT COALESCE(SUM(totalPaisa), 0) FROM purchase WHERE createdAt >= :from AND createdAt < :to")
+    fun purchases(from: Long, to: Long): Flow<Long>
+
+    @Query("SELECT COALESCE(SUM(amountPaisa), 0) FROM expense WHERE createdAt >= :from AND createdAt < :to")
+    fun expenses(from: Long, to: Long): Flow<Long>
+
+    @Query("SELECT COALESCE(SUM(amountPaisa), 0) FROM due_payment WHERE createdAt >= :from AND createdAt < :to")
+    fun dueCollected(from: Long, to: Long): Flow<Long>
+
+    @Query("SELECT COALESCE(SUM(totalPaisa - paidPaisa), 0) FROM sale WHERE createdAt >= :from AND createdAt < :to")
+    fun dueGiven(from: Long, to: Long): Flow<Long>
+
+    @Query("SELECT method, SUM(paidPaisa) AS totalPaisa FROM sale WHERE createdAt >= :from AND createdAt < :to GROUP BY method ORDER BY totalPaisa DESC")
+    fun byMethod(from: Long, to: Long): Flow<List<MethodTotal>>
+
+    @Query(
+        """SELECT i.name AS name, SUM(i.qtyMilli) AS qtyMilli, SUM(i.lineTotalPaisa) AS totalPaisa
+           FROM sale_item i JOIN sale s ON s.id = i.saleId
+           WHERE s.createdAt >= :from AND s.createdAt < :to
+           GROUP BY i.productId ORDER BY totalPaisa DESC LIMIT 10"""
+    )
+    fun topProducts(from: Long, to: Long): Flow<List<TopProduct>>
+
+    @Query(
+        """SELECT strftime('%Y-%m-%d', createdAt / 1000, 'unixepoch', 'localtime') AS day, COUNT(*) AS count, SUM(totalPaisa) AS totalPaisa
+           FROM sale WHERE createdAt >= :from AND createdAt < :to
+           GROUP BY day ORDER BY day DESC LIMIT 62"""
+    )
+    fun byDay(from: Long, to: Long): Flow<List<DayTotal>>
+}
+
 @Dao
 interface StaffDao {
     @Query("SELECT * FROM staff WHERE active = 1 ORDER BY name COLLATE NOCASE")

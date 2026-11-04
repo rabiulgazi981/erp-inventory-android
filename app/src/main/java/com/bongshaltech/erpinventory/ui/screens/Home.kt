@@ -95,7 +95,7 @@ fun tabRoute(t: Tab) = when (t) {
     Tab.HOME -> Routes.HOME
     Tab.SALE -> Routes.SALE
     Tab.PRODUCTS -> Routes.PRODUCTS
-    Tab.REPORTS -> Routes.SOON
+    Tab.REPORTS -> Routes.REPORTS
     Tab.MORE -> Routes.MORE
 }
 
