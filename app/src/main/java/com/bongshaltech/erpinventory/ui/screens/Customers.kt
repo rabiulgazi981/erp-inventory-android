@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -107,7 +108,7 @@ fun CustomersScreen(dueOnly: Boolean, go: (String) -> Unit, onBack: () -> Unit) 
                                 Muted(stringResource(R.string.home_due))
                                 T(totalDue.taka0(), 22.sp, FontWeight.Bold, if (totalDue > 0) Brand.Amber else Ui.c.text)
                             }
-                            Muted(stringResource(R.string.home_due_customers, dueCount))
+                            Muted(pluralStringResource(R.plurals.home_due_customers, dueCount, dueCount))
                         }
                     }
                 }
@@ -255,7 +256,7 @@ private fun HistoryRow(t: CustomerTxn) {
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 T((if (t.isPayment) "− " else "") + t.amountPaisa.taka0(), 14.sp, FontWeight.Bold, if (t.isPayment) Brand.DarkGreen else Ui.c.text)
-                if (!t.isPayment && t.duePaisa > 0) T(stringResource(R.string.cust_due_amount, t.duePaisa.taka0()), 12.sp, FontWeight.SemiBold, Brand.Red)
+                if (!t.isPayment && t.duePaisa > 0) T(stringResource(R.string.cust_due_at_sale, t.duePaisa.taka0()), 12.sp, FontWeight.SemiBold, Brand.Red)
             }
         }
     }

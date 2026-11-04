@@ -116,6 +116,7 @@ fun HomeScreen(go: (String) -> Unit, tab: (Tab) -> Unit) {
     val recent by remember { app.repo.sales.recent(5) }.collectAsStateWithLifecycle(emptyList())
     val timeFmt = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val dateFmt = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
+    val dayTimeFmt = remember { SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()) }
     val showMoney = who.can(StaffMenu.REPORTS)
 
     Column(Modifier.fillMaxSize().background(Ui.c.bg)) {
@@ -151,7 +152,7 @@ fun HomeScreen(go: (String) -> Unit, tab: (Tab) -> Unit) {
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Stat(stringResource(R.string.home_due), due.taka0(), stringResource(R.string.home_due_customers, dueCount), valueColor = Brand.Amber) {
+                Stat(stringResource(R.string.home_due), due.taka0(), pluralStringResource(R.plurals.home_due_customers, dueCount, dueCount), valueColor = Brand.Amber) {
                     if (who.can(StaffMenu.CUSTOMERS)) go(Routes.CUSTOMERS_DUE)
                 }
                 Stat(stringResource(R.string.home_low_stock), pluralStringResource(R.plurals.home_items, low, low), stringResource(R.string.home_tap_reorder),
@@ -182,7 +183,8 @@ fun HomeScreen(go: (String) -> Unit, tab: (Tab) -> Unit) {
                                 T(r.number, 14.sp, FontWeight.SemiBold)
                                 Muted(
                                     listOfNotNull(
-                                        r.customerName ?: walkIn, timeFmt.format(Date(r.createdAt)),
+                                        r.customerName ?: walkIn,
+                                        (if (r.createdAt >= today) timeFmt else dayTimeFmt).format(Date(r.createdAt)),
                                         if (r.duePaisa > 0) "$dueWord ${r.duePaisa.taka0()}" else null,
                                     ).joinToString(" · ")
                                 )

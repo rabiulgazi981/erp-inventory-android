@@ -63,13 +63,16 @@
         <item quantity="one">%1$d sale</item>
         <item quantity="other">%1$d sales</item>
     </plurals>
-    <string name="home_cash">Cash in hand</string>
+    <string name="home_cash">Cash today</string>
     <plurals name="home_invoices">
         <item quantity="one">%1$d invoice</item>
         <item quantity="other">%1$d invoices</item>
     </plurals>
     <string name="home_due">Due to collect</string>
-    <string name="home_due_customers">%1$d customers</string>
+    <plurals name="home_due_customers">
+        <item quantity="one">%1$d customer</item>
+        <item quantity="other">%1$d customers</item>
+    </plurals>
     <string name="home_low_stock">Low stock</string>
     <plurals name="home_items">
         <item quantity="one">%1$d item</item>
@@ -110,7 +113,7 @@
     <string name="panel_customer">Customer Information</string>
     <string name="panel_product">Product Information</string>
     <string name="panel_amount">Amount Details</string>
-    <string name="sale_customer">Customer mobile (optional)</string>
+    <string name="sale_customer">Customer mobile or name (optional)</string>
     <string name="sale_customer_name">Customer name</string>
     <string name="add_customer">Add new customer</string>
     <string name="prev_due">Previous due: %1$s</string>
@@ -220,6 +223,7 @@
     <string name="cust_due_only">With due · %1$d</string>
     <string name="cust_empty">No customers yet. Customers are added when you sell on due, or tap Add new customer.</string>
     <string name="cust_no_match">No customer found.</string>
+    <string name="cust_due_at_sale">Due at sale %1$s</string>
     <string name="cust_due_amount">Due %1$s</string>
     <string name="cust_no_due">No due</string>
     <string name="cust_payment_saved">Payment saved</string>
@@ -242,7 +246,10 @@
     <string name="pur_we_owe">We owe suppliers</string>
     <string name="pur_empty">No purchases yet. Tap New purchase when goods arrive.</string>
     <string name="pur_new">New purchase</string>
-    <string name="pur_items">%1$d items</string>
+    <plurals name="pur_items">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
     <string name="pur_due_needs_supplier">Pick or add a supplier to keep the unpaid part as due.</string>
     <string name="pur_bad_qty">Every line needs a quantity above 0.</string>
     <string name="pur_panel_supplier">Supplier Information</string>

@@ -132,8 +132,18 @@ interface SaleDao {
     @Query("SELECT COALESCE(SUM(totalPaisa), 0) FROM sale WHERE createdAt >= :from AND createdAt < :to")
     fun totalBetween(from: Long, to: Long): Flow<Long>
 
-    /** Cash taken today: what was paid on cash sales. */
-    @Query("SELECT COALESCE(SUM(paidPaisa), 0) FROM sale WHERE createdAt >= :from AND method = 'CASH'")
+    /**
+     * Net cash since [from]: cash sales and cash due collected, minus cash paid for
+     * purchases, to suppliers and for expenses.
+     */
+    @Query(
+        """SELECT
+             (SELECT COALESCE(SUM(paidPaisa), 0) FROM sale WHERE createdAt >= :from AND method = 'CASH')
+           + (SELECT COALESCE(SUM(amountPaisa), 0) FROM due_payment WHERE createdAt >= :from AND method = 'CASH')
+           - (SELECT COALESCE(SUM(paidPaisa), 0) FROM purchase WHERE createdAt >= :from AND method = 'CASH')
+           - (SELECT COALESCE(SUM(amountPaisa), 0) FROM supplier_payment WHERE createdAt >= :from AND method = 'CASH')
+           - (SELECT COALESCE(SUM(amountPaisa), 0) FROM expense WHERE createdAt >= :from AND method = 'CASH')"""
+    )
     fun cashSince(from: Long): Flow<Long>
 
     @Query(
@@ -264,10 +274,13 @@ interface ReportDao {
     @Query("SELECT COALESCE(SUM(discountPaisa), 0) FROM sale WHERE createdAt >= :from AND createdAt < :to")
     fun discounts(from: Long, to: Long): Flow<Long>
 
-    /** Cost of the goods sold. Older lines without a saved cost use the product's current cost. */
+    /**
+     * Cost of the goods sold, from the cost saved on each sale line when it was sold.
+     * A later change to the product's cost never rewrites the profit of past sales.
+     */
     @Query(
-        """SELECT COALESCE(SUM((COALESCE(NULLIF(i.unitCostPaisa, 0), p.costPaisa, 0) * i.qtyMilli + 500) / 1000), 0)
-           FROM sale_item i JOIN sale s ON s.id = i.saleId LEFT JOIN product p ON p.id = i.productId
+        """SELECT COALESCE(SUM((i.unitCostPaisa * i.qtyMilli + 500) / 1000), 0)
+           FROM sale_item i JOIN sale s ON s.id = i.saleId
            WHERE s.createdAt >= :from AND s.createdAt < :to"""
     )
     fun costOfSales(from: Long, to: Long): Flow<Long>

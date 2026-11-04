@@ -126,6 +126,11 @@ fun SaleScreen(onBack: () -> Unit) {
     val customer by produceState<com.bongshaltech.erpinventory.data.db.CustomerEntity?>(null, digits) {
         value = if (digits.length >= 11) app.repo.customers.byPhone(digits) else null
     }
+    // Typing a name (or part of a number) suggests saved customers.
+    val nameQ = phone.trim().takeIf { customer == null && it.length >= 2 && digits.length < 11 }.orEmpty()
+    val custMatches by remember(nameQ) {
+        if (nameQ.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList()) else app.repo.customers.search(nameQ, "", false)
+    }.collectAsStateWithLifecycle(emptyList())
     val subtotal = cart.sumOf { it.totalPaisa }
     val discountPaisa = if (who.can(StaffMenu.DISCOUNT)) (discount.toPaisa() ?: 0).coerceIn(0, subtotal) else 0
     val total = subtotal - discountPaisa
@@ -162,8 +167,21 @@ fun SaleScreen(onBack: () -> Unit) {
         ) {
             Panel(stringResource(R.string.panel_customer), Brand.BlueGrad, PanelColors.Blue) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Input(phone, { phone = it }, Modifier.weight(1f), placeholder = stringResource(R.string.sale_customer), keyboard = KeyboardType.Phone, height = 42.dp)
+                    Input(phone, { phone = it }, Modifier.weight(1f), placeholder = stringResource(R.string.sale_customer), keyboard = KeyboardType.Text, height = 42.dp)
                     SquareAction(Icons.Outlined.Add, Brand.BlueGrad, stringResource(R.string.add_customer)) { showName = !showName }
+                }
+                custMatches.take(5).forEach { c ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Ui.c.soft).clickable { phone = c.phone }
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            T(c.name, 14.sp, FontWeight.SemiBold, maxLines = 1)
+                            Muted(c.phone, 12.sp)
+                        }
+                        if (c.duePaisa > 0) T(stringResource(R.string.cust_due_amount, c.duePaisa.taka0()), 12.sp, FontWeight.SemiBold, Brand.Red)
+                    }
                 }
                 if (showName || (hasPhone && customer == null && custName.isNotEmpty())) {
                     Input(custName, { custName = it }, placeholder = stringResource(R.string.sale_customer_name), height = 42.dp)
