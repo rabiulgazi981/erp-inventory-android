@@ -27,10 +27,20 @@ object Routes {
     const val CUSTOMERS_DUE = "customers_due"
     const val CUSTOMER = "customer/{id}"
     const val CUSTOMER_EDIT = "customer_edit/{id}"
+    const val PURCHASES = "purchases"
+    const val PURCHASE_NEW = "purchase_new"
+    const val SUPPLIERS = "suppliers"
+    const val SUPPLIER = "supplier/{id}"
+    const val SUPPLIER_EDIT = "supplier_edit/{id}"
+    const val EXPENSES = "expenses"
+    const val EXPENSE_NEW = "expense_new"
+    const val REPORTS = "reports"
 
     fun productEdit(id: Long) = "product/$id"
     fun customer(id: Long) = "customer/$id"
     fun customerEdit(id: Long) = "customer_edit/$id"
+    fun supplier(id: Long) = "supplier/$id"
+    fun supplierEdit(id: Long) = "supplier_edit/$id"
 }
 
 /** Top-level moves (after login, sign out) clear the back stack so Back never returns to a signed-out screen. */
@@ -80,5 +90,17 @@ fun ErpNavHost() {
         composable(Routes.CUSTOMER_EDIT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
             CustomerEditScreen(e.arguments?.getLong("id") ?: 0L, back)
         }
+        composable(Routes.PURCHASES) { PurchasesScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.PURCHASE_NEW) { PurchaseNewScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.SUPPLIERS) { SuppliersScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.SUPPLIER, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            SupplierDetailScreen(e.arguments?.getLong("id") ?: 0L, go = { nav.navigate(it) }, onBack = back)
+        }
+        composable(Routes.SUPPLIER_EDIT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            SupplierEditScreen(e.arguments?.getLong("id") ?: 0L, back)
+        }
+        composable(Routes.EXPENSES) { ExpensesScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.EXPENSE_NEW) { ExpenseNewScreen(back) }
+        composable(Routes.REPORTS) { ReportsScreen(tab = { nav.goTab(it) }) }
     }
 }

@@ -20,8 +20,10 @@ class Converters {
     entities = [
         ProductEntity::class, CustomerEntity::class, SaleEntity::class, SaleItemEntity::class,
         StaffEntity::class, DocCounterEntity::class, DuePaymentEntity::class,
+        SupplierEntity::class, PurchaseEntity::class, PurchaseItemEntity::class, SupplierPaymentEntity::class,
+        ExpenseEntity::class,
     ],
-    version = 3,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -31,6 +33,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun sales(): SaleDao
     abstract fun staff(): StaffDao
     abstract fun docCounters(): DocCounterDao
+    abstract fun suppliers(): SupplierDao
+    abstract fun purchases(): PurchaseDao
+    abstract fun expenses(): ExpenseDao
+    abstract fun reports(): ReportDao
 
     companion object {
         // Schema changes must be additive migrations: shop data on the phone is never wiped.
@@ -55,12 +61,64 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `supplier` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`phone` TEXT NOT NULL, `address` TEXT NOT NULL, `duePaisa` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_supplier_phone` ON `supplier` (`phone`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_supplier_name` ON `supplier` (`name`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `purchase` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, " +
+                        "`supplierId` INTEGER, `subtotalPaisa` INTEGER NOT NULL, `discountPaisa` INTEGER NOT NULL, `totalPaisa` INTEGER NOT NULL, " +
+                        "`paidPaisa` INTEGER NOT NULL, `method` TEXT NOT NULL, `staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_purchase_number` ON `purchase` (`number`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_createdAt` ON `purchase` (`createdAt`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_supplierId` ON `purchase` (`supplierId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `purchase_item` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `purchaseId` INTEGER NOT NULL, " +
+                        "`productId` INTEGER NOT NULL, `name` TEXT NOT NULL, `qtyMilli` INTEGER NOT NULL, `unitCostPaisa` INTEGER NOT NULL, " +
+                        "`lineTotalPaisa` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`purchaseId`) REFERENCES `purchase`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_item_purchaseId` ON `purchase_item` (`purchaseId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_item_productId` ON `purchase_item` (`productId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `supplier_payment` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, " +
+                        "`supplierId` INTEGER NOT NULL, `amountPaisa` INTEGER NOT NULL, `method` TEXT NOT NULL, `note` TEXT NOT NULL, " +
+                        "`staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_supplier_payment_supplierId` ON `supplier_payment` (`supplierId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_supplier_payment_createdAt` ON `supplier_payment` (`createdAt`)")
+            }
+        }
+
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `expense` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, " +
+                        "`category` TEXT NOT NULL, `amountPaisa` INTEGER NOT NULL, `method` TEXT NOT NULL, `note` TEXT NOT NULL, " +
+                        "`staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_expense_createdAt` ON `expense` (`createdAt`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_expense_category` ON `expense` (`category`)")
+            }
+        }
+
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE sale_item ADD COLUMN unitCostPaisa INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun open(context: Context): AppDatabase {
             System.loadLibrary("sqlcipher")
             val factory = SupportOpenHelperFactory(DbKey.get(context))
             return Room.databaseBuilder(context, AppDatabase::class.java, "shop.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
         }
     }

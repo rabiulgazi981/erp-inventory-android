@@ -143,6 +143,7 @@ object PanelColors {
     val Blue = Color(0xFFBFD2FD)
     val Green = Color(0xFFBBF7D0)
     val Orange = Color(0xFFFED7AA)
+    val Purple = Color(0xFFE9D5FF)
 }
 
 /** White top bar, 56dp, with an optional back arrow. */
