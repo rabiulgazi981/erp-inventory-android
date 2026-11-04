@@ -6,6 +6,7 @@ import com.bongshaltech.erpinventory.core.DocType
 import com.bongshaltech.erpinventory.data.db.AppDatabase
 import com.bongshaltech.erpinventory.data.db.CustomerEntity
 import com.bongshaltech.erpinventory.data.db.DocCounterEntity
+import com.bongshaltech.erpinventory.data.db.DuePaymentEntity
 import com.bongshaltech.erpinventory.data.db.PayMethod
 import com.bongshaltech.erpinventory.data.db.ProductEntity
 import com.bongshaltech.erpinventory.data.db.SaleEntity
@@ -89,6 +90,35 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             }
         } catch (e: NotEnough) {
             SaleResult.NotEnoughStock(e.productName)
+        }
+    }
+
+    /** Adds or edits a customer. Returns false when another customer already has this phone. */
+    suspend fun saveCustomer(c: CustomerEntity): Boolean {
+        val phone = c.phone.filter(Char::isDigit)
+        val other = db.customers().byPhone(phone)
+        if (other != null && other.id != c.id) return false
+        val clean = c.copy(name = c.name.trim(), phone = phone, address = c.address.trim())
+        if (c.id == 0L) db.customers().insert(clean) else db.customers().update(clean)
+        return true
+    }
+
+    /** Takes a payment against a customer's due. The amount is capped at what they owe. Returns the receipt number. */
+    suspend fun collectDue(customerId: Long, amountPaisa: Long, method: PayMethod, note: String, staffId: Long?): String? {
+        val code = settings.current().shopCode
+        return db.withTransaction {
+            val c = db.customers().get(customerId) ?: return@withTransaction null
+            val amount = minOf(amountPaisa, c.duePaisa)
+            if (amount <= 0) return@withTransaction null
+            val year = LocalDate.now().year
+            val serial = DocNumber.next(db.docCounters().last(DocType.PAYMENT.name, year))
+            db.docCounters().set(DocCounterEntity(DocType.PAYMENT.name, year, serial))
+            val number = DocNumber.format(code, DocType.PAYMENT, year, serial)
+            db.customers().insertPayment(
+                DuePaymentEntity(number = number, customerId = customerId, amountPaisa = amount, method = method, note = note.trim(), staffId = staffId)
+            )
+            db.customers().addDue(customerId, -amount)
+            number
         }
     }
 

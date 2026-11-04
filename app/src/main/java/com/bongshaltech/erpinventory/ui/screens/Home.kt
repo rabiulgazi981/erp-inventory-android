@@ -152,7 +152,7 @@ fun HomeScreen(go: (String) -> Unit, tab: (Tab) -> Unit) {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Stat(stringResource(R.string.home_due), due.taka0(), stringResource(R.string.home_due_customers, dueCount), valueColor = Brand.Amber) {
-                    go(Routes.SOON)
+                    if (who.can(StaffMenu.CUSTOMERS)) go(Routes.CUSTOMERS_DUE)
                 }
                 Stat(stringResource(R.string.home_low_stock), pluralStringResource(R.plurals.home_items, low, low), stringResource(R.string.home_tap_reorder),
                     valueColor = if (low > 0) Brand.Red else Ui.c.text) {
@@ -164,7 +164,7 @@ fun HomeScreen(go: (String) -> Unit, tab: (Tab) -> Unit) {
                     QuickAction(Icons.Outlined.ShoppingCart, Tints.Blue, stringResource(R.string.home_new_sale)) { go(Routes.SALE) }
                     if (who.can(StaffMenu.PRODUCTS)) QuickAction(Icons.Outlined.Add, Tints.Green, stringResource(R.string.product_add)) { go(Routes.productEdit(0)) }
                     if (who.can(StaffMenu.PURCHASE)) QuickAction(Icons.Outlined.Inventory2, Tints.Orange, stringResource(R.string.home_purchase)) { go(Routes.SOON) }
-                    if (who.can(StaffMenu.CUSTOMERS)) QuickAction(Icons.Outlined.Payments, Tints.Purple, stringResource(R.string.home_collect_due)) { go(Routes.SOON) }
+                    if (who.can(StaffMenu.CUSTOMERS)) QuickAction(Icons.Outlined.Payments, Tints.Purple, stringResource(R.string.home_collect_due)) { go(Routes.CUSTOMERS_DUE) }
                 }
             }
             Card(Modifier.fillMaxWidth(), padding = 12.dp) {

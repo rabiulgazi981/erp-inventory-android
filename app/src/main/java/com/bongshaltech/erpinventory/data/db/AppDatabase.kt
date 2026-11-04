@@ -19,9 +19,9 @@ class Converters {
 @Database(
     entities = [
         ProductEntity::class, CustomerEntity::class, SaleEntity::class, SaleItemEntity::class,
-        StaffEntity::class, DocCounterEntity::class,
+        StaffEntity::class, DocCounterEntity::class, DuePaymentEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -41,12 +41,26 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE customer ADD COLUMN type TEXT NOT NULL DEFAULT 'RETAIL'")
+                db.execSQL("ALTER TABLE customer ADD COLUMN address TEXT NOT NULL DEFAULT ''")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `due_payment` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, " +
+                        "`customerId` INTEGER NOT NULL, `amountPaisa` INTEGER NOT NULL, `method` TEXT NOT NULL, `note` TEXT NOT NULL, " +
+                        "`staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_due_payment_customerId` ON `due_payment` (`customerId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_due_payment_createdAt` ON `due_payment` (`createdAt`)")
+            }
+        }
+
         fun open(context: Context): AppDatabase {
             System.loadLibrary("sqlcipher")
             val factory = SupportOpenHelperFactory(DbKey.get(context))
             return Room.databaseBuilder(context, AppDatabase::class.java, "shop.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
         }
     }

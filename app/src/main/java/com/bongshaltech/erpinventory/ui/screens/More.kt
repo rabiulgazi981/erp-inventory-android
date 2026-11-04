@@ -152,7 +152,7 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
             Card(Modifier.fillMaxWidth(), padding = 12.dp) {
                 Row {
                     val soon = { go(Routes.SOON) }
-                    BizTile(Icons.Outlined.People, Tints.Blue, stringResource(R.string.home_customers), soon)
+                    BizTile(Icons.Outlined.People, Tints.Blue, stringResource(R.string.home_customers)) { go(Routes.CUSTOMERS) }
                     BizTile(Icons.Outlined.LocalShipping, Tints.Orange, stringResource(R.string.suppliers), soon)
                     BizTile(Icons.Outlined.Inventory2, Tints.Green, stringResource(R.string.purchases), soon)
                     BizTile(Icons.Outlined.ReceiptLong, Tints.Purple, stringResource(R.string.expenses), soon)
