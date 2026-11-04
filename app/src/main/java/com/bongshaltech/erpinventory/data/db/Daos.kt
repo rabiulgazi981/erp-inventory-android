@@ -16,6 +16,9 @@ interface ProductDao {
     @Query("SELECT * FROM product WHERE id = :id")
     suspend fun get(id: Long): ProductEntity?
 
+    @Query("SELECT * FROM product WHERE active = 1 AND barcode = :code LIMIT 1")
+    suspend fun byBarcode(code: String): ProductEntity?
+
     @Query("SELECT * FROM product WHERE active = 1 AND stockMilli <= lowStockMilli AND (:q = '' OR name LIKE '%' || :q || '%' OR barcode = :q) ORDER BY name COLLATE NOCASE")
     fun searchLow(q: String): Flow<List<ProductEntity>>
 
