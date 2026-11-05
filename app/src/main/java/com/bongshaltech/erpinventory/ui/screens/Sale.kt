@@ -328,7 +328,7 @@ fun SaleScreen(onBack: () -> Unit) {
                             saved = r; message = null
                             if (sms && hasPhone) {
                                 val due = (total - paidPaisa).coerceAtLeast(0)
-                                sendSmsFromSim(ctx, digits, smsPreview(settings?.profile?.name.orEmpty(), r.number, total, due))
+                                sendReceiptSms(ctx, scope, digits, smsPreview(settings?.profile?.name.orEmpty(), r.number, total, due), "sale-${r.number}")
                             }
                         }
                         is SaleResult.NotEnoughStock -> message = notEnough.replace("%s", r.productName)
@@ -354,6 +354,33 @@ fun SaleScreen(onBack: () -> Unit) {
 /** What the receipt SMS will say, used to count SMS parts before sending. */
 fun smsPreview(shop: String, number: String, totalPaisa: Long, duePaisa: Long = 0) =
     "$shop: Memo $number, total Tk ${totalPaisa / 100}" + (if (duePaisa > 0) ", due Tk ${duePaisa / 100}" else "") + ". Thank you!"
+
+/**
+ * Sends through the shop's SMS pack when an SMS account is connected; falls back to the shop's
+ * own SIM when there is no credit, no internet, or the gateway is down.
+ */
+fun sendReceiptSms(ctx: android.content.Context, scope: kotlinx.coroutines.CoroutineScope, phone: String, text: String, key: String) {
+    if (com.bongshaltech.erpinventory.data.SmsCloud.signedInEmail(ctx) == null) return sendSmsFromSim(ctx, phone, text)
+    scope.launch {
+        when (val r = com.bongshaltech.erpinventory.data.SmsCloud.send(ctx, phone, text, key)) {
+            is com.bongshaltech.erpinventory.data.SmsCloud.Send.Sent ->
+                Toast.makeText(ctx, ctx.getString(R.string.sms_sent, r.balance), Toast.LENGTH_SHORT).show()
+            is com.bongshaltech.erpinventory.data.SmsCloud.Send.UseSim -> {
+                Toast.makeText(ctx, ctx.getString(simReason(r.reason)), Toast.LENGTH_LONG).show()
+                sendSmsFromSim(ctx, phone, text)
+            }
+            is com.bongshaltech.erpinventory.data.SmsCloud.Send.Failed ->
+                Toast.makeText(ctx, ctx.getString(R.string.sms_failed, r.message), Toast.LENGTH_LONG).show()
+        }
+    }
+}
+
+private fun simReason(r: com.bongshaltech.erpinventory.data.SmsCloud.Reason) = when (r) {
+    com.bongshaltech.erpinventory.data.SmsCloud.Reason.NO_BALANCE -> R.string.sms_sim_no_balance
+    com.bongshaltech.erpinventory.data.SmsCloud.Reason.OFFLINE -> R.string.sms_sim_offline
+    com.bongshaltech.erpinventory.data.SmsCloud.Reason.SIGNED_OUT -> R.string.sms_sim_signed_out
+    else -> R.string.sms_sim_busy
+}
 
 /**
  * Opens the phone's SMS app with the receipt filled in, so it goes from the shop's own SIM at the
