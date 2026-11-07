@@ -327,9 +327,9 @@
     <string name="sms_connect">Connect account</string>
     <string name="sms_email">Email</string>
     <string name="sms_password">Password</string>
-    <string name="sms_signup">No account yet? Start a free trial on erpinventory.bd</string>
+    <string name="sms_signup">No account yet? Request a free trial on erpinventory.bd</string>
     <string name="sms_wrong_login">Email or password is wrong</string>
-    <string name="sms_no_shop">This account has no shop yet. Finish signing up on erpinventory.bd first.</string>
+    <string name="sms_no_shop">This account has no shop yet. Request a free trial on erpinventory.bd, or call / WhatsApp 01938273878.</string>
     <string name="sms_offline">No internet. Try again when online.</string>
     <string name="sms_balance_is">%1$d SMS left</string>
     <string name="sms_balance_unknown">Balance not available right now</string>

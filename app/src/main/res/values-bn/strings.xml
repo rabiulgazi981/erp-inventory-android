@@ -326,9 +326,9 @@
     <string name="sms_connect">অ্যাকাউন্ট যুক্ত করুন</string>
     <string name="sms_email">ইমেইল</string>
     <string name="sms_password">পাসওয়ার্ড</string>
-    <string name="sms_signup">অ্যাকাউন্ট নেই? erpinventory.bd-তে ফ্রি ট্রায়াল শুরু করুন</string>
+    <string name="sms_signup">অ্যাকাউন্ট নেই? erpinventory.bd-তে ফ্রি ট্রায়ালের আবেদন করুন</string>
     <string name="sms_wrong_login">ইমেইল বা পাসওয়ার্ড ভুল</string>
-    <string name="sms_no_shop">এই অ্যাকাউন্টে এখনো দোকান নেই। আগে erpinventory.bd-তে সাইনআপ শেষ করুন।</string>
+    <string name="sms_no_shop">এই অ্যাকাউন্টে এখনো দোকান নেই। erpinventory.bd-তে ফ্রি ট্রায়ালের আবেদন করুন, অথবা WhatsApp বা কল করুন: 01938273878।</string>
     <string name="sms_offline">ইন্টারনেট নেই। অনলাইনে এসে আবার চেষ্টা করুন।</string>
     <string name="sms_balance_is">%1$dটি SMS বাকি</string>
     <string name="sms_balance_unknown">এখন ব্যালেন্স দেখা যাচ্ছে না</string>
