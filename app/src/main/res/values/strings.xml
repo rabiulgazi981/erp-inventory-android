@@ -160,7 +160,7 @@
     <string name="go_ad_free">Go ad-free</string>
     <string name="sms_customers">SMS receipt on by default</string>
     <string name="sms_default_note">You can still turn it off on each sale</string>
-    <string name="backup">Backup to Google Drive</string>
+    <string name="backup">Backup &amp; restore</string>
     <string name="printer">Receipt printer</string>
     <string name="appearance">Appearance</string>
     <string name="light">Light</string>
@@ -320,4 +320,25 @@
     <string name="rep_customers_owe">Customers owe (now)</string>
     <string name="rep_top_products">Top products</string>
     <string name="rep_by_day">Sales by day</string>
+    <string name="bk_never">No backup yet. Save one today, so a lost or broken phone does not lose the shop.</string>
+    <string name="bk_last">Last backup: %1$s</string>
+    <string name="bk_save_panel">Save a backup</string>
+    <string name="bk_save_help">Saves everything (products, sales, customers, dues, purchases, expenses, mobile banking, settings) in one file. In the next screen pick Google Drive to keep it safe online, or save it on the phone.</string>
+    <string name="bk_pass">Backup password</string>
+    <string name="bk_pass_again">Password again</string>
+    <string name="bk_pass_note">Write this password down. Without it the backup cannot be opened, not even by us.</string>
+    <string name="bk_pass_short">At least 6 characters</string>
+    <string name="bk_pass_mismatch">The two passwords are not the same</string>
+    <string name="bk_save">Save backup file</string>
+    <string name="bk_working">Please wait…</string>
+    <string name="bk_saved">Backup saved</string>
+    <string name="bk_failed">Could not save the backup. Try again or pick another place.</string>
+    <string name="bk_restore_panel">Restore</string>
+    <string name="bk_restore_help">On a new phone, or after reinstalling: pick the backup file (from Google Drive or the phone) and enter its password.</string>
+    <string name="bk_restore">Restore from a backup</string>
+    <string name="bk_restore_warn">This replaces everything on this phone with the backup. The app restarts afterwards.</string>
+    <string name="bk_restore_now">Restore now</string>
+    <string name="bk_wrong_pass">Wrong password</string>
+    <string name="bk_not_backup">This is not an ERP Inventory backup file</string>
+    <string name="bk_cancel">Cancel</string>
 </resources>
