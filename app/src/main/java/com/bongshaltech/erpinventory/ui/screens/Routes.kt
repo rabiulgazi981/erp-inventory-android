@@ -35,12 +35,16 @@ object Routes {
     const val EXPENSES = "expenses"
     const val EXPENSE_NEW = "expense_new"
     const val REPORTS = "reports"
+    const val MFS = "mfs"
+    const val MFS_ENTRY = "mfs_entry/{id}"
+    const val MFS_WALLETS = "mfs_wallets"
 
     fun productEdit(id: Long) = "product/$id"
     fun customer(id: Long) = "customer/$id"
     fun customerEdit(id: Long) = "customer_edit/$id"
     fun supplier(id: Long) = "supplier/$id"
     fun supplierEdit(id: Long) = "supplier_edit/$id"
+    fun mfsEntry(walletId: Long) = "mfs_entry/$walletId"
 }
 
 /** Top-level moves (after login, sign out) clear the back stack so Back never returns to a signed-out screen. */
@@ -101,6 +105,11 @@ fun ErpNavHost() {
         }
         composable(Routes.EXPENSES) { ExpensesScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.EXPENSE_NEW) { ExpenseNewScreen(back) }
+        composable(Routes.MFS) { MfsScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.MFS_ENTRY, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            MfsEntryScreen(e.arguments?.getLong("id") ?: 0L, back)
+        }
+        composable(Routes.MFS_WALLETS) { MfsWalletsScreen(back) }
         composable(Routes.REPORTS) { ReportsScreen(tab = { nav.goTab(it) }) }
     }
 }

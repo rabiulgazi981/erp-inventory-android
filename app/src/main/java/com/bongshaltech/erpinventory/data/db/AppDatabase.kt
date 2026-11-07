@@ -21,9 +21,9 @@ class Converters {
         ProductEntity::class, CustomerEntity::class, SaleEntity::class, SaleItemEntity::class,
         StaffEntity::class, DocCounterEntity::class, DuePaymentEntity::class,
         SupplierEntity::class, PurchaseEntity::class, PurchaseItemEntity::class, SupplierPaymentEntity::class,
-        ExpenseEntity::class,
+        ExpenseEntity::class, MfsWalletEntity::class, MfsTxnEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -37,6 +37,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun purchases(): PurchaseDao
     abstract fun expenses(): ExpenseDao
     abstract fun reports(): ReportDao
+    abstract fun mfs(): MfsDao
 
     companion object {
         // Schema changes must be additive migrations: shop data on the phone is never wiped.
@@ -113,12 +114,32 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `mfs_wallet` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `provider` TEXT NOT NULL, " +
+                        "`personal` INTEGER NOT NULL, `number` TEXT NOT NULL, `balancePaisa` INTEGER NOT NULL, `cashInPct` REAL NOT NULL, " +
+                        "`cashOutPct` REAL NOT NULL, `paymentPct` REAL NOT NULL, `loadPct` REAL NOT NULL, `active` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_mfs_wallet_provider` ON `mfs_wallet` (`provider`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `mfs_txn` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, " +
+                        "`walletId` INTEGER NOT NULL, `type` TEXT NOT NULL, `customerPhone` TEXT NOT NULL, `amountPaisa` INTEGER NOT NULL, " +
+                        "`chargePaisa` INTEGER NOT NULL, `feePaisa` INTEGER NOT NULL, `walletDeltaPaisa` INTEGER NOT NULL, " +
+                        "`cashDeltaPaisa` INTEGER NOT NULL, `earningPaisa` INTEGER NOT NULL, `via` TEXT NOT NULL, `trxId` TEXT NOT NULL, " +
+                        "`note` TEXT NOT NULL, `staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_mfs_txn_walletId` ON `mfs_txn` (`walletId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_mfs_txn_createdAt` ON `mfs_txn` (`createdAt`)")
+            }
+        }
+
         fun open(context: Context): AppDatabase {
             System.loadLibrary("sqlcipher")
             val factory = SupportOpenHelperFactory(DbKey.get(context))
             return Room.databaseBuilder(context, AppDatabase::class.java, "shop.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .build()
         }
     }

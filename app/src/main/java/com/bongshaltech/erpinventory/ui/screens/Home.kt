@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bongshaltech.erpinventory.R
+import com.bongshaltech.erpinventory.data.SharedSms
 import com.bongshaltech.erpinventory.data.Session
 import com.bongshaltech.erpinventory.data.StaffMenu
 import com.bongshaltech.erpinventory.data.menuSet
@@ -118,6 +120,12 @@ fun HomeScreen(go: (String) -> Unit, tab: (Tab) -> Unit) {
     val dateFmt = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
     val dayTimeFmt = remember { SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()) }
     val showMoney = who.can(StaffMenu.REPORTS)
+    // A wallet SMS shared to the app goes straight to a new mobile banking entry once someone is signed in.
+    LaunchedEffect(who.ready) {
+        if (who.ready && SharedSms.text != null) {
+            if (who.can(StaffMenu.MOBILE_BANKING)) go(Routes.mfsEntry(0)) else SharedSms.text = null
+        }
+    }
 
     Column(Modifier.fillMaxSize().background(Ui.c.bg)) {
         Row(

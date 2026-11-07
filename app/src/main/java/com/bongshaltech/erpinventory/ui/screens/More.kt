@@ -190,8 +190,8 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     trailing = { Toggle(s?.mobileBankingOn == true, { on -> scope.launch { app.settings.setMobileBanking(on) } }) },
                 )
                 if (s?.mobileBankingOn == true) {
-                    ListRow(stringResource(R.string.mfs_open), trailing = { Chevron() }) { go(Routes.SOON) }
-                    ListRow(stringResource(R.string.mfs_rates), last = true, trailing = { Chevron() }) { go(Routes.SOON) }
+                    ListRow(stringResource(R.string.mfs_open), trailing = { Chevron() }) { go(Routes.MFS) }
+                    ListRow(stringResource(R.string.mfs_rates), last = true, trailing = { Chevron() }) { go(Routes.MFS_WALLETS) }
                 }
             }
 
