@@ -170,7 +170,7 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     }, sub = stringResource(R.string.sms_default_note))
                     ListRow(stringResource(R.string.backup), Icons.Outlined.CloudUpload, Tints.Blue, trailing = { Chevron() }) { go(Routes.SOON) }
                 }
-                ListRow(stringResource(R.string.printer), Icons.Outlined.Print, Tints.Grey, trailing = { Chevron() }) { go(Routes.SOON) }
+                ListRow(stringResource(R.string.printer), Icons.Outlined.Print, Tints.Grey, trailing = { Chevron() }) { go(Routes.PRINTER) }
                 ListRow(stringResource(R.string.appearance), Icons.Outlined.Contrast, Tints.Indigo, trailing = {
                     val mode = s?.theme ?: ThemeMode.SYSTEM
                     Segmented(

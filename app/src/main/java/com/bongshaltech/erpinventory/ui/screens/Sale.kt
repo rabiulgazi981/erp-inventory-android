@@ -94,7 +94,7 @@ private fun SquareAction(icon: ImageVector, grad: Brush, label: String, onClick:
 }
 
 @Composable
-fun SaleScreen(onBack: () -> Unit) {
+fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit) {
     val app = app()
     val ctx = LocalContext.current
     val who = rememberWho()
@@ -337,7 +337,14 @@ fun SaleScreen(onBack: () -> Unit) {
         AlertDialog(
             onDismissRequest = {},
             title = { T(stringResource(R.string.sale_saved, s.number), 18.sp, FontWeight.Bold) },
-            text = { T(s.totalPaisa.taka(), 26.sp, FontWeight.Bold, Brand.Blue) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    T(s.totalPaisa.taka(), 26.sp, FontWeight.Bold, Brand.Blue)
+                    WhiteButton(stringResource(R.string.sale_print), Modifier.fillMaxWidth(), height = 44.dp) {
+                        reset(); saved = null; go(Routes.receipt(s.id))
+                    }
+                }
+            },
             confirmButton = { GradButton(stringResource(R.string.sale_new), Brand.BlueGrad, height = 44.dp) { reset(); saved = null } },
             dismissButton = { WhiteButton(stringResource(R.string.sale_done), height = 44.dp) { saved = null; onBack() } },
             containerColor = Ui.c.card,
