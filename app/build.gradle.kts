@@ -89,6 +89,7 @@ dependencies {
     implementation(libs.coroutines.core)
 
     implementation(libs.play.services.ads)
+    implementation(libs.play.services.code.scanner)
 
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
