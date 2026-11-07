@@ -1,6 +1,6 @@
 [package]
 name = "erp-inventory-desktop"
-version = "1.0.0"
+version = "1.0.1"
 description = "ERP Inventory for Windows by Bongshal Tech"
 authors = ["Bongshal Tech"]
 edition = "2021"
