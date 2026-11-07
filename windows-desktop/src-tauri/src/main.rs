@@ -38,6 +38,13 @@ fn main() {
                 .min_inner_size(900.0, 600.0)
                 .maximized(true)
                 .center()
+                // Lets the dashboard know it runs inside the Windows app (e.g. to hide the
+                // "Download for Windows" button). Runs on every page before its own scripts.
+                .initialization_script(concat!(
+                    "window.erpDesktop = Object.freeze({ platform: 'windows', version: '",
+                    env!("CARGO_PKG_VERSION"),
+                    "' });"
+                ))
                 .on_navigation(move |url| {
                     if is_dashboard(url) {
                         true
