@@ -319,6 +319,8 @@
     <string name="rep_customers_owe">কাস্টমারের কাছে পাওনা (এখন)</string>
     <string name="rep_top_products">সবচেয়ে বেশি বিক্রি</string>
     <string name="rep_by_day">দিনভিত্তিক বিক্রি</string>
+    <string name="scan_failed">স্ক্যানার খোলা যায়নি। Google Play services আপডেট করে আবার চেষ্টা করুন।</string>
+    <string name="scan_not_found">%1$s বারকোডের কোনো পণ্য নেই। Products-এ যোগ করুন।</string>
     <string name="sms_no_app">এই ফোনে SMS অ্যাপ খোলা যায়নি।</string>
     <string name="sms_pack">SMS প্যাক</string>
     <string name="sms_pack_off">যুক্ত নেই · রসিদ যাবে আপনার SIM থেকে</string>

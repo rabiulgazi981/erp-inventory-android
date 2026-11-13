@@ -69,6 +69,7 @@ import com.bongshaltech.erpinventory.ui.components.Tag
 import com.bongshaltech.erpinventory.ui.components.Toggle
 import com.bongshaltech.erpinventory.ui.components.WhiteButton
 import com.bongshaltech.erpinventory.ui.qty
+import com.bongshaltech.erpinventory.ui.scanBarcode
 import com.bongshaltech.erpinventory.ui.taka
 import com.bongshaltech.erpinventory.ui.theme.Brand
 import com.bongshaltech.erpinventory.ui.theme.Tints
@@ -94,7 +95,7 @@ private fun SquareAction(icon: ImageVector, grad: Brush, label: String, onClick:
 }
 
 @Composable
-fun SaleScreen(onBack: () -> Unit) {
+fun SaleScreen(onBack: () -> Unit, startScan: Boolean = false) {
     val app = app()
     val ctx = LocalContext.current
     val who = rememberWho()
@@ -142,6 +143,15 @@ fun SaleScreen(onBack: () -> Unit) {
         if (i >= 0) cart[i] = cart[i].copy(qtyMilli = cart[i].qtyMilli + 1000) else cart.add(CartLine(p, 1000))
         q = ""
     }
+    fun scan() = scanBarcode(ctx) { code ->
+        scope.launch {
+            val p = app.repo.products.byBarcode(code)
+            if (p != null) addProduct(p)
+            else { q = code; Toast.makeText(ctx, ctx.getString(R.string.scan_not_found, code), Toast.LENGTH_LONG).show() }
+        }
+    }
+    // Home's scan button opens the sale screen straight into the scanner.
+    LaunchedEffect(Unit) { if (startScan) scan() }
     fun change(pId: Long, delta: Long) {
         val i = cart.indexOfFirst { it.product.id == pId }
         if (i < 0) return
@@ -197,9 +207,7 @@ fun SaleScreen(onBack: () -> Unit) {
             Panel(stringResource(R.string.panel_product), Brand.GreenGrad, PanelColors.Green) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Input(q, { q = it }, Modifier.weight(1f), placeholder = stringResource(R.string.search_product), height = 42.dp)
-                    SquareAction(Icons.Outlined.QrCodeScanner, Brand.GreenGrad, stringResource(R.string.scan)) {
-                        Toast.makeText(ctx, ctx.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show()
-                    }
+                    SquareAction(Icons.Outlined.QrCodeScanner, Brand.GreenGrad, stringResource(R.string.scan)) { scan() }
                 }
                 if (q.isNotBlank()) {
                     if (matches.isEmpty()) Muted(stringResource(R.string.no_match), 13.sp)
