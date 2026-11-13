@@ -131,7 +131,7 @@
     <string name="sale_due">Due</string>
     <string name="sale_change">Change</string>
     <string name="sale_sms">SMS receipt to customer</string>
-    <string name="sms_on_note">Sends to %1$s · %2$d SMS</string>
+    <string name="sms_on_note">Opens your SMS app for %1$s · %2$d SMS from your SIM</string>
     <string name="sms_off_note">Off for this sale · No SMS used</string>
     <string name="sale_sms_needs_phone">Add the customer\'s mobile to send SMS</string>
     <string name="sale_hold">Hold</string>
@@ -377,4 +377,28 @@
     <string name="mfs_rate_out">Cash out %</string>
     <string name="mfs_rate_pay">Payment %</string>
     <string name="mfs_save_wallet">Save</string>
+    <string name="sms_no_app">Could not open an SMS app on this phone.</string>
+    <string name="sms_pack">SMS pack</string>
+    <string name="sms_pack_off">Not connected · receipts go from your SIM</string>
+    <string name="sms_pack_help">With an SMS pack, receipts go out by themselves from the shop\'s name, without your SIM. Connect the shop\'s erpinventory.bd account. If the pack runs out or there is no internet, the app falls back to your SIM.</string>
+    <string name="sms_connect">Connect account</string>
+    <string name="sms_email">Email</string>
+    <string name="sms_password">Password</string>
+    <string name="sms_signup">No account yet? Request a free trial on erpinventory.bd</string>
+    <string name="sms_wrong_login">Email or password is wrong</string>
+    <string name="sms_no_shop">This account has no shop yet. Request a free trial on erpinventory.bd, or call / WhatsApp 01938273878.</string>
+    <string name="sms_offline">No internet. Try again when online.</string>
+    <string name="sms_balance_is">%1$d SMS left</string>
+    <string name="sms_balance_unknown">Balance not available right now</string>
+    <string name="sms_last_topup">Last top-up: %1$d SMS on %2$s</string>
+    <string name="sms_segments">English: 160 letters per SMS. Bangla: 70 letters per SMS.</string>
+    <string name="sms_buy">Buy SMS pack on WhatsApp</string>
+    <string name="sms_disconnect">Disconnect</string>
+    <string name="sms_sent">SMS sent · %1$d left</string>
+    <string name="sms_failed">SMS not sent: %1$s</string>
+    <string name="sms_sim_no_balance">SMS pack is empty, sending from your SIM</string>
+    <string name="sms_sim_offline">No internet, sending from your SIM</string>
+    <string name="sms_sim_signed_out">SMS account signed out, sending from your SIM</string>
+    <string name="sms_sim_busy">SMS service busy, sending from your SIM</string>
+    <string name="sms_working">Please wait…</string>
 </resources>

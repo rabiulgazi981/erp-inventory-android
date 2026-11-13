@@ -38,6 +38,7 @@ object Routes {
     const val MFS = "mfs"
     const val MFS_ENTRY = "mfs_entry/{id}"
     const val MFS_WALLETS = "mfs_wallets"
+    const val SMS_ACCOUNT = "sms_account"
 
     fun productEdit(id: Long) = "product/$id"
     fun customer(id: Long) = "customer/$id"
@@ -110,6 +111,7 @@ fun ErpNavHost() {
             MfsEntryScreen(e.arguments?.getLong("id") ?: 0L, back)
         }
         composable(Routes.MFS_WALLETS) { MfsWalletsScreen(back) }
+        composable(Routes.SMS_ACCOUNT) { SmsAccountScreen(back) }
         composable(Routes.REPORTS) { ReportsScreen(tab = { nav.goTab(it) }) }
     }
 }
