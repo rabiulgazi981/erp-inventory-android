@@ -37,6 +37,15 @@ object DbKey {
         return pass
     }
 
+    /** Replaces the passphrase, used when a backup from another phone is restored. */
+    fun set(context: Context, pass: ByteArray) {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, wrapKey())
+        val wrapped = Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" +
+            Base64.encodeToString(cipher.doFinal(pass), Base64.NO_WRAP)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("wrapped", wrapped).commit()
+    }
+
     private fun wrapKey(): SecretKey {
         val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (ks.getKey(ALIAS, null) as? SecretKey)?.let { return it }

@@ -47,6 +47,8 @@ data class AppSettings(
     val smsDefaultOn: Boolean,
     val mobileBankingOn: Boolean,
     val theme: ThemeMode,
+    /** When the owner last saved a backup file, 0 if never. */
+    val lastBackupAt: Long,
 )
 
 private val Context.store by preferencesDataStore("settings")
@@ -70,6 +72,7 @@ class SettingsRepo(private val context: Context) {
         val bin = stringPreferencesKey("biz_bin")
         val thanks = stringPreferencesKey("biz_thanks")
         val returnPolicy = stringPreferencesKey("biz_return")
+        val lastBackup = longPreferencesKey("last_backup_at")
     }
 
     val settings: Flow<AppSettings> = context.store.data.map(::read)
@@ -94,7 +97,10 @@ class SettingsRepo(private val context: Context) {
         smsDefaultOn = p[K.smsDefault] ?: false,
         mobileBankingOn = p[K.mfs] ?: false,
         theme = p[K.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
+        lastBackupAt = p[K.lastBackup] ?: 0L,
     )
+
+    suspend fun setLastBackup(at: Long) = context.store.edit { it[K.lastBackup] = at }
 
     suspend fun ensureInstalledAt() = context.store.edit { if (it[K.installedAt] == null) it[K.installedAt] = System.currentTimeMillis() }
 
