@@ -130,7 +130,7 @@
     <string name="sale_due">বাকি</string>
     <string name="sale_change">ফেরত</string>
     <string name="sale_sms">কাস্টমারকে SMS রসিদ</string>
-    <string name="sms_on_note">%1$s নম্বরে যাবে · %2$dটি SMS</string>
+    <string name="sms_on_note">%1$s নম্বরে আপনার SIM থেকে · %2$dটি SMS</string>
     <string name="sms_off_note">এই বিক্রিতে বন্ধ · কোনো SMS খরচ হবে না</string>
     <string name="sale_sms_needs_phone">SMS পাঠাতে কাস্টমারের মোবাইল দিন</string>
     <string name="sale_hold">হোল্ড</string>
@@ -321,4 +321,28 @@
     <string name="rep_by_day">দিনভিত্তিক বিক্রি</string>
     <string name="scan_failed">স্ক্যানার খোলা যায়নি। Google Play services আপডেট করে আবার চেষ্টা করুন।</string>
     <string name="scan_not_found">%1$s বারকোডের কোনো পণ্য নেই। Products-এ যোগ করুন।</string>
+    <string name="sms_no_app">এই ফোনে SMS অ্যাপ খোলা যায়নি।</string>
+    <string name="sms_pack">SMS প্যাক</string>
+    <string name="sms_pack_off">যুক্ত নেই · রসিদ যাবে আপনার SIM থেকে</string>
+    <string name="sms_pack_help">SMS প্যাক থাকলে রসিদ দোকানের নামে নিজে থেকেই চলে যায়, আপনার SIM লাগে না। দোকানের erpinventory.bd অ্যাকাউন্ট যুক্ত করুন। প্যাক শেষ হলে বা ইন্টারনেট না থাকলে SIM দিয়ে যাবে।</string>
+    <string name="sms_connect">অ্যাকাউন্ট যুক্ত করুন</string>
+    <string name="sms_email">ইমেইল</string>
+    <string name="sms_password">পাসওয়ার্ড</string>
+    <string name="sms_signup">অ্যাকাউন্ট নেই? erpinventory.bd-তে ফ্রি ট্রায়ালের আবেদন করুন</string>
+    <string name="sms_wrong_login">ইমেইল বা পাসওয়ার্ড ভুল</string>
+    <string name="sms_no_shop">এই অ্যাকাউন্টে এখনো দোকান নেই। erpinventory.bd-তে ফ্রি ট্রায়ালের আবেদন করুন, অথবা WhatsApp বা কল করুন: 01938273878।</string>
+    <string name="sms_offline">ইন্টারনেট নেই। অনলাইনে এসে আবার চেষ্টা করুন।</string>
+    <string name="sms_balance_is">%1$dটি SMS বাকি</string>
+    <string name="sms_balance_unknown">এখন ব্যালেন্স দেখা যাচ্ছে না</string>
+    <string name="sms_last_topup">শেষ রিচার্জ: %1$dটি SMS, %2$s</string>
+    <string name="sms_segments">ইংরেজিতে ১৬০ অক্ষরে ১টি SMS, বাংলায় ৭০ অক্ষরে ১টি SMS।</string>
+    <string name="sms_buy">WhatsApp-এ SMS প্যাক কিনুন</string>
+    <string name="sms_disconnect">যুক্ত বন্ধ করুন</string>
+    <string name="sms_sent">SMS গেছে · %1$dটি বাকি</string>
+    <string name="sms_failed">SMS যায়নি: %1$s</string>
+    <string name="sms_sim_no_balance">SMS প্যাক শেষ, আপনার SIM থেকে যাচ্ছে</string>
+    <string name="sms_sim_offline">ইন্টারনেট নেই, আপনার SIM থেকে যাচ্ছে</string>
+    <string name="sms_sim_signed_out">SMS অ্যাকাউন্ট থেকে বের হয়ে গেছে, আপনার SIM থেকে যাচ্ছে</string>
+    <string name="sms_sim_busy">SMS সার্ভিস ব্যস্ত, আপনার SIM থেকে যাচ্ছে</string>
+    <string name="sms_working">একটু অপেক্ষা করুন…</string>
 </resources>
