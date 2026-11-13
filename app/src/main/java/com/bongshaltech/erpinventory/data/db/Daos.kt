@@ -134,7 +134,7 @@ interface SaleDao {
 
     /**
      * Net cash since [from]: cash sales and cash due collected, minus cash paid for
-     * purchases, to suppliers and for expenses.
+     * purchases, to suppliers and for expenses, plus the cash side of mobile banking entries.
      */
     @Query(
         """SELECT
@@ -142,7 +142,8 @@ interface SaleDao {
            + (SELECT COALESCE(SUM(amountPaisa), 0) FROM due_payment WHERE createdAt >= :from AND method = 'CASH')
            - (SELECT COALESCE(SUM(paidPaisa), 0) FROM purchase WHERE createdAt >= :from AND method = 'CASH')
            - (SELECT COALESCE(SUM(amountPaisa), 0) FROM supplier_payment WHERE createdAt >= :from AND method = 'CASH')
-           - (SELECT COALESCE(SUM(amountPaisa), 0) FROM expense WHERE createdAt >= :from AND method = 'CASH')"""
+           - (SELECT COALESCE(SUM(amountPaisa), 0) FROM expense WHERE createdAt >= :from AND method = 'CASH')
+           + (SELECT COALESCE(SUM(cashDeltaPaisa), 0) FROM mfs_txn WHERE createdAt >= :from)"""
     )
     fun cashSince(from: Long): Flow<Long>
 
@@ -342,3 +343,65 @@ interface DocCounterDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun set(c: DocCounterEntity)
 }
+
+@Dao
+interface MfsDao {
+    @Query("SELECT * FROM mfs_wallet ORDER BY id")
+    fun wallets(): Flow<List<MfsWalletEntity>>
+
+    @Query("SELECT * FROM mfs_wallet ORDER BY id")
+    suspend fun allWallets(): List<MfsWalletEntity>
+
+    @Query("SELECT * FROM mfs_wallet WHERE id = :id")
+    suspend fun wallet(id: Long): MfsWalletEntity?
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertWallets(w: List<MfsWalletEntity>)
+
+    @Update
+    suspend fun updateWallet(w: MfsWalletEntity)
+
+    @Query("UPDATE mfs_wallet SET balancePaisa = balancePaisa + :delta WHERE id = :id")
+    suspend fun addBalance(id: Long, delta: Long)
+
+    @Insert
+    suspend fun insertTxn(t: MfsTxnEntity): Long
+
+    @Query(
+        """SELECT t.*, w.provider AS provider FROM mfs_txn t JOIN mfs_wallet w ON w.id = t.walletId
+           WHERE t.createdAt >= :from ORDER BY t.createdAt DESC LIMIT :limit"""
+    )
+    fun recent(from: Long, limit: Int): Flow<List<MfsTxnRow>>
+
+    @Query(
+        """SELECT COUNT(*) AS count, COALESCE(SUM(earningPaisa), 0) AS earningPaisa, COALESCE(SUM(cashDeltaPaisa), 0) AS cashPaisa
+           FROM mfs_txn WHERE createdAt >= :from"""
+    )
+    fun summary(from: Long): Flow<MfsSummary>
+
+    /** Customer numbers seen on past entries, for matching masked numbers in a shared SMS. */
+    @Query("SELECT DISTINCT customerPhone FROM mfs_txn WHERE customerPhone != '' UNION SELECT phone FROM customer")
+    suspend fun knownNumbers(): List<String>
+}
+
+data class MfsTxnRow(
+    val id: Long,
+    val number: String,
+    val walletId: Long,
+    val type: String,
+    val customerPhone: String,
+    val amountPaisa: Long,
+    val chargePaisa: Long,
+    val feePaisa: Long,
+    val walletDeltaPaisa: Long,
+    val cashDeltaPaisa: Long,
+    val earningPaisa: Long,
+    val via: String,
+    val trxId: String,
+    val note: String,
+    val staffId: Long?,
+    val createdAt: Long,
+    val provider: String,
+)
+
+data class MfsSummary(val count: Int, val earningPaisa: Long, val cashPaisa: Long)

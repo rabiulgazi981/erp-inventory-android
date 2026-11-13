@@ -174,3 +174,46 @@ data class StaffEntity(
 /** Last serial used per document type per year, so numbers restart every year and never repeat. */
 @Entity(tableName = "doc_counter", primaryKeys = ["type", "year"])
 data class DocCounterEntity(val type: String, val year: Int, val last: Int)
+
+/** One mobile banking wallet (bKash, Nagad...) or operator load balance (GP, Robi...) the shop runs. */
+@Entity(tableName = "mfs_wallet", indices = [Index(value = ["provider"], unique = true)])
+data class MfsWalletEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    /** [com.bongshaltech.erpinventory.data.MfsProvider] name. */
+    val provider: String,
+    /** Personal account instead of an agent account. */
+    val personal: Boolean = false,
+    val number: String = "",
+    val balancePaisa: Long = 0,
+    /** Commission the shop earns, in percent of the amount (0.4 = 0.4%). Set by the owner. */
+    val cashInPct: Double = 0.0,
+    val cashOutPct: Double = 0.0,
+    val paymentPct: Double = 0.0,
+    val loadPct: Double = 0.0,
+    val active: Boolean = false,
+)
+
+/** One mobile banking or load entry and what it did to the wallet, the cash drawer and the shop's earning. */
+@Entity(tableName = "mfs_txn", indices = [Index("walletId"), Index("createdAt")])
+data class MfsTxnEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val number: String,
+    val walletId: Long,
+    /** [com.bongshaltech.erpinventory.core.mfs.MfsType] name. */
+    val type: String,
+    val customerPhone: String,
+    val amountPaisa: Long,
+    /** Service charge taken from the customer (send money, pay bill) or the settled amount on balance in/out. */
+    val chargePaisa: Long,
+    /** Fee the wallet takes (send money, pay bill). */
+    val feePaisa: Long,
+    val walletDeltaPaisa: Long,
+    val cashDeltaPaisa: Long,
+    val earningPaisa: Long,
+    /** Balance in/out counterparty name, empty otherwise. */
+    val via: String,
+    val trxId: String,
+    val note: String,
+    val staffId: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+)
