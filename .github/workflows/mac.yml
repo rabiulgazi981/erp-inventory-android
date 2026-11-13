@@ -28,12 +28,16 @@ jobs:
           workspaces: mac-desktop/src-tauri
       - run: npm ci
       - run: npm run build -- --target universal-apple-darwin --bundles dmg
-      - name: Check the app signature
+      - name: Check the app inside the dmg (signature, Apple Silicon + Intel)
         run: |
-          APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/ERP Inventory.app"
+          DMG=$(ls src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg)
+          MNT=$(mktemp -d)
+          hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$DMG"
+          APP="$MNT/ERP Inventory.app"
           codesign --verify --deep --verbose=2 "$APP"
           lipo -archs "$APP/Contents/MacOS/"*
-          shasum -a 256 src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          hdiutil detach "$MNT"
+          shasum -a 256 "$DMG"
       - uses: actions/upload-artifact@v4
         with:
           name: ERP-Inventory-Mac
