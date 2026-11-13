@@ -1,0 +1,41 @@
+name: Mac desktop build
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths: ["mac-desktop/**", ".github/workflows/mac.yml"]
+  pull_request:
+    paths: ["mac-desktop/**", ".github/workflows/mac.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mac-desktop
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mac-desktop/src-tauri
+      - run: npm ci
+      - run: npm run build -- --target universal-apple-darwin --bundles dmg
+      - name: Check the app signature
+        run: |
+          APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/ERP Inventory.app"
+          codesign --verify --deep --verbose=2 "$APP"
+          lipo -archs "$APP/Contents/MacOS/"*
+          shasum -a 256 src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ERP-Inventory-Mac
+          path: mac-desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error
