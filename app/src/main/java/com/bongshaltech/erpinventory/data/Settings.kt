@@ -10,11 +10,12 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import com.bongshaltech.erpinventory.ui.theme.ThemeMode
 
 enum class ShopType { GENERAL, GROCERY, SUPER_SHOP, PHARMACY, RESTAURANT }
 
 /** Menus the owner can allow for a staff member. */
-enum class StaffMenu { SALE, PRODUCTS, CUSTOMERS, REPORTS, PURCHASE, EXPENSE, MOBILE_BANKING }
+enum class StaffMenu { SALE, CUSTOMERS, PRODUCTS, COST_PROFIT, PURCHASE, EXPENSE, REPORTS, DISCOUNT, MOBILE_BANKING }
 
 /** Prints on the POS memo and the PDF invoice. */
 data class BusinessProfile(
@@ -45,6 +46,7 @@ data class AppSettings(
     val installedAt: Long,
     val smsDefaultOn: Boolean,
     val mobileBankingOn: Boolean,
+    val theme: ThemeMode,
 )
 
 private val Context.store by preferencesDataStore("settings")
@@ -58,6 +60,7 @@ class SettingsRepo(private val context: Context) {
         val installedAt = longPreferencesKey("installed_at")
         val smsDefault = booleanPreferencesKey("sms_default_on")
         val mfs = booleanPreferencesKey("mobile_banking_on")
+        val theme = stringPreferencesKey("theme")
         val name = stringPreferencesKey("biz_name")
         val slogan = stringPreferencesKey("biz_slogan")
         val address = stringPreferencesKey("biz_address")
@@ -90,6 +93,7 @@ class SettingsRepo(private val context: Context) {
         installedAt = p[K.installedAt] ?: 0L,
         smsDefaultOn = p[K.smsDefault] ?: false,
         mobileBankingOn = p[K.mfs] ?: false,
+        theme = p[K.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
     )
 
     suspend fun ensureInstalledAt() = context.store.edit { if (it[K.installedAt] == null) it[K.installedAt] = System.currentTimeMillis() }
@@ -102,10 +106,11 @@ class SettingsRepo(private val context: Context) {
         }
     }
 
-    suspend fun finishOnboarding(type: ShopType, shopName: String, phone: String, code: String) = context.store.edit {
+    suspend fun finishOnboarding(type: ShopType, shopName: String, phone: String, address: String, code: String) = context.store.edit {
         it[K.shopType] = type.name
         it[K.name] = shopName
         it[K.phone] = phone
+        it[K.address] = address
         it[K.shopCode] = code
         it[K.onboarded] = true
     }
@@ -117,4 +122,5 @@ class SettingsRepo(private val context: Context) {
 
     suspend fun setSmsDefault(on: Boolean) = context.store.edit { it[K.smsDefault] = on }
     suspend fun setMobileBanking(on: Boolean) = context.store.edit { it[K.mfs] = on }
+    suspend fun setTheme(t: ThemeMode) = context.store.edit { it[K.theme] = t.name }
 }
