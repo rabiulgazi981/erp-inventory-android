@@ -107,9 +107,6 @@ class SettingsRepo(private val context: Context) {
         mobileBankingOn = p[K.mfs] ?: false,
         theme = p[K.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
         lastBackupAt = p[K.lastBackup] ?: 0L,
-    )
-
-    suspend fun setLastBackup(at: Long) = context.store.edit { it[K.lastBackup] = at }
         printerAddress = p[K.printerAddress] ?: "",
         printerName = p[K.printerName] ?: "",
         paperMm = p[K.paperMm] ?: 58,
@@ -120,6 +117,8 @@ class SettingsRepo(private val context: Context) {
     }
 
     suspend fun setPaper(mm: Int) = context.store.edit { it[K.paperMm] = mm }
+
+    suspend fun setLastBackup(at: Long) = context.store.edit { it[K.lastBackup] = at }
 
     suspend fun ensureInstalledAt() = context.store.edit { if (it[K.installedAt] == null) it[K.installedAt] = System.currentTimeMillis() }
 
