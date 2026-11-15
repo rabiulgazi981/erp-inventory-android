@@ -36,6 +36,7 @@ object Routes {
     const val EXPENSES = "expenses"
     const val EXPENSE_NEW = "expense_new"
     const val REPORTS = "reports"
+    const val BACKUP = "backup"
     const val RECEIPT = "receipt/{id}"
     const val PRINTER = "printer"
     const val SMS_ACCOUNT = "sms_account"
@@ -111,6 +112,7 @@ fun ErpNavHost() {
         }
         composable(Routes.EXPENSES) { ExpensesScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.EXPENSE_NEW) { ExpenseNewScreen(back) }
+        composable(Routes.BACKUP) { BackupScreen(back) }
         composable(Routes.SMS_ACCOUNT) { SmsAccountScreen(back) }
         composable(Routes.REPORTS) { ReportsScreen(tab = { nav.goTab(it) }) }
     }

@@ -48,6 +48,8 @@ data class AppSettings(
     val smsDefaultOn: Boolean,
     val mobileBankingOn: Boolean,
     val theme: ThemeMode,
+    /** When the owner last saved a backup file, 0 if never. */
+    val lastBackupAt: Long,
     /** Paired Bluetooth receipt printer, empty when none is chosen. */
     val printerAddress: String,
     val printerName: String,
@@ -76,6 +78,7 @@ class SettingsRepo(private val context: Context) {
         val bin = stringPreferencesKey("biz_bin")
         val thanks = stringPreferencesKey("biz_thanks")
         val returnPolicy = stringPreferencesKey("biz_return")
+        val lastBackup = longPreferencesKey("last_backup_at")
         val printerAddress = stringPreferencesKey("printer_address")
         val printerName = stringPreferencesKey("printer_name")
         val paperMm = intPreferencesKey("paper_mm")
@@ -103,6 +106,7 @@ class SettingsRepo(private val context: Context) {
         smsDefaultOn = p[K.smsDefault] ?: false,
         mobileBankingOn = p[K.mfs] ?: false,
         theme = p[K.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
+        lastBackupAt = p[K.lastBackup] ?: 0L,
         printerAddress = p[K.printerAddress] ?: "",
         printerName = p[K.printerName] ?: "",
         paperMm = p[K.paperMm] ?: 58,
@@ -113,6 +117,8 @@ class SettingsRepo(private val context: Context) {
     }
 
     suspend fun setPaper(mm: Int) = context.store.edit { it[K.paperMm] = mm }
+
+    suspend fun setLastBackup(at: Long) = context.store.edit { it[K.lastBackup] = at }
 
     suspend fun ensureInstalledAt() = context.store.edit { if (it[K.installedAt] == null) it[K.installedAt] = System.currentTimeMillis() }
 
