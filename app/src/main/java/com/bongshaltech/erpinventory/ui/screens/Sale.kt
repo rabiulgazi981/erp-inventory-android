@@ -120,6 +120,17 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
     var saved by remember { mutableStateOf<SaleResult.Saved?>(null) }
     var held by remember { mutableStateOf(HeldSale.lines.isNotEmpty()) }
 
+    // A quote or sales order sent here from Orders fills the cart once.
+    var fromOrder by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(Unit) {
+        com.bongshaltech.erpinventory.data.PendingDoc.sale?.let { d ->
+            com.bongshaltech.erpinventory.data.PendingDoc.sale = null
+            cart.clear(); cart.addAll(d.lines); phone = d.phone; custName = d.name; showName = d.name.isNotBlank()
+            if (d.discountPaisa > 0) discount = (d.discountPaisa / 100.0).toBigDecimal().stripTrailingZeros().toPlainString()
+            fromOrder = d.orderId
+        }
+    }
+
     // The per-sale SMS switch starts from the shop's default in More.
     LaunchedEffect(Unit) { sms = app.settings.current().smsDefaultOn }
 
@@ -333,6 +344,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                     )
                     when (r) {
                         is SaleResult.Saved -> {
+                            fromOrder?.let { app.repo.finishOrder(it, r.number) }; fromOrder = null
                             saved = r; message = null
                             if (sms && hasPhone) {
                                 val due = (total - paidPaisa).coerceAtLeast(0)

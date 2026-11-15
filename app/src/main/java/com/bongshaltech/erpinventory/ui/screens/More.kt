@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Replay
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.Badge
@@ -169,6 +170,7 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     ListRow(stringResource(R.string.sms_customers), Icons.Outlined.ChatBubbleOutline, Tints.Orange, trailing = {
                         Toggle(s?.smsDefaultOn == true, { on -> scope.launch { app.settings.setSmsDefault(on) } })
                     }, sub = stringResource(R.string.sms_default_note))
+                    ListRow(stringResource(R.string.orders), Icons.Outlined.Description, Tints.Blue, trailing = { Chevron() }) { go(Routes.ORDERS) }
                     ListRow(stringResource(R.string.returns), Icons.Outlined.Replay, Tints.Purple, trailing = { Chevron() }) { go(Routes.RETURNS) }
                     ListRow(stringResource(R.string.backup), Icons.Outlined.CloudUpload, Tints.Blue, trailing = { Chevron() }) { go(Routes.BACKUP) }
                     ListRow(stringResource(R.string.sms_pack), Icons.Outlined.ChatBubbleOutline, Tints.Teal, trailing = { Chevron() },

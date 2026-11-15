@@ -504,3 +504,33 @@ data class MfsTxnRow(
 )
 
 data class MfsSummary(val count: Int, val earningPaisa: Long, val cashPaisa: Long)
+
+@Dao
+interface OrderDao {
+    @Query("SELECT * FROM order_doc WHERE kind = :kind ORDER BY status = 'OPEN' DESC, createdAt DESC LIMIT 200")
+    fun list(kind: String): Flow<List<OrderDocEntity>>
+
+    @Query("SELECT * FROM order_doc WHERE id = :id")
+    suspend fun get(id: Long): OrderDocEntity?
+
+    @Query("SELECT * FROM order_doc_item WHERE docId = :id ORDER BY id")
+    suspend fun items(id: Long): List<OrderDocItemEntity>
+
+    @Insert
+    suspend fun insert(d: OrderDocEntity): Long
+
+    @Update
+    suspend fun update(d: OrderDocEntity)
+
+    @Query("DELETE FROM order_doc_item WHERE docId = :id")
+    suspend fun clearItems(id: Long)
+
+    @Insert
+    suspend fun insertItems(items: List<OrderDocItemEntity>)
+
+    @Query("UPDATE order_doc SET status = :status, doneAs = :doneAs WHERE id = :id")
+    suspend fun setStatus(id: Long, status: String, doneAs: String)
+
+    @Query("SELECT COUNT(*) FROM order_doc WHERE kind = :kind AND status = 'OPEN'")
+    fun openCount(kind: String): Flow<Int>
+}

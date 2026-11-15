@@ -23,8 +23,9 @@ class Converters {
         SupplierEntity::class, PurchaseEntity::class, PurchaseItemEntity::class, SupplierPaymentEntity::class,
         ExpenseEntity::class, MfsWalletEntity::class, MfsTxnEntity::class,
         SaleReturnEntity::class, SaleReturnItemEntity::class, PurchaseReturnEntity::class, PurchaseReturnItemEntity::class,
+        OrderDocEntity::class, OrderDocItemEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -40,6 +41,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun reports(): ReportDao
     abstract fun mfs(): MfsDao
     abstract fun returns(): ReturnDao
+    abstract fun orders(): OrderDao
 
     companion object {
         // Schema changes must be additive migrations: shop data on the phone is never wiped.
@@ -176,12 +178,33 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `order_doc` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, " +
+                        "`kind` TEXT NOT NULL, `status` TEXT NOT NULL, `partyName` TEXT NOT NULL, `partyPhone` TEXT NOT NULL, " +
+                        "`supplierId` INTEGER, `subtotalPaisa` INTEGER NOT NULL, `discountPaisa` INTEGER NOT NULL, `totalPaisa` INTEGER NOT NULL, " +
+                        "`note` TEXT NOT NULL, `doneAs` TEXT NOT NULL, `staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_order_doc_number` ON `order_doc` (`number`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_order_doc_kind` ON `order_doc` (`kind`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_order_doc_createdAt` ON `order_doc` (`createdAt`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `order_doc_item` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `docId` INTEGER NOT NULL, " +
+                        "`productId` INTEGER NOT NULL, `name` TEXT NOT NULL, `qtyMilli` INTEGER NOT NULL, `unitPricePaisa` INTEGER NOT NULL, " +
+                        "`lineTotalPaisa` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`docId`) REFERENCES `order_doc`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_order_doc_item_docId` ON `order_doc_item` (`docId`)")
+            }
+        }
+
         fun open(context: Context): AppDatabase {
             System.loadLibrary("sqlcipher")
             val factory = SupportOpenHelperFactory(DbKey.get(context))
             return Room.databaseBuilder(context, AppDatabase::class.java, "shop.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .build()
         }
     }

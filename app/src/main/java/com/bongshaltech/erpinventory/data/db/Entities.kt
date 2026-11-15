@@ -288,3 +288,45 @@ data class PurchaseReturnItemEntity(
     val qtyMilli: Long,
     val lineTotalPaisa: Long,
 )
+
+/** Quotation, sales order or purchase order: a list of goods and prices with no effect on stock or money until it is turned into a sale or purchase. */
+enum class OrderKind { QUOTE, SALES_ORDER, PURCHASE_ORDER }
+
+enum class OrderStatus { OPEN, DONE, CANCELLED }
+
+@Entity(tableName = "order_doc", indices = [Index(value = ["number"], unique = true), Index("kind"), Index("createdAt")])
+data class OrderDocEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val number: String,
+    /** [OrderKind] name. */
+    val kind: String,
+    /** [OrderStatus] name. */
+    val status: String = OrderStatus.OPEN.name,
+    val partyName: String = "",
+    val partyPhone: String = "",
+    val supplierId: Long? = null,
+    val subtotalPaisa: Long,
+    val discountPaisa: Long,
+    val totalPaisa: Long,
+    val note: String = "",
+    /** Sale or purchase number it was turned into, empty while open. */
+    val doneAs: String = "",
+    val staffId: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+@Entity(
+    tableName = "order_doc_item",
+    foreignKeys = [ForeignKey(entity = OrderDocEntity::class, parentColumns = ["id"], childColumns = ["docId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("docId")],
+)
+data class OrderDocItemEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val docId: Long,
+    val productId: Long,
+    val name: String,
+    val qtyMilli: Long,
+    /** Selling price for quotes and sales orders, buying price for purchase orders. */
+    val unitPricePaisa: Long,
+    val lineTotalPaisa: Long,
+)

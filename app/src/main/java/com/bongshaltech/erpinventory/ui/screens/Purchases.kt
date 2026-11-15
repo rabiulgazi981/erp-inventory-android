@@ -201,6 +201,19 @@ fun PurchaseNewScreen(go: (String) -> Unit, onBack: () -> Unit) {
     val dueNeeds = stringResource(R.string.pur_due_needs_supplier)
     val badQty = stringResource(R.string.pur_bad_qty)
 
+    var fromOrder by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(Unit) {
+        com.bongshaltech.erpinventory.data.PendingDoc.purchase?.let { d ->
+            com.bongshaltech.erpinventory.data.PendingDoc.purchase = null
+            lines.clear()
+            d.lines.forEach { l -> lines.add(PLine(l.product, l.qtyMilli.qty(), (l.unitCostPaisa / 100.0).toBigDecimal().stripTrailingZeros().toPlainString())) }
+            supplier = d.supplierId?.let { app.repo.suppliers.get(it) }
+            if (supplier == null) { newName = d.name; newPhone = d.phone }
+            if (d.discountPaisa > 0) discount = (d.discountPaisa / 100.0).toBigDecimal().stripTrailingZeros().toPlainString()
+            fromOrder = d.orderId
+        }
+    }
+
     fun reset() {
         lines.clear(); discount = ""; paid = ""; method = PayMethod.CASH; message = null
         supplier = null; sq = ""; newName = ""; newPhone = ""
@@ -324,7 +337,7 @@ fun PurchaseNewScreen(go: (String) -> Unit, onBack: () -> Unit) {
                         )
                     )
                     when (r) {
-                        is PurchaseResult.Saved -> { saved = r; message = null }
+                        is PurchaseResult.Saved -> { fromOrder?.let { app.repo.finishOrder(it, r.number) }; fromOrder = null; saved = r; message = null }
                         PurchaseResult.DueNeedsSupplier -> message = dueNeeds
                     }
                 }

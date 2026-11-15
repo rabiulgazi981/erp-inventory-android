@@ -484,4 +484,22 @@
     <string name="rep_sale_returns">Customer returns</string>
     <string name="rep_net_sales">Net sales</string>
     <string name="rep_purchase_returns">Returned to suppliers</string>
+    <string name="orders">Quotes &amp; orders</string>
+    <string name="ord_quote">Quotation</string>
+    <string name="ord_sales_order">Sales order</string>
+    <string name="ord_purchase_order">Purchase order</string>
+    <string name="ord_empty">Nothing here yet.</string>
+    <string name="ord_new">New %1$s</string>
+    <string name="ord_done_as">Done · %1$s</string>
+    <string name="ord_cancelled">Cancelled</string>
+    <string name="ord_customer">Customer</string>
+    <string name="ord_items">Items</string>
+    <string name="ord_add_items">Search and add products.</string>
+    <string name="ord_note">Note (optional)</string>
+    <string name="ord_to_sales_order">Make sales order</string>
+    <string name="ord_cancel">Cancel this</string>
+    <string name="ord_save">Save</string>
+    <string name="ord_saved">Saved</string>
+    <string name="ord_sell">Sell now</string>
+    <string name="ord_receive">Goods received</string>
 </resources>

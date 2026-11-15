@@ -22,6 +22,10 @@ import com.bongshaltech.erpinventory.data.db.MfsWalletEntity
 import com.bongshaltech.erpinventory.data.db.PurchaseReturnEntity
 import com.bongshaltech.erpinventory.data.db.PurchaseReturnItemEntity
 import com.bongshaltech.erpinventory.data.db.ReturnableLine
+import com.bongshaltech.erpinventory.data.db.OrderDocEntity
+import com.bongshaltech.erpinventory.data.db.OrderDocItemEntity
+import com.bongshaltech.erpinventory.data.db.OrderKind
+import com.bongshaltech.erpinventory.data.db.OrderStatus
 import com.bongshaltech.erpinventory.data.db.SaleReturnEntity
 import com.bongshaltech.erpinventory.data.db.SaleReturnItemEntity
 import com.bongshaltech.erpinventory.security.PinHasher
@@ -71,6 +75,31 @@ sealed interface SaleResult {
     data object DueNeedsCustomer : SaleResult
 }
 
+data class OrderLine(val product: ProductEntity, val qtyMilli: Long, val unitPricePaisa: Long) {
+    val totalPaisa: Long get() = (unitPricePaisa * qtyMilli + 500) / 1000
+}
+
+data class NewOrder(
+    val kind: OrderKind,
+    /** 0 for a new one, otherwise an open document being edited. */
+    val id: Long,
+    val lines: List<OrderLine>,
+    val discountPaisa: Long,
+    val partyName: String,
+    val partyPhone: String,
+    val supplierId: Long?,
+    val note: String,
+    val staffId: Long?,
+)
+
+/** A quote, sales order or purchase order handed to the Sale or Purchase screen to finish. */
+object PendingDoc {
+    data class ForSale(val orderId: Long, val lines: List<CartLine>, val phone: String, val name: String, val discountPaisa: Long)
+    data class ForPurchase(val orderId: Long, val lines: List<PurchaseLine>, val supplierId: Long?, val name: String, val phone: String, val discountPaisa: Long)
+    var sale: ForSale? = null
+    var purchase: ForPurchase? = null
+}
+
 /** How many of one line are coming back. */
 data class ReturnPick(val line: ReturnableLine, val qtyMilli: Long)
 
@@ -113,6 +142,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     val reports get() = db.reports()
     val mfs get() = db.mfs()
     val returns get() = db.returns()
+    val orders get() = db.orders()
 
     /** Makes sure every provider has a row, so the owner only switches them on. */
     suspend fun ensureWallets() = db.mfs().insertWallets(MfsProvider.entries.map { MfsWalletEntity(provider = it.name) })
@@ -283,6 +313,47 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             number
         }
     }
+
+    /** Saves a new quote / order, or edits an open one. Returns its id and number. */
+    suspend fun saveOrder(o: NewOrder): Pair<Long, String>? {
+        val code = settings.current().shopCode
+        val subtotal = o.lines.sumOf { it.totalPaisa }
+        val discount = o.discountPaisa.coerceIn(0, subtotal)
+        return db.withTransaction {
+            val existing = if (o.id > 0) db.orders().get(o.id)?.takeIf { it.status == OrderStatus.OPEN.name } ?: return@withTransaction null else null
+            val doc = OrderDocEntity(
+                id = existing?.id ?: 0, number = existing?.number ?: nextNumber(code, docTypeOf(o.kind)), kind = o.kind.name,
+                partyName = o.partyName.trim(), partyPhone = o.partyPhone.filter(Char::isDigit), supplierId = o.supplierId,
+                subtotalPaisa = subtotal, discountPaisa = discount, totalPaisa = subtotal - discount, note = o.note.trim(),
+                staffId = existing?.staffId ?: o.staffId, createdAt = existing?.createdAt ?: System.currentTimeMillis(),
+            )
+            val id = if (existing != null) { db.orders().update(doc); db.orders().clearItems(doc.id); doc.id } else db.orders().insert(doc)
+            db.orders().insertItems(o.lines.map {
+                OrderDocItemEntity(docId = id, productId = it.product.id, name = it.product.name, qtyMilli = it.qtyMilli,
+                    unitPricePaisa = it.unitPricePaisa, lineTotalPaisa = it.totalPaisa)
+            })
+            id to doc.number
+        }
+    }
+
+    private fun docTypeOf(k: OrderKind) = when (k) {
+        OrderKind.QUOTE -> DocType.QUOTE
+        OrderKind.SALES_ORDER -> DocType.SALES_ORDER
+        OrderKind.PURCHASE_ORDER -> DocType.PURCHASE_ORDER
+    }
+
+    /** Copies a quote into a new sales order. Returns the new order's id. */
+    suspend fun quoteToOrder(quoteId: Long, staffId: Long?): Long? {
+        val q = db.orders().get(quoteId)?.takeIf { it.status == OrderStatus.OPEN.name } ?: return null
+        val lines = db.orders().items(quoteId).mapNotNull { i -> db.products().get(i.productId)?.let { OrderLine(it, i.qtyMilli, i.unitPricePaisa) } }
+        val (id, number) = saveOrder(NewOrder(OrderKind.SALES_ORDER, 0, lines, q.discountPaisa, q.partyName, q.partyPhone, null, q.note, staffId)) ?: return null
+        db.orders().setStatus(quoteId, OrderStatus.DONE.name, number)
+        return id
+    }
+
+    suspend fun finishOrder(id: Long, doneAs: String) = db.orders().setStatus(id, OrderStatus.DONE.name, doneAs)
+
+    suspend fun cancelOrder(id: Long) = db.orders().setStatus(id, OrderStatus.CANCELLED.name, "")
 
     /** Customer returns goods from a sale: stock back, then off their due first, the rest paid back by [method]. */
     suspend fun returnSale(saleId: Long, picks: List<ReturnPick>, method: PayMethod, note: String, staffId: Long?): ReturnResult {

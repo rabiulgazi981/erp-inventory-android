@@ -483,4 +483,22 @@
     <string name="rep_sale_returns">কাস্টমারের ফেরত</string>
     <string name="rep_net_sales">নিট বিক্রি</string>
     <string name="rep_purchase_returns">সাপ্লায়ারকে ফেরত</string>
+    <string name="orders">কোটেশন ও অর্ডার</string>
+    <string name="ord_quote">কোটেশন</string>
+    <string name="ord_sales_order">বিক্রির অর্ডার</string>
+    <string name="ord_purchase_order">কেনার অর্ডার</string>
+    <string name="ord_empty">এখনো কিছু নেই।</string>
+    <string name="ord_new">নতুন %1$s</string>
+    <string name="ord_done_as">হয়ে গেছে · %1$s</string>
+    <string name="ord_cancelled">বাতিল</string>
+    <string name="ord_customer">কাস্টমার</string>
+    <string name="ord_items">পণ্য</string>
+    <string name="ord_add_items">পণ্য খুঁজে যোগ করুন।</string>
+    <string name="ord_note">নোট (ইচ্ছা হলে)</string>
+    <string name="ord_to_sales_order">বিক্রির অর্ডার বানান</string>
+    <string name="ord_cancel">বাতিল করুন</string>
+    <string name="ord_save">সেভ</string>
+    <string name="ord_saved">সেভ হয়েছে</string>
+    <string name="ord_sell">এখন বিক্রি করুন</string>
+    <string name="ord_receive">মাল এসেছে</string>
 </resources>

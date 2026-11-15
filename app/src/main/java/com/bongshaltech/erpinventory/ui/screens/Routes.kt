@@ -44,11 +44,14 @@ object Routes {
     const val PRINTER = "printer"
     const val SMS_ACCOUNT = "sms_account"
     const val RETURNS = "returns"
+    const val ORDERS = "orders"
+    const val ORDER = "order/{kind}/{id}"
     const val SALE_RETURN = "sale_return/{id}"
     const val PURCHASE_RETURN = "purchase_return/{id}"
 
     fun productEdit(id: Long) = "product/$id"
     fun saleReturn(saleId: Long) = "sale_return/$saleId"
+    fun order(kind: com.bongshaltech.erpinventory.data.db.OrderKind, id: Long) = "order/${kind.name}/$id"
     fun purchaseReturn(purchaseId: Long) = "purchase_return/$purchaseId"
     fun customer(id: Long) = "customer/$id"
     fun customerEdit(id: Long) = "customer_edit/$id"
@@ -128,6 +131,15 @@ fun ErpNavHost() {
         composable(Routes.MFS_WALLETS) { MfsWalletsScreen(back) }
         composable(Routes.BACKUP) { BackupScreen(back) }
         composable(Routes.SMS_ACCOUNT) { SmsAccountScreen(back) }
+        composable(Routes.ORDERS) { OrdersScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(
+            Routes.ORDER,
+            arguments = listOf(navArgument("kind") { type = NavType.StringType }, navArgument("id") { type = NavType.LongType }),
+        ) { e ->
+            val kind = runCatching { com.bongshaltech.erpinventory.data.db.OrderKind.valueOf(e.arguments?.getString("kind").orEmpty()) }
+                .getOrDefault(com.bongshaltech.erpinventory.data.db.OrderKind.QUOTE)
+            OrderScreen(kind, e.arguments?.getLong("id") ?: 0L, go = { nav.navigate(it) }, onBack = back)
+        }
         composable(Routes.RETURNS) { ReturnsScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.SALE_RETURN, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
             ReturnScreen(purchase = false, docId = e.arguments?.getLong("id") ?: 0L, onBack = back)
