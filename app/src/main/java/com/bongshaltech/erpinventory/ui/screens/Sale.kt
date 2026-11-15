@@ -50,6 +50,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bongshaltech.erpinventory.R
+import com.bongshaltech.erpinventory.core.promo.PromoLine
+import com.bongshaltech.erpinventory.core.promo.PromoMath
+import com.bongshaltech.erpinventory.core.promo.PromoRule
+import com.bongshaltech.erpinventory.data.AppliedPromo
+import com.bongshaltech.erpinventory.data.db.PromoKind
 import com.bongshaltech.erpinventory.data.CartLine
 import com.bongshaltech.erpinventory.data.HeldSale
 import com.bongshaltech.erpinventory.data.NewSale
@@ -84,6 +89,7 @@ import kotlinx.coroutines.launch
 internal val methods = listOf(
     PayMethod.CASH to R.string.pay_cash, PayMethod.BKASH to R.string.pay_bkash,
     PayMethod.NAGAD to R.string.pay_nagad, PayMethod.CARD to R.string.pay_card,
+    PayMethod.BANK to R.string.pay_bank,
 )
 
 @Composable
@@ -117,8 +123,23 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
     var method by remember { mutableStateOf(PayMethod.CASH) }
     var sms by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var codeOpen by remember { mutableStateOf(false) }
+    var codeText by remember { mutableStateOf("") }
+    var codePromo by remember { mutableStateOf<com.bongshaltech.erpinventory.data.db.PromoEntity?>(null) }
     var saved by remember { mutableStateOf<SaleResult.Saved?>(null) }
     var held by remember { mutableStateOf(HeldSale.lines.isNotEmpty()) }
+
+    // A quote or sales order sent here from Orders fills the cart once.
+    var fromOrder by remember { mutableStateOf<Long?>(null) }
+    var fromTable by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(Unit) {
+        com.bongshaltech.erpinventory.data.PendingDoc.sale?.let { d ->
+            com.bongshaltech.erpinventory.data.PendingDoc.sale = null
+            cart.clear(); cart.addAll(d.lines); phone = d.phone; custName = d.name; showName = d.name.isNotBlank()
+            if (d.discountPaisa > 0) discount = (d.discountPaisa / 100.0).toBigDecimal().stripTrailingZeros().toPlainString()
+            fromOrder = d.orderId.takeIf { it > 0 }; fromTable = d.tableOrderId
+        }
+    }
 
     // The per-sale SMS switch starts from the shop's default in More.
     LaunchedEffect(Unit) { sms = app.settings.current().smsDefaultOn }
@@ -133,8 +154,25 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
         if (nameQ.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList()) else app.repo.customers.search(nameQ, "", false)
     }.collectAsStateWithLifecycle(emptyList())
     val subtotal = cart.sumOf { it.totalPaisa }
-    val discountPaisa = if (who.can(StaffMenu.DISCOUNT)) (discount.toPaisa() ?: 0).coerceIn(0, subtotal) else 0
+    // Offers running today come off by themselves; one coupon or gift voucher can be typed in on top.
+    val offers by remember { app.repo.promos.liveOffers(System.currentTimeMillis()) }.collectAsStateWithLifecycle(emptyList())
+    val offerOff = PromoMath.offers(
+        cart.map { PromoLine(it.product.id, it.product.category, it.qtyMilli, it.totalPaisa) },
+        offers.map { PromoRule(it.id, it.percentBp, it.fixedPaisa, it.productId, it.category) },
+    )
+    val manualOff = if (who.can(StaffMenu.DISCOUNT)) (discount.toPaisa() ?: 0).coerceIn(0, subtotal - offerOff) else 0
+    val beforeCode = subtotal - offerOff - manualOff
+    val codeOff = when (val c = codePromo) {
+        null -> 0L
+        else -> if (c.kind == PromoKind.VOUCHER) PromoMath.voucher(beforeCode, c.balancePaisa)
+        else PromoMath.coupon(beforeCode, PromoRule(c.id, c.percentBp, c.fixedPaisa, minPaisa = c.minPaisa))
+    }
+    val discountPaisa = offerOff + manualOff + codeOff
     val total = subtotal - discountPaisa
+    fun promos() = buildList {
+        if (offerOff > 0) add(AppliedPromo(null, PromoKind.OFFER, "", offerOff))
+        codePromo?.let { if (codeOff > 0) add(AppliedPromo(it.id, it.kind, it.code, codeOff)) }
+    }
     val paidPaisa = if (paid.isBlank()) total else paid.toPaisa() ?: 0
     val hasPhone = digits.length >= 11
 
@@ -146,8 +184,14 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
     fun scan() = scanBarcode(ctx) { code ->
         scope.launch {
             val p = app.repo.products.byBarcode(code)
+            val bySerial = if (p == null) app.repo.productForSerial(code) else null
             if (p != null) addProduct(p)
-            else { q = code; Toast.makeText(ctx, ctx.getString(R.string.scan_not_found, code), Toast.LENGTH_LONG).show() }
+            else if (bySerial != null) {
+                // A serial / IMEI: one unit of its product, remembered on the line.
+                val i = cart.indexOfFirst { it.product.id == bySerial.id }
+                if (i >= 0) { if (code.trim() !in cart[i].serials) cart[i] = cart[i].copy(qtyMilli = cart[i].qtyMilli + 1000, serials = cart[i].serials + code.trim()) }
+                else cart.add(CartLine(bySerial, 1000, listOf(code.trim())))
+            } else { q = code; Toast.makeText(ctx, ctx.getString(R.string.scan_not_found, code), Toast.LENGTH_LONG).show() }
         }
     }
     // Home's scan button opens the sale screen straight into the scanner.
@@ -156,14 +200,16 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
         val i = cart.indexOfFirst { it.product.id == pId }
         if (i < 0) return
         val next = cart[i].qtyMilli + delta
-        if (next <= 0) cart.removeAt(i) else cart[i] = cart[i].copy(qtyMilli = next)
+        if (next <= 0) cart.removeAt(i) else cart[i] = cart[i].copy(qtyMilli = next, serials = cart[i].serials.take((next / 1000).toInt()))
     }
     fun reset() {
+        codeOpen = false; codeText = ""; codePromo = null
         cart.clear(); discount = ""; paid = ""; phone = ""; custName = ""; showName = false; method = PayMethod.CASH; message = null
     }
 
     val notEnough = stringResource(R.string.sale_not_enough, "%s")
     val dueNeeds = stringResource(R.string.sale_due_needs_customer)
+    val codeGone = stringResource(R.string.promo_code_gone)
     val heldMsg = stringResource(R.string.sale_held)
     val today = remember { SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date()) }
 
@@ -236,6 +282,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                         Column(Modifier.weight(1f)) {
                             T(c.product.name, 14.sp, FontWeight.SemiBold, maxLines = 1)
                             Muted("${c.product.pricePaisa.taka0()} × ${c.qtyMilli.qty()}")
+                            if (c.serials.isNotEmpty()) Muted(c.serials.joinToString(", "))
                         }
                         Row(
                             Modifier.clip(RoundedCornerShape(10.dp)).border(1.dp, Ui.c.inputBorder, RoundedCornerShape(10.dp)),
@@ -251,10 +298,27 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
             }
             Panel(stringResource(R.string.panel_amount), Brand.OrangeGrad, PanelColors.Orange) {
                 SumRow(stringResource(R.string.sale_subtotal), subtotal.taka0())
+                if (offerOff > 0) SumRow(stringResource(R.string.promo_offer_off), "− " + offerOff.taka0(), color = Brand.DarkGreen)
                 if (who.can(StaffMenu.DISCOUNT)) Row(verticalAlignment = Alignment.CenterVertically) {
                     T(stringResource(R.string.sale_discount), 14.sp, color = Ui.c.muted, modifier = Modifier.weight(1f))
                     Input(discount, { discount = it }, Modifier.width(90.dp), keyboard = KeyboardType.Decimal, height = 34.dp, alignEnd = true, placeholder = "0")
                 }
+                val codePicked = codePromo
+                if (codePicked != null) Row(verticalAlignment = Alignment.CenterVertically) {
+                    T(codePicked.code, 14.sp, FontWeight.SemiBold, Brand.DarkGreen, modifier = Modifier.weight(1f))
+                    T(if (codeOff > 0) "− " + codeOff.taka0() else stringResource(R.string.promo_min_not_met), 14.sp, FontWeight.SemiBold,
+                        if (codeOff > 0) Brand.DarkGreen else Brand.Red)
+                    Box(Modifier.size(32.dp).clickable { codePromo = null; codeText = "" }, contentAlignment = Alignment.Center) { T("✕", 14.sp, color = Ui.c.muted) }
+                } else if (codeOpen) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Input(codeText, { codeText = it }, Modifier.weight(1f), height = 34.dp, placeholder = stringResource(R.string.promo_code_hint))
+                    val bad = stringResource(R.string.promo_code_bad)
+                    Box(
+                        Modifier.height(34.dp).clip(RoundedCornerShape(8.dp)).background(Brand.Blue).clickable {
+                            scope.launch { codePromo = app.repo.findCode(codeText); if (codePromo == null) message = bad else message = null }
+                        }.padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.Center,
+                    ) { T(stringResource(R.string.promo_apply), 13.sp, FontWeight.SemiBold, Color.White) }
+                } else T(stringResource(R.string.promo_add_code), 13.sp, FontWeight.SemiBold, Brand.Link, modifier = Modifier.clickable { codeOpen = true }.padding(vertical = 2.dp))
                 Column(
                     Modifier.fillMaxWidth().shadow(8.dp, RoundedCornerShape(12.dp), ambientColor = Brand.Blue, spotColor = Brand.Blue)
                         .clip(RoundedCornerShape(12.dp)).background(Brand.TotalGrad).padding(horizontal = 14.dp, vertical = 10.dp),
@@ -329,10 +393,13 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                         NewSale(
                             lines = cart.toList(), discountPaisa = discountPaisa, paidPaisa = paidPaisa, method = method,
                             customerPhone = phone, customerName = custName, smsRequested = sms && hasPhone, staffId = who.staffId,
+                            promos = promos(),
                         )
                     )
                     when (r) {
                         is SaleResult.Saved -> {
+                            fromOrder?.let { app.repo.finishOrder(it, r.number) }; fromOrder = null
+                            fromTable?.let { app.repo.billTable(it, r.number) }; fromTable = null
                             saved = r; message = null
                             if (sms && hasPhone) {
                                 val due = (total - paidPaisa).coerceAtLeast(0)
@@ -341,6 +408,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                         }
                         is SaleResult.NotEnoughStock -> message = notEnough.replace("%s", r.productName)
                         SaleResult.DueNeedsCustomer -> message = dueNeeds
+                        is SaleResult.PromoUsedUp -> { message = codeGone; codePromo = null }
                     }
                 }
             }

@@ -22,8 +22,16 @@ class Converters {
         StaffEntity::class, DocCounterEntity::class, DuePaymentEntity::class,
         SupplierEntity::class, PurchaseEntity::class, PurchaseItemEntity::class, SupplierPaymentEntity::class,
         ExpenseEntity::class, MfsWalletEntity::class, MfsTxnEntity::class,
+        SaleReturnEntity::class, SaleReturnItemEntity::class, PurchaseReturnEntity::class, PurchaseReturnItemEntity::class,
+        OrderDocEntity::class, OrderDocItemEntity::class,
+        MoneyMoveEntity::class, LoanEntity::class, CashSessionEntity::class,
+        PromoEntity::class, SalePromoEntity::class,
+        EmployeeEntity::class, AttendanceEntity::class, SalaryPaymentEntity::class,
+        StockBatchEntity::class, DiningTableEntity::class, TableOrderEntity::class, TableOrderItemEntity::class,
+        StockJobEntity::class, StockJobInputEntity::class, ProductSerialEntity::class, WarehouseEntity::class, WarehouseStockEntity::class,
+        AuditLogEntity::class,
     ],
-    version = 7,
+    version = 15,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -38,6 +46,15 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun expenses(): ExpenseDao
     abstract fun reports(): ReportDao
     abstract fun mfs(): MfsDao
+    abstract fun returns(): ReturnDao
+    abstract fun orders(): OrderDao
+    abstract fun money(): MoneyDao
+    abstract fun promos(): PromoDao
+    abstract fun hr(): HrDao
+    abstract fun batches(): BatchDao
+    abstract fun tables(): TableDao
+    abstract fun stockTools(): StockToolsDao
+    abstract fun audit(): AuditDao
 
     companion object {
         // Schema changes must be additive migrations: shop data on the phone is never wiped.
@@ -134,12 +151,203 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sale_return` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, " +
+                        "`saleId` INTEGER NOT NULL, `customerId` INTEGER, `totalPaisa` INTEGER NOT NULL, `dueCutPaisa` INTEGER NOT NULL, " +
+                        "`refundPaisa` INTEGER NOT NULL, `method` TEXT NOT NULL, `costPaisa` INTEGER NOT NULL, `note` TEXT NOT NULL, " +
+                        "`staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_sale_return_number` ON `sale_return` (`number`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_return_saleId` ON `sale_return` (`saleId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_return_customerId` ON `sale_return` (`customerId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_return_createdAt` ON `sale_return` (`createdAt`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sale_return_item` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `returnId` INTEGER NOT NULL, " +
+                        "`saleItemId` INTEGER NOT NULL, `productId` INTEGER NOT NULL, `name` TEXT NOT NULL, `qtyMilli` INTEGER NOT NULL, " +
+                        "`lineTotalPaisa` INTEGER NOT NULL, `unitCostPaisa` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`returnId`) REFERENCES `sale_return`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_return_item_returnId` ON `sale_return_item` (`returnId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_return_item_saleItemId` ON `sale_return_item` (`saleItemId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `purchase_return` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, " +
+                        "`purchaseId` INTEGER NOT NULL, `supplierId` INTEGER, `totalPaisa` INTEGER NOT NULL, `dueCutPaisa` INTEGER NOT NULL, " +
+                        "`refundPaisa` INTEGER NOT NULL, `method` TEXT NOT NULL, `note` TEXT NOT NULL, `staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_purchase_return_number` ON `purchase_return` (`number`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_return_purchaseId` ON `purchase_return` (`purchaseId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_return_supplierId` ON `purchase_return` (`supplierId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_return_createdAt` ON `purchase_return` (`createdAt`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `purchase_return_item` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `returnId` INTEGER NOT NULL, " +
+                        "`purchaseItemId` INTEGER NOT NULL, `productId` INTEGER NOT NULL, `name` TEXT NOT NULL, `qtyMilli` INTEGER NOT NULL, " +
+                        "`lineTotalPaisa` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`returnId`) REFERENCES `purchase_return`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_return_item_returnId` ON `purchase_return_item` (`returnId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_return_item_purchaseItemId` ON `purchase_return_item` (`purchaseItemId`)")
+            }
+        }
+
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `order_doc` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, " +
+                        "`kind` TEXT NOT NULL, `status` TEXT NOT NULL, `partyName` TEXT NOT NULL, `partyPhone` TEXT NOT NULL, " +
+                        "`supplierId` INTEGER, `subtotalPaisa` INTEGER NOT NULL, `discountPaisa` INTEGER NOT NULL, `totalPaisa` INTEGER NOT NULL, " +
+                        "`note` TEXT NOT NULL, `doneAs` TEXT NOT NULL, `staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_order_doc_number` ON `order_doc` (`number`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_order_doc_kind` ON `order_doc` (`kind`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_order_doc_createdAt` ON `order_doc` (`createdAt`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `order_doc_item` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `docId` INTEGER NOT NULL, " +
+                        "`productId` INTEGER NOT NULL, `name` TEXT NOT NULL, `qtyMilli` INTEGER NOT NULL, `unitPricePaisa` INTEGER NOT NULL, " +
+                        "`lineTotalPaisa` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`docId`) REFERENCES `order_doc`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_order_doc_item_docId` ON `order_doc_item` (`docId`)")
+            }
+        }
+
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `money_move` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, " +
+                        "`kind` TEXT NOT NULL, `fromMethod` TEXT, `toMethod` TEXT, `amountPaisa` INTEGER NOT NULL, `loanId` INTEGER, " +
+                        "`note` TEXT NOT NULL, `staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_money_move_createdAt` ON `money_move` (`createdAt`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_money_move_loanId` ON `money_move` (`loanId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `loan` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `party` TEXT NOT NULL, " +
+                        "`phone` TEXT NOT NULL, `given` INTEGER NOT NULL, `principalPaisa` INTEGER NOT NULL, `outstandingPaisa` INTEGER NOT NULL, " +
+                        "`note` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_loan_createdAt` ON `loan` (`createdAt`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `cash_session` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `openedAt` INTEGER NOT NULL, " +
+                        "`openingPaisa` INTEGER NOT NULL, `closedAt` INTEGER, `expectedPaisa` INTEGER, `countedPaisa` INTEGER, " +
+                        "`note` TEXT NOT NULL, `staffId` INTEGER)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_cash_session_openedAt` ON `cash_session` (`openedAt`)")
+            }
+        }
+
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `promo` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`code` TEXT NOT NULL, `percentBp` INTEGER NOT NULL, `fixedPaisa` INTEGER NOT NULL, `productId` INTEGER, `category` TEXT NOT NULL, " +
+                        "`minPaisa` INTEGER NOT NULL, `balancePaisa` INTEGER NOT NULL, `startAt` INTEGER, `endAt` INTEGER, `maxUses` INTEGER NOT NULL, " +
+                        "`uses` INTEGER NOT NULL, `active` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_promo_kind` ON `promo` (`kind`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_promo_code` ON `promo` (`code`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sale_promo` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `saleId` INTEGER NOT NULL, " +
+                        "`promoId` INTEGER, `kind` TEXT NOT NULL, `code` TEXT NOT NULL, `amountPaisa` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`saleId`) REFERENCES `sale`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_promo_saleId` ON `sale_promo` (`saleId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_promo_promoId` ON `sale_promo` (`promoId`)")
+            }
+        }
+
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `employee` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `phone` TEXT NOT NULL, " +
+                        "`role` TEXT NOT NULL, `salaryPaisa` INTEGER NOT NULL, `active` INTEGER NOT NULL, `joinedAt` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `attendance` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `employeeId` INTEGER NOT NULL, " +
+                        "`day` INTEGER NOT NULL, `status` TEXT NOT NULL)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_attendance_employeeId_day` ON `attendance` (`employeeId`, `day`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_attendance_day` ON `attendance` (`day`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `salary_payment` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `employeeId` INTEGER NOT NULL, " +
+                        "`month` INTEGER NOT NULL, `amountPaisa` INTEGER NOT NULL, `expenseId` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_salary_payment_employeeId` ON `salary_payment` (`employeeId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_salary_payment_month` ON `salary_payment` (`month`)")
+            }
+        }
+
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `product` ADD COLUMN `generic` TEXT NOT NULL DEFAULT ''")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `stock_batch` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `productId` INTEGER NOT NULL, " +
+                        "`batchNo` TEXT NOT NULL, `expiryDay` INTEGER, `qtyMilli` INTEGER NOT NULL, `purchaseId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_batch_productId` ON `stock_batch` (`productId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_batch_expiryDay` ON `stock_batch` (`expiryDay`)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `dining_table` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `active` INTEGER NOT NULL)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `table_order` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `tableId` INTEGER NOT NULL, " +
+                        "`status` TEXT NOT NULL, `saleNumber` TEXT, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_table_order_tableId` ON `table_order` (`tableId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_table_order_status` ON `table_order` (`status`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `table_order_item` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `orderId` INTEGER NOT NULL, " +
+                        "`productId` INTEGER NOT NULL, `name` TEXT NOT NULL, `unitPricePaisa` INTEGER NOT NULL, `qtyMilli` INTEGER NOT NULL, " +
+                        "`sentMilli` INTEGER NOT NULL, FOREIGN KEY(`orderId`) REFERENCES `table_order`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_table_order_item_orderId` ON `table_order_item` (`orderId`)")
+            }
+        }
+
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `stock_job` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, `outProductId` INTEGER NOT NULL, " +
+                        "`outName` TEXT NOT NULL, `outQtyMilli` INTEGER NOT NULL, `costPaisa` INTEGER NOT NULL, `note` TEXT NOT NULL, `staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_job_createdAt` ON `stock_job` (`createdAt`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `stock_job_input` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `jobId` INTEGER NOT NULL, `productId` INTEGER NOT NULL, " +
+                        "`name` TEXT NOT NULL, `qtyMilli` INTEGER NOT NULL, `unitCostPaisa` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`jobId`) REFERENCES `stock_job`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_job_input_jobId` ON `stock_job_input` (`jobId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `product_serial` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `productId` INTEGER NOT NULL, " +
+                        "`serial` TEXT NOT NULL, `saleId` INTEGER, `soldAt` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_product_serial_serial` ON `product_serial` (`serial`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_product_serial_productId` ON `product_serial` (`productId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_product_serial_saleId` ON `product_serial` (`saleId`)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `warehouse` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `active` INTEGER NOT NULL)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `warehouse_stock` (`warehouseId` INTEGER NOT NULL, `productId` INTEGER NOT NULL, `qtyMilli` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`warehouseId`, `productId`))"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_warehouse_stock_productId` ON `warehouse_stock` (`productId`)")
+            }
+        }
+
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `audit_log` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `at` INTEGER NOT NULL, `staffId` INTEGER, " +
+                        "`action` TEXT NOT NULL, `detail` TEXT NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_audit_log_at` ON `audit_log` (`at`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_audit_log_action` ON `audit_log` (`action`)")
+            }
+        }
+
         fun open(context: Context): AppDatabase {
             System.loadLibrary("sqlcipher")
             val factory = SupportOpenHelperFactory(DbKey.get(context))
             return Room.databaseBuilder(context, AppDatabase::class.java, "shop.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
                 .build()
         }
     }

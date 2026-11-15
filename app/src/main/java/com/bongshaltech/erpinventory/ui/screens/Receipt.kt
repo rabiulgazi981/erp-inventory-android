@@ -32,6 +32,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -113,7 +114,7 @@ private fun sampleReceipt(ctx: Context, profile: BusinessProfile) = ReceiptData(
 )
 
 /** Shows Bangla-safe printer messages as a toast. */
-private fun toastResult(ctx: Context, r: PrintResult) {
+internal fun toastResult(ctx: Context, r: PrintResult) {
     val msg = when (r) {
         PrintResult.Done -> ctx.getString(R.string.printer_done)
         PrintResult.BluetoothOff -> ctx.getString(R.string.printer_bt_off)
@@ -123,7 +124,7 @@ private fun toastResult(ctx: Context, r: PrintResult) {
     Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
 }
 
-private fun shareImage(ctx: Context, bmp: Bitmap, name: String) {
+internal fun shareImage(ctx: Context, bmp: Bitmap, name: String) {
     val dir = File(ctx.cacheDir, "receipts").apply { mkdirs() }
     val file = File(dir, "$name.png")
     file.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -241,7 +242,7 @@ private fun printNow(
 }
 
 @Composable
-fun ReceiptScreen(saleId: Long, onBack: () -> Unit) {
+fun ReceiptScreen(saleId: Long, go: (String) -> Unit, onBack: () -> Unit) {
     val app = app()
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -260,7 +261,11 @@ fun ReceiptScreen(saleId: Long, onBack: () -> Unit) {
     }
 
     Column(Modifier.fillMaxSize().background(Ui.c.bg)) {
-        Header(stringResource(R.string.receipt_title) + if (number.isNotEmpty()) " · $number" else "", onBack)
+        Header(stringResource(R.string.receipt_title) + if (number.isNotEmpty()) " · $number" else "", onBack) {
+            com.bongshaltech.erpinventory.ui.components.HeaderIcon(
+                androidx.compose.material.icons.Icons.Outlined.Replay, stringResource(R.string.ret_sale_title),
+            ) { go(Routes.saleReturn(saleId)) }
+        }
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),

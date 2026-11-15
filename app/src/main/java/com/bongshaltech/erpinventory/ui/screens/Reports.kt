@@ -73,10 +73,16 @@ fun ReportsScreen(tab: (Tab) -> Unit) {
     var range by rememberSaveable { mutableStateOf(Range.TODAY) }
     val (from, to) = remember(range) { range.bounds() }
     val r = app.repo.reports
-    val sales by remember(from, to) { r.sales(from, to) }.collectAsStateWithLifecycle(0L)
+    val grossSales by remember(from, to) { r.sales(from, to) }.collectAsStateWithLifecycle(0L)
+    val saleReturns by remember(from, to) { r.saleReturns(from, to) }.collectAsStateWithLifecycle(0L)
+    val returnCost by remember(from, to) { r.saleReturnCost(from, to) }.collectAsStateWithLifecycle(0L)
+    val purchaseReturns by remember(from, to) { r.purchaseReturns(from, to) }.collectAsStateWithLifecycle(0L)
+    // Sales and cost both net of goods that came back, so profit only counts what stayed sold.
+    val sales = grossSales - saleReturns
     val count by remember(from, to) { r.saleCount(from, to) }.collectAsStateWithLifecycle(0)
     val discounts by remember(from, to) { r.discounts(from, to) }.collectAsStateWithLifecycle(0L)
-    val cost by remember(from, to) { r.costOfSales(from, to) }.collectAsStateWithLifecycle(0L)
+    val grossCost by remember(from, to) { r.costOfSales(from, to) }.collectAsStateWithLifecycle(0L)
+    val cost = grossCost - returnCost
     val purchases by remember(from, to) { r.purchases(from, to) }.collectAsStateWithLifecycle(0L)
     val expenses by remember(from, to) { r.expenses(from, to) }.collectAsStateWithLifecycle(0L)
     val collected by remember(from, to) { r.dueCollected(from, to) }.collectAsStateWithLifecycle(0L)
@@ -109,7 +115,9 @@ fun ReportsScreen(tab: (Tab) -> Unit) {
                 else Big(stringResource(R.string.rep_expenses), expenses.taka0(), "")
             }
             Panel(stringResource(R.string.rep_summary), Brand.BlueGrad, PanelColors.Blue) {
-                SumRow(stringResource(R.string.rep_sales), sales.taka0())
+                SumRow(stringResource(R.string.rep_sales), grossSales.taka0())
+                if (saleReturns > 0) SumRow(stringResource(R.string.rep_sale_returns), "− " + saleReturns.taka0())
+                if (saleReturns > 0) SumRow(stringResource(R.string.rep_net_sales), sales.taka0(), strong = true)
                 SumRow(stringResource(R.string.rep_discounts), discounts.taka0())
                 if (showProfit) {
                     SumRow(stringResource(R.string.rep_cost_of_sales), cost.taka0())
@@ -118,6 +126,7 @@ fun ReportsScreen(tab: (Tab) -> Unit) {
                 SumRow(stringResource(R.string.rep_expenses), expenses.taka0())
                 if (showProfit) SumRow(stringResource(R.string.rep_net_profit), net.taka0(), strong = true, color = if (net >= 0) Brand.DarkGreen else Brand.Red)
                 SumRow(stringResource(R.string.purchases), purchases.taka0())
+                if (purchaseReturns > 0) SumRow(stringResource(R.string.rep_purchase_returns), "− " + purchaseReturns.taka0())
             }
             Panel(stringResource(R.string.rep_money), Brand.GreenGrad, PanelColors.Green) {
                 methodsTotal.forEach { m ->

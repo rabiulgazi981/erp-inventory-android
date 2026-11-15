@@ -8,13 +8,37 @@ import androidx.room.Update
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Every movement of money, one row per payment method touched: number, kind, time, signed amount
+ * (+ in, − out) and method. Cash & bank balances, the ledger and "cash today" all read this one list,
+ * so they always agree.
+ */
+const val MONEY_FLOWS = """
+    SELECT number, 'SALE' AS kind, createdAt, paidPaisa AS delta, method FROM sale WHERE paidPaisa > 0
+    UNION ALL SELECT number, 'DUE_IN' AS kind, createdAt, amountPaisa AS delta, method FROM due_payment
+    UNION ALL SELECT number, 'PURCHASE' AS kind, createdAt, -paidPaisa AS delta, method FROM purchase WHERE paidPaisa > 0
+    UNION ALL SELECT number, 'SUPPLIER_PAY' AS kind, createdAt, -amountPaisa AS delta, method FROM supplier_payment
+    UNION ALL SELECT number, 'EXPENSE' AS kind, createdAt, -amountPaisa AS delta, method FROM expense
+    UNION ALL SELECT number, 'SALE_RETURN' AS kind, createdAt, -refundPaisa AS delta, method FROM sale_return WHERE refundPaisa > 0
+    UNION ALL SELECT number, 'PURCHASE_RETURN' AS kind, createdAt, refundPaisa AS delta, method FROM purchase_return WHERE refundPaisa > 0
+    UNION ALL SELECT number, 'MFS' AS kind, createdAt, cashDeltaPaisa AS delta, 'CASH' AS method FROM mfs_txn WHERE cashDeltaPaisa != 0
+    UNION ALL SELECT number, kind, createdAt, -amountPaisa AS delta, fromMethod AS method FROM money_move WHERE fromMethod IS NOT NULL
+    UNION ALL SELECT number, kind, createdAt, amountPaisa AS delta, toMethod AS method FROM money_move WHERE toMethod IS NOT NULL
+"""
+
 @Dao
 interface ProductDao {
-    @Query("SELECT * FROM product WHERE active = 1 AND (:q = '' OR name LIKE '%' || :q || '%' OR barcode = :q) ORDER BY name COLLATE NOCASE")
+    @Query(
+        "SELECT * FROM product WHERE active = 1 AND (:q = '' OR name LIKE '%' || :q || '%' OR barcode = :q " +
+            "OR (generic != '' AND generic LIKE '%' || :q || '%')) ORDER BY name COLLATE NOCASE"
+    )
     fun search(q: String): Flow<List<ProductEntity>>
 
     @Query("SELECT * FROM product WHERE id = :id")
     suspend fun get(id: Long): ProductEntity?
+
+    @Query("SELECT * FROM product")
+    suspend fun allNow(): List<ProductEntity>
 
     @Query("SELECT * FROM product WHERE active = 1 AND stockMilli <= lowStockMilli AND (:q = '' OR name LIKE '%' || :q || '%' OR barcode = :q) ORDER BY name COLLATE NOCASE")
     fun searchLow(q: String): Flow<List<ProductEntity>>
@@ -39,8 +63,16 @@ interface ProductDao {
     suspend fun receive(id: Long, qtyMilli: Long, costPaisa: Long)
 
     /** Returns rows changed: 0 means there was not enough stock. */
-    @Query("UPDATE product SET stockMilli = stockMilli - :qtyMilli WHERE id = :id AND stockMilli >= :qtyMilli")
+    // Stock kept in a warehouse can't be sold from the shop until it is moved back.
+    @Query(
+        "UPDATE product SET stockMilli = stockMilli - :qtyMilli WHERE id = :id AND " +
+            "stockMilli - (SELECT COALESCE(SUM(qtyMilli), 0) FROM warehouse_stock WHERE productId = :id) >= :qtyMilli"
+    )
     suspend fun takeStock(id: Long, qtyMilli: Long): Int
+
+    /** Goods coming back from a customer: stock up, cost left as it is. */
+    @Query("UPDATE product SET stockMilli = stockMilli + :qtyMilli WHERE id = :id")
+    suspend fun addStock(id: Long, qtyMilli: Long)
 }
 
 @Dao
@@ -91,6 +123,9 @@ interface CustomerDao {
            UNION ALL
            SELECT id, number, createdAt, amountPaisa, 0 AS duePaisa, 1 AS isPayment
            FROM due_payment WHERE customerId = :id
+           UNION ALL
+           SELECT id, number, createdAt, dueCutPaisa AS amountPaisa, 0 AS duePaisa, 1 AS isPayment
+           FROM sale_return WHERE customerId = :id AND dueCutPaisa > 0
            ORDER BY createdAt DESC LIMIT 100"""
     )
     fun history(id: Long): Flow<List<CustomerTxn>>
@@ -138,19 +173,8 @@ interface SaleDao {
     @Query("SELECT COALESCE(SUM(totalPaisa), 0) FROM sale WHERE createdAt >= :from AND createdAt < :to")
     fun totalBetween(from: Long, to: Long): Flow<Long>
 
-    /**
-     * Net cash since [from]: cash sales and cash due collected, minus cash paid for
-     * purchases, to suppliers and for expenses, plus the cash side of mobile banking entries.
-     */
-    @Query(
-        """SELECT
-             (SELECT COALESCE(SUM(paidPaisa), 0) FROM sale WHERE createdAt >= :from AND method = 'CASH')
-           + (SELECT COALESCE(SUM(amountPaisa), 0) FROM due_payment WHERE createdAt >= :from AND method = 'CASH')
-           - (SELECT COALESCE(SUM(paidPaisa), 0) FROM purchase WHERE createdAt >= :from AND method = 'CASH')
-           - (SELECT COALESCE(SUM(amountPaisa), 0) FROM supplier_payment WHERE createdAt >= :from AND method = 'CASH')
-           - (SELECT COALESCE(SUM(amountPaisa), 0) FROM expense WHERE createdAt >= :from AND method = 'CASH')
-           + (SELECT COALESCE(SUM(cashDeltaPaisa), 0) FROM mfs_txn WHERE createdAt >= :from)"""
-    )
+    /** Net cash since [from]: every money flow that went into or out of the cash drawer. */
+    @Query("SELECT COALESCE(SUM(delta), 0) FROM ($MONEY_FLOWS) WHERE method = 'CASH' AND createdAt >= :from")
     fun cashSince(from: Long): Flow<Long>
 
     @Query(
@@ -202,6 +226,9 @@ interface SupplierDao {
            UNION ALL
            SELECT id, number, createdAt, amountPaisa, 0 AS duePaisa, 1 AS isPayment
            FROM supplier_payment WHERE supplierId = :id
+           UNION ALL
+           SELECT id, number, createdAt, dueCutPaisa AS amountPaisa, 0 AS duePaisa, 1 AS isPayment
+           FROM purchase_return WHERE supplierId = :id AND dueCutPaisa > 0
            ORDER BY createdAt DESC LIMIT 100"""
     )
     fun history(id: Long): Flow<List<CustomerTxn>>
@@ -235,6 +262,9 @@ interface PurchaseDao {
 
     @Query("SELECT COALESCE(SUM(totalPaisa), 0) FROM purchase WHERE createdAt >= :from")
     fun totalSince(from: Long): Flow<Long>
+
+    @Query("SELECT * FROM purchase WHERE id = :id")
+    suspend fun get(id: Long): PurchaseEntity?
 }
 
 data class CategoryTotal(val category: String, val totalPaisa: Long)
@@ -321,6 +351,83 @@ interface ReportDao {
            GROUP BY day ORDER BY day DESC LIMIT 62"""
     )
     fun byDay(from: Long, to: Long): Flow<List<DayTotal>>
+
+    @Query("SELECT COALESCE(SUM(totalPaisa), 0) FROM sale_return WHERE createdAt >= :from AND createdAt < :to")
+    fun saleReturns(from: Long, to: Long): Flow<Long>
+
+    @Query("SELECT COALESCE(SUM(costPaisa), 0) FROM sale_return WHERE createdAt >= :from AND createdAt < :to")
+    fun saleReturnCost(from: Long, to: Long): Flow<Long>
+
+    @Query("SELECT COALESCE(SUM(totalPaisa), 0) FROM purchase_return WHERE createdAt >= :from AND createdAt < :to")
+    fun purchaseReturns(from: Long, to: Long): Flow<Long>
+}
+
+/** A sold or bought line with how much of it already came back. */
+data class ReturnableLine(
+    val id: Long,
+    val productId: Long,
+    val name: String,
+    val qtyMilli: Long,
+    val lineTotalPaisa: Long,
+    /** Buying price per unit (sale lines: saved at sale time; purchase lines: the price paid). */
+    val unitCostPaisa: Long,
+    val returnedMilli: Long,
+) {
+    val leftMilli get() = (qtyMilli - returnedMilli).coerceAtLeast(0)
+}
+
+data class ReturnRow(
+    val id: Long,
+    val number: String,
+    val createdAt: Long,
+    val totalPaisa: Long,
+    val dueCutPaisa: Long,
+    val refundPaisa: Long,
+    val isPurchase: Boolean,
+    val party: String?,
+    /** The sale or purchase it came from. */
+    val fromNumber: String?,
+)
+
+@Dao
+interface ReturnDao {
+    @Query(
+        """SELECT i.id, i.productId, i.name, i.qtyMilli, i.lineTotalPaisa, i.unitCostPaisa,
+                  COALESCE((SELECT SUM(r.qtyMilli) FROM sale_return_item r WHERE r.saleItemId = i.id), 0) AS returnedMilli
+           FROM sale_item i WHERE i.saleId = :saleId ORDER BY i.id"""
+    )
+    suspend fun saleLines(saleId: Long): List<ReturnableLine>
+
+    @Query(
+        """SELECT i.id, i.productId, i.name, i.qtyMilli, i.lineTotalPaisa, i.unitCostPaisa,
+                  COALESCE((SELECT SUM(r.qtyMilli) FROM purchase_return_item r WHERE r.purchaseItemId = i.id), 0) AS returnedMilli
+           FROM purchase_item i WHERE i.purchaseId = :purchaseId ORDER BY i.id"""
+    )
+    suspend fun purchaseLines(purchaseId: Long): List<ReturnableLine>
+
+    @Insert
+    suspend fun insertSaleReturn(r: SaleReturnEntity): Long
+
+    @Insert
+    suspend fun insertSaleReturnItems(items: List<SaleReturnItemEntity>)
+
+    @Insert
+    suspend fun insertPurchaseReturn(r: PurchaseReturnEntity): Long
+
+    @Insert
+    suspend fun insertPurchaseReturnItems(items: List<PurchaseReturnItemEntity>)
+
+    @Query(
+        """SELECT r.id AS id, r.number AS number, r.createdAt AS createdAt, r.totalPaisa AS totalPaisa, r.dueCutPaisa AS dueCutPaisa, r.refundPaisa AS refundPaisa, 0 AS isPurchase,
+                  c.name AS party, s.number AS fromNumber
+           FROM sale_return r LEFT JOIN customer c ON c.id = r.customerId LEFT JOIN sale s ON s.id = r.saleId
+           UNION ALL
+           SELECT r.id AS id, r.number AS number, r.createdAt AS createdAt, r.totalPaisa AS totalPaisa, r.dueCutPaisa AS dueCutPaisa, r.refundPaisa AS refundPaisa, 1 AS isPurchase,
+                  sp.name AS party, p.number AS fromNumber
+           FROM purchase_return r LEFT JOIN supplier sp ON sp.id = r.supplierId LEFT JOIN purchase p ON p.id = r.purchaseId
+           ORDER BY createdAt DESC LIMIT :limit"""
+    )
+    fun recent(limit: Int): Flow<List<ReturnRow>>
 }
 
 @Dao
@@ -411,3 +518,344 @@ data class MfsTxnRow(
 )
 
 data class MfsSummary(val count: Int, val earningPaisa: Long, val cashPaisa: Long)
+
+@Dao
+interface OrderDao {
+    @Query("SELECT * FROM order_doc WHERE kind = :kind ORDER BY status = 'OPEN' DESC, createdAt DESC LIMIT 200")
+    fun list(kind: String): Flow<List<OrderDocEntity>>
+
+    @Query("SELECT * FROM order_doc WHERE id = :id")
+    suspend fun get(id: Long): OrderDocEntity?
+
+    @Query("SELECT * FROM order_doc_item WHERE docId = :id ORDER BY id")
+    suspend fun items(id: Long): List<OrderDocItemEntity>
+
+    @Insert
+    suspend fun insert(d: OrderDocEntity): Long
+
+    @Update
+    suspend fun update(d: OrderDocEntity)
+
+    @Query("DELETE FROM order_doc_item WHERE docId = :id")
+    suspend fun clearItems(id: Long)
+
+    @Insert
+    suspend fun insertItems(items: List<OrderDocItemEntity>)
+
+    @Query("UPDATE order_doc SET status = :status, doneAs = :doneAs WHERE id = :id")
+    suspend fun setStatus(id: Long, status: String, doneAs: String)
+
+    @Query("SELECT COUNT(*) FROM order_doc WHERE kind = :kind AND status = 'OPEN'")
+    fun openCount(kind: String): Flow<Int>
+}
+
+data class MethodBalance(val method: String, val balancePaisa: Long)
+data class LedgerEntry(val number: String, val kind: String, val createdAt: Long, val delta: Long, val method: String)
+
+@Dao
+interface MoneyDao {
+    @Query("SELECT method, COALESCE(SUM(delta), 0) AS balancePaisa FROM ($MONEY_FLOWS) GROUP BY method")
+    fun balances(): Flow<List<MethodBalance>>
+
+    @Query("SELECT * FROM ($MONEY_FLOWS) WHERE method = :method ORDER BY createdAt DESC LIMIT 300")
+    fun ledger(method: String): Flow<List<LedgerEntry>>
+
+    @Query("SELECT COALESCE(SUM(delta), 0) FROM ($MONEY_FLOWS) WHERE method = :method AND createdAt < :before")
+    suspend fun balanceBefore(method: String, before: Long): Long
+
+    @Query("SELECT COALESCE(SUM(delta), 0) FROM ($MONEY_FLOWS) WHERE method = 'CASH' AND createdAt >= :from AND kind != 'OPENING'")
+    suspend fun cashFlowSince(from: Long): Long
+
+    @Query("SELECT COALESCE(SUM(delta), 0) FROM ($MONEY_FLOWS) WHERE method = 'CASH' AND createdAt >= :from AND kind != 'OPENING'")
+    fun watchCashFlowSince(from: Long): Flow<Long>
+
+    @Insert
+    suspend fun insertMove(m: MoneyMoveEntity): Long
+
+    @Query("SELECT * FROM loan ORDER BY outstandingPaisa > 0 DESC, createdAt DESC")
+    fun loans(): Flow<List<LoanEntity>>
+
+    @Query("SELECT * FROM loan WHERE id = :id")
+    fun watchLoan(id: Long): Flow<LoanEntity?>
+
+    @Query("SELECT * FROM loan WHERE id = :id")
+    suspend fun loan(id: Long): LoanEntity?
+
+    @Insert
+    suspend fun insertLoan(l: LoanEntity): Long
+
+    @Query("UPDATE loan SET outstandingPaisa = outstandingPaisa + :delta WHERE id = :id")
+    suspend fun addOutstanding(id: Long, delta: Long)
+
+    @Query("SELECT * FROM money_move WHERE loanId = :id ORDER BY createdAt DESC")
+    fun loanMoves(id: Long): Flow<List<MoneyMoveEntity>>
+
+    @Query("SELECT * FROM cash_session WHERE closedAt IS NULL ORDER BY openedAt DESC LIMIT 1")
+    fun openSession(): Flow<CashSessionEntity?>
+
+    @Query("SELECT * FROM cash_session WHERE closedAt IS NULL ORDER BY openedAt DESC LIMIT 1")
+    suspend fun currentSession(): CashSessionEntity?
+
+    @Query("SELECT * FROM cash_session WHERE closedAt IS NOT NULL ORDER BY openedAt DESC LIMIT 30")
+    fun pastSessions(): Flow<List<CashSessionEntity>>
+
+    @Insert
+    suspend fun insertSession(c: CashSessionEntity): Long
+
+    @Update
+    suspend fun updateSession(c: CashSessionEntity)
+}
+
+@Dao
+interface PromoDao {
+    @Query("SELECT * FROM promo WHERE kind = :kind ORDER BY active DESC, createdAt DESC")
+    fun byKind(kind: PromoKind): Flow<List<PromoEntity>>
+
+    /** Offers running right now. */
+    @Query("SELECT * FROM promo WHERE kind = 'OFFER' AND active = 1 AND (startAt IS NULL OR startAt <= :now) AND (endAt IS NULL OR endAt >= :now)")
+    fun liveOffers(now: Long): Flow<List<PromoEntity>>
+
+    @Query("SELECT * FROM promo WHERE kind = :kind AND code = :code AND active = 1 LIMIT 1")
+    suspend fun byCode(kind: PromoKind, code: String): PromoEntity?
+
+    @Query("SELECT COUNT(*) FROM promo WHERE kind != 'OFFER' AND code = :code AND id != :exceptId")
+    suspend fun codeTaken(code: String, exceptId: Long): Int
+
+    @Insert
+    suspend fun insert(p: PromoEntity): Long
+
+    @Query("UPDATE promo SET active = :active WHERE id = :id")
+    suspend fun setActive(id: Long, active: Boolean)
+
+    /** Counts one use; 0 rows when the limit is already reached. */
+    @Query("UPDATE promo SET uses = uses + 1 WHERE id = :id AND (maxUses = 0 OR uses < maxUses)")
+    suspend fun use(id: Long): Int
+
+    /** Spends from a voucher; 0 rows when the balance is too low. */
+    @Query("UPDATE promo SET balancePaisa = balancePaisa - :amount, uses = uses + 1 WHERE id = :id AND balancePaisa >= :amount")
+    suspend fun spend(id: Long, amount: Long): Int
+
+    @Insert
+    suspend fun insertSalePromos(rows: List<SalePromoEntity>)
+
+    @Query("SELECT * FROM sale_promo WHERE saleId = :saleId")
+    suspend fun forSale(saleId: Long): List<SalePromoEntity>
+
+    @Query("SELECT COALESCE(SUM(amountPaisa), 0) FROM sale_promo sp JOIN sale s ON s.id = sp.saleId WHERE sp.promoId = :promoId")
+    fun given(promoId: Long): Flow<Long>
+}
+
+data class MonthMark(val employeeId: Long, val absent: Int, val half: Int, val leave: Int, val present: Int)
+data class MonthPaid(val employeeId: Long, val paidPaisa: Long)
+
+@Dao
+interface HrDao {
+    @Query("SELECT * FROM employee ORDER BY active DESC, name")
+    fun employees(): Flow<List<EmployeeEntity>>
+
+    @Upsert
+    suspend fun saveEmployee(e: EmployeeEntity): Long
+
+    @Query("SELECT * FROM attendance WHERE day = :day")
+    fun day(day: Int): Flow<List<AttendanceEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun mark(a: AttendanceEntity)
+
+    @Query("DELETE FROM attendance WHERE employeeId = :employeeId AND day = :day")
+    suspend fun unmark(employeeId: Long, day: Int)
+
+    @Query(
+        "SELECT employeeId, SUM(status = 'ABSENT') AS absent, SUM(status = 'HALF') AS half, SUM(status = 'LEAVE') AS leave, " +
+            "SUM(status = 'PRESENT') AS present FROM attendance WHERE day BETWEEN :from AND :to GROUP BY employeeId"
+    )
+    fun month(from: Int, to: Int): Flow<List<MonthMark>>
+
+    // Joined to the expense, so a salary expense deleted from Expenses no longer counts as paid.
+    @Query(
+        "SELECT sp.employeeId AS employeeId, SUM(sp.amountPaisa) AS paidPaisa FROM salary_payment sp " +
+            "JOIN expense e ON e.id = sp.expenseId WHERE sp.month = :month GROUP BY sp.employeeId"
+    )
+    fun paid(month: Int): Flow<List<MonthPaid>>
+
+    @Insert
+    suspend fun insertPayment(p: SalaryPaymentEntity): Long
+}
+
+data class BatchRow(
+    val id: Long, val productId: Long, val productName: String, val unit: String,
+    val batchNo: String, val expiryDay: Long?, val qtyMilli: Long,
+)
+
+@Dao
+interface BatchDao {
+    @Insert
+    suspend fun insert(b: StockBatchEntity): Long
+
+    /** Batches a sale can take from, soonest expiry first; expired ones are left alone. */
+    @Query("SELECT * FROM stock_batch WHERE productId = :productId AND qtyMilli > 0 AND (expiryDay IS NULL OR expiryDay >= :today) ORDER BY expiryDay IS NULL, expiryDay")
+    suspend fun sellable(productId: Long, today: Long): List<StockBatchEntity>
+
+    @Query("UPDATE stock_batch SET qtyMilli = qtyMilli - :qty WHERE id = :id")
+    suspend fun take(id: Long, qty: Long)
+
+    @Query(
+        "SELECT b.id AS id, b.productId AS productId, p.name AS productName, p.unit AS unit, b.batchNo AS batchNo, " +
+            "b.expiryDay AS expiryDay, b.qtyMilli AS qtyMilli FROM stock_batch b JOIN product p ON p.id = b.productId " +
+            "WHERE b.qtyMilli > 0 AND (:untilDay < 0 OR (b.expiryDay IS NOT NULL AND b.expiryDay <= :untilDay)) " +
+            "ORDER BY b.expiryDay IS NULL, b.expiryDay, p.name"
+    )
+    fun list(untilDay: Long): Flow<List<BatchRow>>
+
+    @Query("SELECT * FROM stock_batch WHERE id = :id")
+    suspend fun get(id: Long): StockBatchEntity?
+
+    /** Soonest live expiry per product, for the sale screen. */
+    @Query("SELECT MIN(expiryDay) FROM stock_batch WHERE productId = :productId AND qtyMilli > 0 AND expiryDay IS NOT NULL AND expiryDay >= :today")
+    suspend fun nextExpiry(productId: Long, today: Long): Long?
+}
+
+data class TableState(val id: Long, val name: String, val orderId: Long?, val totalPaisa: Long, val items: Int)
+
+@Dao
+interface TableDao {
+    @Query(
+        "SELECT t.id AS id, t.name AS name, o.id AS orderId, " +
+            "COALESCE((SELECT SUM((i.unitPricePaisa * i.qtyMilli + 500) / 1000) FROM table_order_item i WHERE i.orderId = o.id), 0) AS totalPaisa, " +
+            "COALESCE((SELECT COUNT(*) FROM table_order_item i WHERE i.orderId = o.id), 0) AS items " +
+            "FROM dining_table t LEFT JOIN table_order o ON o.tableId = t.id AND o.status = 'OPEN' WHERE t.active = 1 ORDER BY t.id"
+    )
+    fun tables(): Flow<List<TableState>>
+
+    @Insert
+    suspend fun insertTable(t: DiningTableEntity): Long
+
+    @Query("UPDATE dining_table SET active = 0 WHERE id = :id")
+    suspend fun hideTable(id: Long)
+
+    @Query("SELECT * FROM dining_table WHERE id = :id")
+    fun watchTable(id: Long): Flow<DiningTableEntity?>
+
+    @Query("SELECT * FROM table_order WHERE tableId = :tableId AND status = 'OPEN' LIMIT 1")
+    suspend fun openOrder(tableId: Long): TableOrderEntity?
+
+    @Query("SELECT * FROM table_order WHERE tableId = :tableId AND status = 'OPEN' LIMIT 1")
+    fun watchOpenOrder(tableId: Long): Flow<TableOrderEntity?>
+
+    @Insert
+    suspend fun insertOrder(o: TableOrderEntity): Long
+
+    @Query("SELECT * FROM table_order_item WHERE orderId = :orderId ORDER BY id")
+    fun items(orderId: Long): Flow<List<TableOrderItemEntity>>
+
+    @Query("SELECT * FROM table_order_item WHERE orderId = :orderId ORDER BY id")
+    suspend fun itemsNow(orderId: Long): List<TableOrderItemEntity>
+
+    @Insert
+    suspend fun insertItem(i: TableOrderItemEntity): Long
+
+    @Query("UPDATE table_order_item SET qtyMilli = :qty WHERE id = :id")
+    suspend fun setQty(id: Long, qty: Long)
+
+    @Query("DELETE FROM table_order_item WHERE id = :id")
+    suspend fun deleteItem(id: Long)
+
+    @Query("UPDATE table_order_item SET sentMilli = qtyMilli WHERE orderId = :orderId")
+    suspend fun markSent(orderId: Long)
+
+    @Query("UPDATE table_order SET status = 'BILLED', saleNumber = :saleNumber WHERE id = :orderId")
+    suspend fun bill(orderId: Long, saleNumber: String)
+
+    @Query("DELETE FROM table_order WHERE id = :orderId")
+    suspend fun deleteOrder(orderId: Long)
+}
+
+data class JobRow(val id: Long, val number: String, val outName: String, val outQtyMilli: Long, val costPaisa: Long, val createdAt: Long, val inputs: String?)
+data class SerialRow(val id: Long, val serial: String, val productId: Long, val productName: String, val saleId: Long?, val saleNumber: String?, val soldAt: Long?, val createdAt: Long)
+data class WarehouseRow(val id: Long, val name: String, val products: Int)
+data class WarehouseLine(val productId: Long, val name: String, val unit: String, val qtyMilli: Long)
+
+@Dao
+interface StockToolsDao {
+    @Insert
+    suspend fun insertJob(j: StockJobEntity): Long
+
+    @Insert
+    suspend fun insertJobInputs(rows: List<StockJobInputEntity>)
+
+    @Query(
+        "SELECT j.id AS id, j.number AS number, j.outName AS outName, j.outQtyMilli AS outQtyMilli, j.costPaisa AS costPaisa, j.createdAt AS createdAt, " +
+            "(SELECT GROUP_CONCAT(name, ', ') FROM stock_job_input WHERE jobId = j.id) AS inputs FROM stock_job j ORDER BY j.createdAt DESC LIMIT 50"
+    )
+    fun jobs(): Flow<List<JobRow>>
+
+    /** Weighted average cost after [qty] more at [unitCost] arrive. */
+    @Query(
+        "UPDATE product SET costPaisa = CASE WHEN stockMilli + :qty > 0 THEN (costPaisa * MAX(stockMilli, 0) + :unitCost * :qty) / (MAX(stockMilli, 0) + :qty) ELSE :unitCost END, " +
+            "stockMilli = stockMilli + :qty WHERE id = :id"
+    )
+    suspend fun produce(id: Long, qty: Long, unitCost: Long)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertSerials(rows: List<ProductSerialEntity>): List<Long>
+
+    @Query("SELECT * FROM product_serial WHERE serial = :serial AND saleId IS NULL LIMIT 1")
+    suspend fun inStock(serial: String): ProductSerialEntity?
+
+    @Query("UPDATE product_serial SET saleId = :saleId, soldAt = :at WHERE serial = :serial AND saleId IS NULL")
+    suspend fun sell(serial: String, saleId: Long, at: Long): Int
+
+    @Query(
+        "SELECT ps.id AS id, ps.serial AS serial, ps.productId AS productId, p.name AS productName, ps.saleId AS saleId, s.number AS saleNumber, " +
+            "ps.soldAt AS soldAt, ps.createdAt AS createdAt FROM product_serial ps JOIN product p ON p.id = ps.productId " +
+            "LEFT JOIN sale s ON s.id = ps.saleId WHERE (:q = '' OR ps.serial LIKE '%' || :q || '%' OR p.name LIKE '%' || :q || '%') " +
+            "ORDER BY ps.createdAt DESC LIMIT 100"
+    )
+    fun serials(q: String): Flow<List<SerialRow>>
+
+    @Query("SELECT serial FROM product_serial WHERE saleId = :saleId")
+    suspend fun serialsOfSale(saleId: Long): List<String>
+
+    @Query("SELECT w.id AS id, w.name AS name, (SELECT COUNT(*) FROM warehouse_stock ws WHERE ws.warehouseId = w.id AND ws.qtyMilli > 0) AS products FROM warehouse w WHERE w.active = 1 ORDER BY w.id")
+    fun warehouses(): Flow<List<WarehouseRow>>
+
+    @Insert
+    suspend fun insertWarehouse(w: WarehouseEntity): Long
+
+    @Query("SELECT * FROM warehouse WHERE id = :id")
+    fun watchWarehouse(id: Long): Flow<WarehouseEntity?>
+
+    @Query(
+        "SELECT ws.productId AS productId, p.name AS name, p.unit AS unit, ws.qtyMilli AS qtyMilli FROM warehouse_stock ws " +
+            "JOIN product p ON p.id = ws.productId WHERE ws.warehouseId = :id AND ws.qtyMilli > 0 ORDER BY p.name COLLATE NOCASE"
+    )
+    fun warehouseStock(id: Long): Flow<List<WarehouseLine>>
+
+    @Query("SELECT COALESCE((SELECT qtyMilli FROM warehouse_stock WHERE warehouseId = :w AND productId = :p), 0)")
+    suspend fun heldIn(w: Long, p: Long): Long
+
+    @Query("SELECT COALESCE(SUM(qtyMilli), 0) FROM warehouse_stock WHERE productId = :p")
+    suspend fun heldAll(p: Long): Long
+
+    @Upsert
+    suspend fun setHeld(row: WarehouseStockEntity)
+}
+
+data class AuditRow(val id: Long, val at: Long, val staffName: String?, val action: String, val detail: String)
+
+@Dao
+interface AuditDao {
+    @Insert
+    suspend fun insert(a: AuditLogEntity)
+
+    @Query(
+        "SELECT a.id AS id, a.at AS at, s.name AS staffName, a.`action` AS `action`, a.detail AS detail FROM audit_log a " +
+            "LEFT JOIN staff s ON s.id = a.staffId WHERE (:staff < 0 OR COALESCE(a.staffId, 0) = :staff) " +
+            "AND (:q = '' OR a.detail LIKE '%' || :q || '%') ORDER BY a.at DESC LIMIT 300"
+    )
+    fun list(staff: Long, q: String): Flow<List<AuditRow>>
+
+    /** Keeps the log from growing without end: about a year. */
+    @Query("DELETE FROM audit_log WHERE at < :before")
+    suspend fun trim(before: Long)
+}

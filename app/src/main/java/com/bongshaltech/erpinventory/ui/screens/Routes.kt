@@ -43,9 +43,38 @@ object Routes {
     const val RECEIPT = "receipt/{id}"
     const val PRINTER = "printer"
     const val SMS_ACCOUNT = "sms_account"
+    const val RETURNS = "returns"
+    const val ORDERS = "orders"
+    const val ORDER = "order/{kind}/{id}"
+    const val SALE_RETURN = "sale_return/{id}"
+    const val PURCHASE_RETURN = "purchase_return/{id}"
     const val AD_FREE = "ad_free"
+    const val CASH_BANK = "cash_bank"
+    const val LEDGER = "ledger/{m}"
+    const val LOANS = "loans"
+    const val LOAN = "loan/{id}"
+    const val CASH_DAY = "cash_day"
+    const val PROMOS = "promos"
+    const val HR = "hr"
+    const val BATCHES = "batches"
+    const val REPACK = "repack"
+    const val IMPORT = "import"
+    const val LABELS = "labels"
+    const val AUDIT = "audit"
+    const val SERIALS = "serials"
+    const val WAREHOUSES = "warehouses"
+    const val WAREHOUSE = "warehouse/{id}"
+    const val TABLES = "tables"
+    const val TABLE = "table/{id}"
 
     fun productEdit(id: Long) = "product/$id"
+    fun ledger(m: com.bongshaltech.erpinventory.data.db.PayMethod) = "ledger/${m.name}"
+    fun loan(id: Long) = "loan/$id"
+    fun table(id: Long) = "table/$id"
+    fun warehouse(id: Long) = "warehouse/$id"
+    fun saleReturn(saleId: Long) = "sale_return/$saleId"
+    fun order(kind: com.bongshaltech.erpinventory.data.db.OrderKind, id: Long) = "order/${kind.name}/$id"
+    fun purchaseReturn(purchaseId: Long) = "purchase_return/$purchaseId"
     fun customer(id: Long) = "customer/$id"
     fun customerEdit(id: Long) = "customer_edit/$id"
     fun supplier(id: Long) = "supplier/$id"
@@ -89,7 +118,7 @@ fun ErpNavHost() {
         composable(Routes.SALE) { SaleScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.SALE_SCAN) { SaleScreen(go = { nav.navigate(it) }, onBack = back, startScan = true) }
         composable(Routes.RECEIPT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
-            ReceiptScreen(e.arguments?.getLong("id") ?: 0L, back)
+            ReceiptScreen(e.arguments?.getLong("id") ?: 0L, go = { nav.navigate(it) }, onBack = back)
         }
         composable(Routes.PRINTER) { PrinterScreen(back) }
         composable(Routes.MORE) {
@@ -124,6 +153,45 @@ fun ErpNavHost() {
         composable(Routes.MFS_WALLETS) { MfsWalletsScreen(back) }
         composable(Routes.BACKUP) { BackupScreen(back) }
         composable(Routes.SMS_ACCOUNT) { SmsAccountScreen(back) }
+        composable(Routes.ORDERS) { OrdersScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(
+            Routes.ORDER,
+            arguments = listOf(navArgument("kind") { type = NavType.StringType }, navArgument("id") { type = NavType.LongType }),
+        ) { e ->
+            val kind = runCatching { com.bongshaltech.erpinventory.data.db.OrderKind.valueOf(e.arguments?.getString("kind").orEmpty()) }
+                .getOrDefault(com.bongshaltech.erpinventory.data.db.OrderKind.QUOTE)
+            OrderScreen(kind, e.arguments?.getLong("id") ?: 0L, go = { nav.navigate(it) }, onBack = back)
+        }
+        composable(Routes.CASH_BANK) { CashBankScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.LEDGER, arguments = listOf(navArgument("m") { type = NavType.StringType })) { e ->
+            val m = runCatching { com.bongshaltech.erpinventory.data.db.PayMethod.valueOf(e.arguments?.getString("m").orEmpty()) }
+                .getOrDefault(com.bongshaltech.erpinventory.data.db.PayMethod.CASH)
+            LedgerScreen(m, back)
+        }
+        composable(Routes.LOANS) { LoansScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.LOAN, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e -> LoanScreen(e.arguments?.getLong("id") ?: 0L, back) }
+        composable(Routes.CASH_DAY) { CashDayScreen(back) }
+        composable(Routes.PROMOS) { PromosScreen(back) }
+        composable(Routes.HR) { HrScreen(back) }
+        composable(Routes.BATCHES) { BatchesScreen(back) }
+        composable(Routes.REPACK) { RepackScreen(back) }
+        composable(Routes.IMPORT) { ImportScreen(back) }
+        composable(Routes.LABELS) { LabelsScreen(back) }
+        composable(Routes.AUDIT) { AuditScreen(back) }
+        composable(Routes.SERIALS) { SerialsScreen(back) }
+        composable(Routes.WAREHOUSES) { WarehousesScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.WAREHOUSE, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e -> WarehouseScreen(e.arguments?.getLong("id") ?: 0L, back) }
+        composable(Routes.TABLES) { TablesScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.TABLE, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            TableScreen(e.arguments?.getLong("id") ?: 0L, go = { nav.navigate(it) }, onBack = back)
+        }
+        composable(Routes.RETURNS) { ReturnsScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.SALE_RETURN, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            ReturnScreen(purchase = false, docId = e.arguments?.getLong("id") ?: 0L, onBack = back)
+        }
+        composable(Routes.PURCHASE_RETURN, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            ReturnScreen(purchase = true, docId = e.arguments?.getLong("id") ?: 0L, onBack = back)
+        }
         composable(Routes.AD_FREE) { AdFreeScreen(back) }
         composable(Routes.REPORTS) { ReportsScreen(tab = { nav.goTab(it) }) }
     }
