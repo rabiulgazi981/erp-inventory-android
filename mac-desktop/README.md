@@ -16,6 +16,10 @@ reach the app without a new installer. It is the Mac twin of `windows-desktop/`.
 - Not notarized (no Apple Developer account yet), only ad-hoc signed. The first open shows
   "Apple could not verify…". Click **Done**, then System Settings → Privacy & Security →
   **Open Anyway** (on macOS 14 and older, right-click the app → Open also works).
+- Cash drawer: dashboard pages call `window.erpDesktop.openDrawer(pin 0|1, printerName?)` and
+  `listPrinters()`. The app sends ESC p <pin> 0x19 0xFA to the receipt printer as a RAW job
+  (`lp -o raw`; printers from `lpstat -e`). No printer name = the default printer. Only
+  `https://erpinventory.bd/dashboard*` may call it (`src-tauri/capabilities/dashboard.json`).
 
 ## Build
 

@@ -1,0 +1,9 @@
+{
+  "identifier": "dashboard-cash-drawer",
+  "description": "Lets the live dashboard (only its /dashboard pages) open the cash drawer and list printers.",
+  "windows": ["*"],
+  "remote": {
+    "urls": ["https://erpinventory.bd/dashboard", "https://erpinventory.bd/dashboard/*"]
+  },
+  "permissions": ["allow-open-drawer", "allow-list-printers"]
+}

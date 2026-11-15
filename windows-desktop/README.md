@@ -12,6 +12,11 @@ dashboard changes reach the app without a new installer.
 - Second launch focuses the open window.
 - Not code-signed yet: the first install shows SmartScreen "Windows protected your PC";
   click **More info → Run anyway**.
+- Sets `window.erpDesktop = { platform: 'windows', version, ... }` on every page.
+- Cash drawer: dashboard pages call `window.erpDesktop.openDrawer(pin 0|1, printerName?)` and
+  `listPrinters()`. The app sends ESC p <pin> 0x19 0xFA to the receipt printer as a RAW job
+  (winspool RAW; printers from EnumPrinters). No printer name = the default printer. Only
+  `https://erpinventory.bd/dashboard*` may call it (`src-tauri/capabilities/dashboard.json`).
 
 ## Build
 
