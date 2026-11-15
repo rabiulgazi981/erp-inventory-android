@@ -28,7 +28,10 @@ const val MONEY_FLOWS = """
 
 @Dao
 interface ProductDao {
-    @Query("SELECT * FROM product WHERE active = 1 AND (:q = '' OR name LIKE '%' || :q || '%' OR barcode = :q) ORDER BY name COLLATE NOCASE")
+    @Query(
+        "SELECT * FROM product WHERE active = 1 AND (:q = '' OR name LIKE '%' || :q || '%' OR barcode = :q " +
+            "OR (generic != '' AND generic LIKE '%' || :q || '%')) ORDER BY name COLLATE NOCASE"
+    )
     fun search(q: String): Flow<List<ProductEntity>>
 
     @Query("SELECT * FROM product WHERE id = :id")
@@ -670,4 +673,92 @@ interface HrDao {
 
     @Insert
     suspend fun insertPayment(p: SalaryPaymentEntity): Long
+}
+
+data class BatchRow(
+    val id: Long, val productId: Long, val productName: String, val unit: String,
+    val batchNo: String, val expiryDay: Long?, val qtyMilli: Long,
+)
+
+@Dao
+interface BatchDao {
+    @Insert
+    suspend fun insert(b: StockBatchEntity): Long
+
+    /** Batches a sale can take from, soonest expiry first; expired ones are left alone. */
+    @Query("SELECT * FROM stock_batch WHERE productId = :productId AND qtyMilli > 0 AND (expiryDay IS NULL OR expiryDay >= :today) ORDER BY expiryDay IS NULL, expiryDay")
+    suspend fun sellable(productId: Long, today: Long): List<StockBatchEntity>
+
+    @Query("UPDATE stock_batch SET qtyMilli = qtyMilli - :qty WHERE id = :id")
+    suspend fun take(id: Long, qty: Long)
+
+    @Query(
+        "SELECT b.id AS id, b.productId AS productId, p.name AS productName, p.unit AS unit, b.batchNo AS batchNo, " +
+            "b.expiryDay AS expiryDay, b.qtyMilli AS qtyMilli FROM stock_batch b JOIN product p ON p.id = b.productId " +
+            "WHERE b.qtyMilli > 0 AND (:untilDay < 0 OR (b.expiryDay IS NOT NULL AND b.expiryDay <= :untilDay)) " +
+            "ORDER BY b.expiryDay IS NULL, b.expiryDay, p.name"
+    )
+    fun list(untilDay: Long): Flow<List<BatchRow>>
+
+    @Query("SELECT * FROM stock_batch WHERE id = :id")
+    suspend fun get(id: Long): StockBatchEntity?
+
+    /** Soonest live expiry per product, for the sale screen. */
+    @Query("SELECT MIN(expiryDay) FROM stock_batch WHERE productId = :productId AND qtyMilli > 0 AND expiryDay IS NOT NULL AND expiryDay >= :today")
+    suspend fun nextExpiry(productId: Long, today: Long): Long?
+}
+
+data class TableState(val id: Long, val name: String, val orderId: Long?, val totalPaisa: Long, val items: Int)
+
+@Dao
+interface TableDao {
+    @Query(
+        "SELECT t.id AS id, t.name AS name, o.id AS orderId, " +
+            "COALESCE((SELECT SUM((i.unitPricePaisa * i.qtyMilli + 500) / 1000) FROM table_order_item i WHERE i.orderId = o.id), 0) AS totalPaisa, " +
+            "COALESCE((SELECT COUNT(*) FROM table_order_item i WHERE i.orderId = o.id), 0) AS items " +
+            "FROM dining_table t LEFT JOIN table_order o ON o.tableId = t.id AND o.status = 'OPEN' WHERE t.active = 1 ORDER BY t.id"
+    )
+    fun tables(): Flow<List<TableState>>
+
+    @Insert
+    suspend fun insertTable(t: DiningTableEntity): Long
+
+    @Query("UPDATE dining_table SET active = 0 WHERE id = :id")
+    suspend fun hideTable(id: Long)
+
+    @Query("SELECT * FROM dining_table WHERE id = :id")
+    fun watchTable(id: Long): Flow<DiningTableEntity?>
+
+    @Query("SELECT * FROM table_order WHERE tableId = :tableId AND status = 'OPEN' LIMIT 1")
+    suspend fun openOrder(tableId: Long): TableOrderEntity?
+
+    @Query("SELECT * FROM table_order WHERE tableId = :tableId AND status = 'OPEN' LIMIT 1")
+    fun watchOpenOrder(tableId: Long): Flow<TableOrderEntity?>
+
+    @Insert
+    suspend fun insertOrder(o: TableOrderEntity): Long
+
+    @Query("SELECT * FROM table_order_item WHERE orderId = :orderId ORDER BY id")
+    fun items(orderId: Long): Flow<List<TableOrderItemEntity>>
+
+    @Query("SELECT * FROM table_order_item WHERE orderId = :orderId ORDER BY id")
+    suspend fun itemsNow(orderId: Long): List<TableOrderItemEntity>
+
+    @Insert
+    suspend fun insertItem(i: TableOrderItemEntity): Long
+
+    @Query("UPDATE table_order_item SET qtyMilli = :qty WHERE id = :id")
+    suspend fun setQty(id: Long, qty: Long)
+
+    @Query("DELETE FROM table_order_item WHERE id = :id")
+    suspend fun deleteItem(id: Long)
+
+    @Query("UPDATE table_order_item SET sentMilli = qtyMilli WHERE orderId = :orderId")
+    suspend fun markSent(orderId: Long)
+
+    @Query("UPDATE table_order SET status = 'BILLED', saleNumber = :saleNumber WHERE id = :orderId")
+    suspend fun bill(orderId: Long, saleNumber: String)
+
+    @Query("DELETE FROM table_order WHERE id = :orderId")
+    suspend fun deleteOrder(orderId: Long)
 }

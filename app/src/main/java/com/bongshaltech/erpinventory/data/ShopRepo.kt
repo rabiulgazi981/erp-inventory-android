@@ -28,6 +28,9 @@ import com.bongshaltech.erpinventory.data.db.LoanEntity
 import com.bongshaltech.erpinventory.data.db.MoneyMoveEntity
 import com.bongshaltech.erpinventory.data.db.MoveKind
 import com.bongshaltech.erpinventory.data.db.PromoEntity
+import com.bongshaltech.erpinventory.data.db.StockBatchEntity
+import com.bongshaltech.erpinventory.data.db.TableOrderEntity
+import com.bongshaltech.erpinventory.data.db.TableOrderItemEntity
 import com.bongshaltech.erpinventory.data.db.SalaryPaymentEntity
 import com.bongshaltech.erpinventory.data.db.PromoKind
 import com.bongshaltech.erpinventory.data.db.SalePromoEntity
@@ -60,7 +63,7 @@ data class NewSale(
 
 data class AppliedPromo(val promoId: Long?, val kind: PromoKind, val code: String, val amountPaisa: Long)
 
-data class PurchaseLine(val product: ProductEntity, val qtyMilli: Long, val unitCostPaisa: Long) {
+data class PurchaseLine(val product: ProductEntity, val qtyMilli: Long, val unitCostPaisa: Long, val batchNo: String = "", val expiryDay: Long? = null) {
     val totalPaisa: Long get() = (unitCostPaisa * qtyMilli + 500) / 1000
 }
 
@@ -108,7 +111,7 @@ data class NewOrder(
 
 /** A quote, sales order or purchase order handed to the Sale or Purchase screen to finish. */
 object PendingDoc {
-    data class ForSale(val orderId: Long, val lines: List<CartLine>, val phone: String, val name: String, val discountPaisa: Long)
+    data class ForSale(val orderId: Long, val lines: List<CartLine>, val phone: String, val name: String, val discountPaisa: Long, val tableOrderId: Long? = null)
     data class ForPurchase(val orderId: Long, val lines: List<PurchaseLine>, val supplierId: Long?, val name: String, val phone: String, val discountPaisa: Long)
     var sale: ForSale? = null
     var purchase: ForPurchase? = null
@@ -204,6 +207,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                     if (db.products().takeStock(line.product.id, line.qtyMilli) == 0) {
                         throw NotEnough(line.product.name)
                     }
+                    takeFromBatches(line.product.id, line.qtyMilli)
                 }
                 val customerId = phone?.let {
                     db.customers().byPhone(it)?.id
@@ -314,6 +318,9 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                     qtyMilli = it.qtyMilli, unitCostPaisa = it.unitCostPaisa, lineTotalPaisa = it.totalPaisa,
                 )
             })
+            for (l in p.lines) if (l.batchNo.isNotBlank() || l.expiryDay != null) {
+                db.batches().insert(StockBatchEntity(productId = l.product.id, batchNo = l.batchNo.trim(), expiryDay = l.expiryDay, qtyMilli = l.qtyMilli, purchaseId = id))
+            }
             PurchaseResult.Saved(number, total)
         }
     }
@@ -346,6 +353,65 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     }
 
     val promos get() = db.promos()
+    val batches get() = db.batches()
+    val tables get() = db.tables()
+
+    /** Sells from the batch that expires first. Stock outside batches covers the rest. */
+    private suspend fun takeFromBatches(productId: Long, qtyMilli: Long) {
+        var left = qtyMilli
+        for (b in db.batches().sellable(productId, LocalDate.now().toEpochDay())) {
+            if (left <= 0) break
+            val take = minOf(left, b.qtyMilli)
+            db.batches().take(b.id, take)
+            left -= take
+        }
+    }
+
+    /** Labels stock already on hand with a batch and expiry. It does not change the stock count. */
+    suspend fun addBatch(productId: Long, batchNo: String, expiryDay: Long?, qtyMilli: Long): Boolean {
+        if (qtyMilli <= 0 || (batchNo.isBlank() && expiryDay == null)) return false
+        db.batches().insert(StockBatchEntity(productId = productId, batchNo = batchNo.trim(), expiryDay = expiryDay, qtyMilli = qtyMilli))
+        return true
+    }
+
+    /** Throws away what is left of a batch (expired or damaged): it leaves the stock too. */
+    suspend fun writeOffBatch(batchId: Long) = db.withTransaction {
+        val b = db.batches().get(batchId) ?: return@withTransaction
+        if (b.qtyMilli <= 0) return@withTransaction
+        db.batches().take(b.id, b.qtyMilli)
+        db.products().addStock(b.productId, -b.qtyMilli)
+    }
+
+    /** Adds one of a product to a table's open order, opening one if needed. */
+    suspend fun addToTable(tableId: Long, p: ProductEntity) = db.withTransaction {
+        val orderId = db.tables().openOrder(tableId)?.id ?: db.tables().insertOrder(TableOrderEntity(tableId = tableId))
+        val same = db.tables().itemsNow(orderId).firstOrNull { it.productId == p.id && it.unitPricePaisa == p.pricePaisa }
+        if (same != null) db.tables().setQty(same.id, same.qtyMilli + 1000)
+        else db.tables().insertItem(TableOrderItemEntity(orderId = orderId, productId = p.id, name = p.name, unitPricePaisa = p.pricePaisa, qtyMilli = 1000))
+    }
+
+    /** Lines not yet sent to the kitchen, with a new KOT number, then marks them sent. Null when nothing is new. */
+    suspend fun sendKot(orderId: Long): Pair<String, List<Pair<String, Long>>>? {
+        val code = settings.current().shopCode
+        return db.withTransaction {
+            val fresh = db.tables().itemsNow(orderId).filter { it.qtyMilli > it.sentMilli }.map { it.name to (it.qtyMilli - it.sentMilli) }
+            if (fresh.isEmpty()) return@withTransaction null
+            val number = nextNumber(code, DocType.KOT)
+            db.tables().markSent(orderId)
+            number to fresh
+        }
+    }
+
+    /** The table's order as a cart for the sale screen. Products that were deleted are left out. */
+    suspend fun tableToSale(orderId: Long, tableName: String): PendingDoc.ForSale? {
+        val lines = db.tables().itemsNow(orderId).mapNotNull { i ->
+            db.products().get(i.productId)?.let { CartLine(it.copy(pricePaisa = i.unitPricePaisa), i.qtyMilli) }
+        }
+        if (lines.isEmpty()) return null
+        return PendingDoc.ForSale(0, lines, "", "", 0, tableOrderId = orderId)
+    }
+
+    suspend fun billTable(orderId: Long, saleNumber: String) = db.tables().bill(orderId, saleNumber)
     val hr get() = db.hr()
 
     /** Pays salary (or an advance) for [month] (yyyyMM). It is also saved as an expense, so cash and profit include it. */

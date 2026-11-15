@@ -131,12 +131,13 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
 
     // A quote or sales order sent here from Orders fills the cart once.
     var fromOrder by remember { mutableStateOf<Long?>(null) }
+    var fromTable by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(Unit) {
         com.bongshaltech.erpinventory.data.PendingDoc.sale?.let { d ->
             com.bongshaltech.erpinventory.data.PendingDoc.sale = null
             cart.clear(); cart.addAll(d.lines); phone = d.phone; custName = d.name; showName = d.name.isNotBlank()
             if (d.discountPaisa > 0) discount = (d.discountPaisa / 100.0).toBigDecimal().stripTrailingZeros().toPlainString()
-            fromOrder = d.orderId
+            fromOrder = d.orderId.takeIf { it > 0 }; fromTable = d.tableOrderId
         }
     }
 
@@ -391,6 +392,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                     when (r) {
                         is SaleResult.Saved -> {
                             fromOrder?.let { app.repo.finishOrder(it, r.number) }; fromOrder = null
+                            fromTable?.let { app.repo.billTable(it, r.number) }; fromTable = null
                             saved = r; message = null
                             if (sms && hasPhone) {
                                 val due = (total - paidPaisa).coerceAtLeast(0)

@@ -56,10 +56,14 @@ object Routes {
     const val CASH_DAY = "cash_day"
     const val PROMOS = "promos"
     const val HR = "hr"
+    const val BATCHES = "batches"
+    const val TABLES = "tables"
+    const val TABLE = "table/{id}"
 
     fun productEdit(id: Long) = "product/$id"
     fun ledger(m: com.bongshaltech.erpinventory.data.db.PayMethod) = "ledger/${m.name}"
     fun loan(id: Long) = "loan/$id"
+    fun table(id: Long) = "table/$id"
     fun saleReturn(saleId: Long) = "sale_return/$saleId"
     fun order(kind: com.bongshaltech.erpinventory.data.db.OrderKind, id: Long) = "order/${kind.name}/$id"
     fun purchaseReturn(purchaseId: Long) = "purchase_return/$purchaseId"
@@ -161,6 +165,11 @@ fun ErpNavHost() {
         composable(Routes.CASH_DAY) { CashDayScreen(back) }
         composable(Routes.PROMOS) { PromosScreen(back) }
         composable(Routes.HR) { HrScreen(back) }
+        composable(Routes.BATCHES) { BatchesScreen(back) }
+        composable(Routes.TABLES) { TablesScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.TABLE, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            TableScreen(e.arguments?.getLong("id") ?: 0L, go = { nav.navigate(it) }, onBack = back)
+        }
         composable(Routes.RETURNS) { ReturnsScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.SALE_RETURN, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
             ReturnScreen(purchase = false, docId = e.arguments?.getLong("id") ?: 0L, onBack = back)

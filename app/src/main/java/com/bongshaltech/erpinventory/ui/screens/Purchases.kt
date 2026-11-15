@@ -168,7 +168,7 @@ private fun PurchaseRowCard(p: PurchaseRow, onClick: () -> Unit) {
 }
 
 /** A line being typed on the purchase screen: quantity and buying price stay as text until saved. */
-private data class PLine(val product: ProductEntity, val qty: String, val cost: String)
+private data class PLine(val product: ProductEntity, val qty: String, val cost: String, val batch: String = "", val expiry: String = "", val showBatch: Boolean = false)
 
 @Composable
 fun PurchaseNewScreen(go: (String) -> Unit, onBack: () -> Unit) {
@@ -192,12 +192,15 @@ fun PurchaseNewScreen(go: (String) -> Unit, onBack: () -> Unit) {
     var message by remember { mutableStateOf<String?>(null) }
     var saved by remember { mutableStateOf<PurchaseResult.Saved?>(null) }
 
-    val ready = lines.map { PurchaseLine(it.product, it.qty.toMilli() ?: 0, it.cost.toPaisa() ?: 0) }
+    val pharmacy = app.settings.settings.collectAsStateWithLifecycle(null).value?.shopType == com.bongshaltech.erpinventory.data.ShopType.PHARMACY
+    val ready = lines.map {
+        PurchaseLine(it.product, it.qty.toMilli() ?: 0, it.cost.toPaisa() ?: 0, it.batch, com.bongshaltech.erpinventory.core.stock.Expiry.parse(it.expiry)?.toEpochDay())
+    }
     val subtotal = ready.sumOf { it.totalPaisa }
     val discountPaisa = (discount.toPaisa() ?: 0).coerceIn(0, subtotal)
     val total = subtotal - discountPaisa
     val paidPaisa = if (paid.isBlank()) total else paid.toPaisa() ?: 0
-    val badLine = ready.any { it.qtyMilli <= 0 }
+    val badLine = ready.any { it.qtyMilli <= 0 } || lines.any { it.expiry.isNotBlank() && com.bongshaltech.erpinventory.core.stock.Expiry.parse(it.expiry) == null }
     val dueNeeds = stringResource(R.string.pur_due_needs_supplier)
     val badQty = stringResource(R.string.pur_bad_qty)
 
@@ -300,6 +303,13 @@ fun PurchaseNewScreen(go: (String) -> Unit, onBack: () -> Unit) {
                             T(ready[i].totalPaisa.taka0(), 14.sp, FontWeight.Bold, modifier = Modifier.width(78.dp).padding(bottom = 10.dp),
                                 align = androidx.compose.ui.text.style.TextAlign.End)
                         }
+                        if (pharmacy || l.showBatch) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Input(l.batch, { lines[i] = l.copy(batch = it) }, Modifier.weight(1f), label = stringResource(R.string.batch_no), height = 40.dp)
+                            Input(l.expiry, { lines[i] = l.copy(expiry = it) }, Modifier.weight(1f), label = stringResource(R.string.batch_expiry),
+                                placeholder = "12/27", height = 40.dp,
+                                error = stringResource(R.string.batch_expiry_bad).takeIf { l.expiry.isNotBlank() && com.bongshaltech.erpinventory.core.stock.Expiry.parse(l.expiry) == null })
+                        } else T(stringResource(R.string.batch_add_link), 12.sp, FontWeight.SemiBold, Brand.Link,
+                            modifier = Modifier.clickable { lines[i] = l.copy(showBatch = true) })
                     }
                 }
             }

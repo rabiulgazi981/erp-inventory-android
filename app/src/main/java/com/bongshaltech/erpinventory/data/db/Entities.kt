@@ -15,6 +15,8 @@ data class ProductEntity(
     val barcode: String? = null,
     val unit: String = "pcs",
     @ColumnInfo(defaultValue = "") val category: String = "",
+    /** Generic (chemical) name, for pharmacies. */
+    @ColumnInfo(defaultValue = "") val generic: String = "",
     val costPaisa: Long = 0,
     val pricePaisa: Long,
     /** Stock × 1000. */
@@ -453,4 +455,51 @@ data class SalaryPaymentEntity(
     val amountPaisa: Long,
     val expenseId: Long,
     val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** Part of a product's stock that came in together: a batch number and its expiry. Stock outside batches has none. */
+@Entity(tableName = "stock_batch", indices = [Index("productId"), Index("expiryDay")])
+data class StockBatchEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val productId: Long,
+    val batchNo: String,
+    /** Expiry as epoch day, or null. */
+    val expiryDay: Long?,
+    val qtyMilli: Long,
+    val purchaseId: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+@Entity(tableName = "dining_table")
+data class DiningTableEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val active: Boolean = true,
+)
+
+/** What a table has ordered until it is billed. */
+@Entity(tableName = "table_order", indices = [Index("tableId"), Index("status")])
+data class TableOrderEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val tableId: Long,
+    /** OPEN or BILLED. */
+    val status: String = "OPEN",
+    val saleNumber: String? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+@Entity(
+    tableName = "table_order_item",
+    foreignKeys = [ForeignKey(entity = TableOrderEntity::class, parentColumns = ["id"], childColumns = ["orderId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("orderId")],
+)
+data class TableOrderItemEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val orderId: Long,
+    val productId: Long,
+    val name: String,
+    val unitPricePaisa: Long,
+    val qtyMilli: Long,
+    /** How much of [qtyMilli] has already gone to the kitchen on a KOT. */
+    val sentMilli: Long = 0,
 )

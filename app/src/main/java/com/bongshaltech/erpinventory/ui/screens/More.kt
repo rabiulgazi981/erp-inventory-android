@@ -22,6 +22,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.EventBusy
+import androidx.compose.material.icons.outlined.TableRestaurant
 import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.Handshake
 import androidx.compose.material.icons.outlined.PointOfSale
@@ -179,6 +181,9 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     ListRow(stringResource(R.string.loans), Icons.Outlined.Handshake, Tints.Orange, trailing = { Chevron() }) { go(Routes.LOANS) }
                     ListRow(stringResource(R.string.promos), Icons.Outlined.LocalOffer, Tints.Pink, trailing = { Chevron() }) { go(Routes.PROMOS) }
                     ListRow(stringResource(R.string.hr), Icons.Outlined.Badge, Tints.Indigo, trailing = { Chevron() }) { go(Routes.HR) }
+                    if (s?.shopType == com.bongshaltech.erpinventory.data.ShopType.RESTAURANT)
+                        ListRow(stringResource(R.string.tables), Icons.Outlined.TableRestaurant, Tints.Orange, trailing = { Chevron() }) { go(Routes.TABLES) }
+                    ListRow(stringResource(R.string.batches), Icons.Outlined.EventBusy, Tints.Amber, trailing = { Chevron() }) { go(Routes.BATCHES) }
                     ListRow(stringResource(R.string.orders), Icons.Outlined.Description, Tints.Blue, trailing = { Chevron() }) { go(Routes.ORDERS) }
                     ListRow(stringResource(R.string.returns), Icons.Outlined.Replay, Tints.Purple, trailing = { Chevron() }) { go(Routes.RETURNS) }
                     ListRow(stringResource(R.string.backup), Icons.Outlined.CloudUpload, Tints.Blue, trailing = { Chevron() }) { go(Routes.BACKUP) }
