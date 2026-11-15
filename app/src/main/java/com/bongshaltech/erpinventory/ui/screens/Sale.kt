@@ -184,8 +184,14 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
     fun scan() = scanBarcode(ctx) { code ->
         scope.launch {
             val p = app.repo.products.byBarcode(code)
+            val bySerial = if (p == null) app.repo.productForSerial(code) else null
             if (p != null) addProduct(p)
-            else { q = code; Toast.makeText(ctx, ctx.getString(R.string.scan_not_found, code), Toast.LENGTH_LONG).show() }
+            else if (bySerial != null) {
+                // A serial / IMEI: one unit of its product, remembered on the line.
+                val i = cart.indexOfFirst { it.product.id == bySerial.id }
+                if (i >= 0) { if (code.trim() !in cart[i].serials) cart[i] = cart[i].copy(qtyMilli = cart[i].qtyMilli + 1000, serials = cart[i].serials + code.trim()) }
+                else cart.add(CartLine(bySerial, 1000, listOf(code.trim())))
+            } else { q = code; Toast.makeText(ctx, ctx.getString(R.string.scan_not_found, code), Toast.LENGTH_LONG).show() }
         }
     }
     // Home's scan button opens the sale screen straight into the scanner.
@@ -194,7 +200,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
         val i = cart.indexOfFirst { it.product.id == pId }
         if (i < 0) return
         val next = cart[i].qtyMilli + delta
-        if (next <= 0) cart.removeAt(i) else cart[i] = cart[i].copy(qtyMilli = next)
+        if (next <= 0) cart.removeAt(i) else cart[i] = cart[i].copy(qtyMilli = next, serials = cart[i].serials.take((next / 1000).toInt()))
     }
     fun reset() {
         codeOpen = false; codeText = ""; codePromo = null
@@ -276,6 +282,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                         Column(Modifier.weight(1f)) {
                             T(c.product.name, 14.sp, FontWeight.SemiBold, maxLines = 1)
                             Muted("${c.product.pricePaisa.taka0()} × ${c.qtyMilli.qty()}")
+                            if (c.serials.isNotEmpty()) Muted(c.serials.joinToString(", "))
                         }
                         Row(
                             Modifier.clip(RoundedCornerShape(10.dp)).border(1.dp, Ui.c.inputBorder, RoundedCornerShape(10.dp)),

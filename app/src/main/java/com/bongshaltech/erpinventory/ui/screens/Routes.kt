@@ -57,6 +57,10 @@ object Routes {
     const val PROMOS = "promos"
     const val HR = "hr"
     const val BATCHES = "batches"
+    const val REPACK = "repack"
+    const val SERIALS = "serials"
+    const val WAREHOUSES = "warehouses"
+    const val WAREHOUSE = "warehouse/{id}"
     const val TABLES = "tables"
     const val TABLE = "table/{id}"
 
@@ -64,6 +68,7 @@ object Routes {
     fun ledger(m: com.bongshaltech.erpinventory.data.db.PayMethod) = "ledger/${m.name}"
     fun loan(id: Long) = "loan/$id"
     fun table(id: Long) = "table/$id"
+    fun warehouse(id: Long) = "warehouse/$id"
     fun saleReturn(saleId: Long) = "sale_return/$saleId"
     fun order(kind: com.bongshaltech.erpinventory.data.db.OrderKind, id: Long) = "order/${kind.name}/$id"
     fun purchaseReturn(purchaseId: Long) = "purchase_return/$purchaseId"
@@ -166,6 +171,10 @@ fun ErpNavHost() {
         composable(Routes.PROMOS) { PromosScreen(back) }
         composable(Routes.HR) { HrScreen(back) }
         composable(Routes.BATCHES) { BatchesScreen(back) }
+        composable(Routes.REPACK) { RepackScreen(back) }
+        composable(Routes.SERIALS) { SerialsScreen(back) }
+        composable(Routes.WAREHOUSES) { WarehousesScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.WAREHOUSE, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e -> WarehouseScreen(e.arguments?.getLong("id") ?: 0L, back) }
         composable(Routes.TABLES) { TablesScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.TABLE, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
             TableScreen(e.arguments?.getLong("id") ?: 0L, go = { nav.navigate(it) }, onBack = back)

@@ -60,7 +60,11 @@ interface ProductDao {
     suspend fun receive(id: Long, qtyMilli: Long, costPaisa: Long)
 
     /** Returns rows changed: 0 means there was not enough stock. */
-    @Query("UPDATE product SET stockMilli = stockMilli - :qtyMilli WHERE id = :id AND stockMilli >= :qtyMilli")
+    // Stock kept in a warehouse can't be sold from the shop until it is moved back.
+    @Query(
+        "UPDATE product SET stockMilli = stockMilli - :qtyMilli WHERE id = :id AND " +
+            "stockMilli - (SELECT COALESCE(SUM(qtyMilli), 0) FROM warehouse_stock WHERE productId = :id) >= :qtyMilli"
+    )
     suspend fun takeStock(id: Long, qtyMilli: Long): Int
 
     /** Goods coming back from a customer: stock up, cost left as it is. */
@@ -761,4 +765,75 @@ interface TableDao {
 
     @Query("DELETE FROM table_order WHERE id = :orderId")
     suspend fun deleteOrder(orderId: Long)
+}
+
+data class JobRow(val id: Long, val number: String, val outName: String, val outQtyMilli: Long, val costPaisa: Long, val createdAt: Long, val inputs: String?)
+data class SerialRow(val id: Long, val serial: String, val productId: Long, val productName: String, val saleId: Long?, val saleNumber: String?, val soldAt: Long?, val createdAt: Long)
+data class WarehouseRow(val id: Long, val name: String, val products: Int)
+data class WarehouseLine(val productId: Long, val name: String, val unit: String, val qtyMilli: Long)
+
+@Dao
+interface StockToolsDao {
+    @Insert
+    suspend fun insertJob(j: StockJobEntity): Long
+
+    @Insert
+    suspend fun insertJobInputs(rows: List<StockJobInputEntity>)
+
+    @Query(
+        "SELECT j.id AS id, j.number AS number, j.outName AS outName, j.outQtyMilli AS outQtyMilli, j.costPaisa AS costPaisa, j.createdAt AS createdAt, " +
+            "(SELECT GROUP_CONCAT(name, ', ') FROM stock_job_input WHERE jobId = j.id) AS inputs FROM stock_job j ORDER BY j.createdAt DESC LIMIT 50"
+    )
+    fun jobs(): Flow<List<JobRow>>
+
+    /** Weighted average cost after [qty] more at [unitCost] arrive. */
+    @Query(
+        "UPDATE product SET costPaisa = CASE WHEN stockMilli + :qty > 0 THEN (costPaisa * MAX(stockMilli, 0) + :unitCost * :qty) / (MAX(stockMilli, 0) + :qty) ELSE :unitCost END, " +
+            "stockMilli = stockMilli + :qty WHERE id = :id"
+    )
+    suspend fun produce(id: Long, qty: Long, unitCost: Long)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertSerials(rows: List<ProductSerialEntity>): List<Long>
+
+    @Query("SELECT * FROM product_serial WHERE serial = :serial AND saleId IS NULL LIMIT 1")
+    suspend fun inStock(serial: String): ProductSerialEntity?
+
+    @Query("UPDATE product_serial SET saleId = :saleId, soldAt = :at WHERE serial = :serial AND saleId IS NULL")
+    suspend fun sell(serial: String, saleId: Long, at: Long): Int
+
+    @Query(
+        "SELECT ps.id AS id, ps.serial AS serial, ps.productId AS productId, p.name AS productName, ps.saleId AS saleId, s.number AS saleNumber, " +
+            "ps.soldAt AS soldAt, ps.createdAt AS createdAt FROM product_serial ps JOIN product p ON p.id = ps.productId " +
+            "LEFT JOIN sale s ON s.id = ps.saleId WHERE (:q = '' OR ps.serial LIKE '%' || :q || '%' OR p.name LIKE '%' || :q || '%') " +
+            "ORDER BY ps.createdAt DESC LIMIT 100"
+    )
+    fun serials(q: String): Flow<List<SerialRow>>
+
+    @Query("SELECT serial FROM product_serial WHERE saleId = :saleId")
+    suspend fun serialsOfSale(saleId: Long): List<String>
+
+    @Query("SELECT w.id AS id, w.name AS name, (SELECT COUNT(*) FROM warehouse_stock ws WHERE ws.warehouseId = w.id AND ws.qtyMilli > 0) AS products FROM warehouse w WHERE w.active = 1 ORDER BY w.id")
+    fun warehouses(): Flow<List<WarehouseRow>>
+
+    @Insert
+    suspend fun insertWarehouse(w: WarehouseEntity): Long
+
+    @Query("SELECT * FROM warehouse WHERE id = :id")
+    fun watchWarehouse(id: Long): Flow<WarehouseEntity?>
+
+    @Query(
+        "SELECT ws.productId AS productId, p.name AS name, p.unit AS unit, ws.qtyMilli AS qtyMilli FROM warehouse_stock ws " +
+            "JOIN product p ON p.id = ws.productId WHERE ws.warehouseId = :id AND ws.qtyMilli > 0 ORDER BY p.name COLLATE NOCASE"
+    )
+    fun warehouseStock(id: Long): Flow<List<WarehouseLine>>
+
+    @Query("SELECT COALESCE((SELECT qtyMilli FROM warehouse_stock WHERE warehouseId = :w AND productId = :p), 0)")
+    suspend fun heldIn(w: Long, p: Long): Long
+
+    @Query("SELECT COALESCE(SUM(qtyMilli), 0) FROM warehouse_stock WHERE productId = :p")
+    suspend fun heldAll(p: Long): Long
+
+    @Upsert
+    suspend fun setHeld(row: WarehouseStockEntity)
 }

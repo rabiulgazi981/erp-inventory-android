@@ -28,8 +28,9 @@ class Converters {
         PromoEntity::class, SalePromoEntity::class,
         EmployeeEntity::class, AttendanceEntity::class, SalaryPaymentEntity::class,
         StockBatchEntity::class, DiningTableEntity::class, TableOrderEntity::class, TableOrderItemEntity::class,
+        StockJobEntity::class, StockJobInputEntity::class, ProductSerialEntity::class, WarehouseEntity::class, WarehouseStockEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -51,6 +52,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun hr(): HrDao
     abstract fun batches(): BatchDao
     abstract fun tables(): TableDao
+    abstract fun stockTools(): StockToolsDao
 
     companion object {
         // Schema changes must be additive migrations: shop data on the phone is never wiped.
@@ -298,12 +300,41 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `stock_job` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, `outProductId` INTEGER NOT NULL, " +
+                        "`outName` TEXT NOT NULL, `outQtyMilli` INTEGER NOT NULL, `costPaisa` INTEGER NOT NULL, `note` TEXT NOT NULL, `staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_job_createdAt` ON `stock_job` (`createdAt`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `stock_job_input` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `jobId` INTEGER NOT NULL, `productId` INTEGER NOT NULL, " +
+                        "`name` TEXT NOT NULL, `qtyMilli` INTEGER NOT NULL, `unitCostPaisa` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`jobId`) REFERENCES `stock_job`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_job_input_jobId` ON `stock_job_input` (`jobId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `product_serial` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `productId` INTEGER NOT NULL, " +
+                        "`serial` TEXT NOT NULL, `saleId` INTEGER, `soldAt` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_product_serial_serial` ON `product_serial` (`serial`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_product_serial_productId` ON `product_serial` (`productId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_product_serial_saleId` ON `product_serial` (`saleId`)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `warehouse` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `active` INTEGER NOT NULL)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `warehouse_stock` (`warehouseId` INTEGER NOT NULL, `productId` INTEGER NOT NULL, `qtyMilli` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`warehouseId`, `productId`))"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_warehouse_stock_productId` ON `warehouse_stock` (`productId`)")
+            }
+        }
+
         fun open(context: Context): AppDatabase {
             System.loadLibrary("sqlcipher")
             val factory = SupportOpenHelperFactory(DbKey.get(context))
             return Room.databaseBuilder(context, AppDatabase::class.java, "shop.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
                 .build()
         }
     }

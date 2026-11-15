@@ -29,6 +29,10 @@ import com.bongshaltech.erpinventory.data.db.MoneyMoveEntity
 import com.bongshaltech.erpinventory.data.db.MoveKind
 import com.bongshaltech.erpinventory.data.db.PromoEntity
 import com.bongshaltech.erpinventory.data.db.StockBatchEntity
+import com.bongshaltech.erpinventory.data.db.ProductSerialEntity
+import com.bongshaltech.erpinventory.data.db.StockJobEntity
+import com.bongshaltech.erpinventory.data.db.StockJobInputEntity
+import com.bongshaltech.erpinventory.data.db.WarehouseStockEntity
 import com.bongshaltech.erpinventory.data.db.TableOrderEntity
 import com.bongshaltech.erpinventory.data.db.TableOrderItemEntity
 import com.bongshaltech.erpinventory.data.db.SalaryPaymentEntity
@@ -43,7 +47,7 @@ import com.bongshaltech.erpinventory.security.PinHasher
 import java.time.LocalDate
 import kotlinx.coroutines.flow.map
 
-data class CartLine(val product: ProductEntity, val qtyMilli: Long) {
+data class CartLine(val product: ProductEntity, val qtyMilli: Long, val serials: List<String> = emptyList()) {
     /** price × qty, rounded to the nearest paisa. */
     val totalPaisa: Long get() = (product.pricePaisa * qtyMilli + 500) / 1000
 }
@@ -234,6 +238,10 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                         unitCostPaisa = it.product.costPaisa,
                     )
                 })
+                val now = System.currentTimeMillis()
+                for (line in s.lines) for (serial in line.serials) {
+                    if (db.stockTools().sell(serial, saleId, now) == 0) throw NotEnough(line.product.name + " · " + serial)
+                }
                 for (p in s.promos) {
                     val id = p.promoId ?: continue
                     val ok = when (p.kind) {
@@ -354,6 +362,62 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
 
     val promos get() = db.promos()
     val batches get() = db.batches()
+    val stockTools get() = db.stockTools()
+
+    /** Repack or make: [inputs] leave the shop's stock and [outQty] of [out] arrives carrying their cost. Null = saved; else the short product. */
+    suspend fun repack(inputs: List<Pair<ProductEntity, Long>>, out: ProductEntity, outQty: Long, note: String, staffId: Long?): String? {
+        if (outQty <= 0 || inputs.isEmpty() || inputs.any { it.second <= 0 || it.first.id == out.id }) return ""
+        val code = settings.current().shopCode
+        return try {
+            db.withTransaction {
+                var cost = 0L
+                val rows = inputs.map { (p, q) ->
+                    if (db.products().takeStock(p.id, q) == 0) throw NotEnough(p.name)
+                    takeFromBatches(p.id, q)
+                    val fresh = db.products().get(p.id) ?: p
+                    cost += (fresh.costPaisa * q + 500) / 1000
+                    StockJobInputEntity(jobId = 0, productId = p.id, name = p.name, qtyMilli = q, unitCostPaisa = fresh.costPaisa)
+                }
+                db.stockTools().produce(out.id, outQty, cost * 1000 / outQty)
+                val number = nextNumber(code, DocType.REPACK)
+                val jobId = db.stockTools().insertJob(
+                    StockJobEntity(number = number, outProductId = out.id, outName = out.name, outQtyMilli = outQty, costPaisa = cost, note = note.trim(), staffId = staffId)
+                )
+                db.stockTools().insertJobInputs(rows.map { it.copy(jobId = jobId) })
+                null
+            }
+        } catch (e: NotEnough) {
+            e.productName
+        }
+    }
+
+    /** Records serial / IMEI numbers for stock of a product. Returns how many were new. */
+    suspend fun addSerials(productId: Long, serials: List<String>): Int {
+        val clean = serials.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        if (clean.isEmpty()) return 0
+        return db.stockTools().insertSerials(clean.map { ProductSerialEntity(productId = productId, serial = it) }).count { it > 0 }
+    }
+
+    /** A scanned code that is an unsold serial: its product. */
+    suspend fun productForSerial(code: String): ProductEntity? =
+        db.stockTools().inStock(code.trim())?.let { db.products().get(it.productId) }
+
+    /** Moves stock between the shop and a warehouse. False when there isn't that much where it's coming from. */
+    suspend fun moveStock(warehouseId: Long, productId: Long, qtyMilli: Long, intoWarehouse: Boolean): Boolean {
+        if (qtyMilli <= 0) return false
+        return db.withTransaction {
+            val p = db.products().get(productId) ?: return@withTransaction false
+            val held = db.stockTools().heldIn(warehouseId, productId)
+            if (intoWarehouse) {
+                if (p.stockMilli - db.stockTools().heldAll(productId) < qtyMilli) return@withTransaction false
+                db.stockTools().setHeld(WarehouseStockEntity(warehouseId, productId, held + qtyMilli))
+            } else {
+                if (held < qtyMilli) return@withTransaction false
+                db.stockTools().setHeld(WarehouseStockEntity(warehouseId, productId, held - qtyMilli))
+            }
+            true
+        }
+    }
     val tables get() = db.tables()
 
     /** Sells from the batch that expires first. Stock outside batches covers the rest. */

@@ -503,3 +503,58 @@ data class TableOrderItemEntity(
     /** How much of [qtyMilli] has already gone to the kitchen on a KOT. */
     val sentMilli: Long = 0,
 )
+
+/** A repack or small production run: some products go in, one product comes out. */
+@Entity(tableName = "stock_job", indices = [Index("createdAt")])
+data class StockJobEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val number: String,
+    val outProductId: Long,
+    val outName: String,
+    val outQtyMilli: Long,
+    /** Cost of everything that went in, now carried by the output. */
+    val costPaisa: Long,
+    val note: String = "",
+    val staffId: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+@Entity(
+    tableName = "stock_job_input",
+    foreignKeys = [ForeignKey(entity = StockJobEntity::class, parentColumns = ["id"], childColumns = ["jobId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("jobId")],
+)
+data class StockJobInputEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val jobId: Long,
+    val productId: Long,
+    val name: String,
+    val qtyMilli: Long,
+    val unitCostPaisa: Long,
+)
+
+/** One serial / IMEI number of a product. [saleId] is set once it is sold. */
+@Entity(tableName = "product_serial", indices = [Index(value = ["serial"], unique = true), Index("productId"), Index("saleId")])
+data class ProductSerialEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val productId: Long,
+    val serial: String,
+    val saleId: Long? = null,
+    val soldAt: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** A store room or second branch. Stock not in any warehouse is in the shop, where sales take from. */
+@Entity(tableName = "warehouse")
+data class WarehouseEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val active: Boolean = true,
+)
+
+@Entity(tableName = "warehouse_stock", primaryKeys = ["warehouseId", "productId"], indices = [Index("productId")])
+data class WarehouseStockEntity(
+    val warehouseId: Long,
+    val productId: Long,
+    val qtyMilli: Long,
+)
