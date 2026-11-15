@@ -22,6 +22,9 @@ object SmsCloud {
     private const val EMAIL = "sms_email"
     private val refreshing = Mutex()
 
+    /** Off by the owner's choice (2026-11-15): the app has no link to the web dashboard, so SMS go from the SIM only. */
+    const val ENABLED = false
+
     sealed interface Send {
         data class Sent(val parts: Int, val balance: Int) : Send
         /** Use the SIM instead: no credit, rate limit, gateway down, not set up, or no internet. */
@@ -44,7 +47,7 @@ object SmsCloud {
 
     private class Resp(val code: Int, val body: JSONObject)
 
-    fun signedInEmail(ctx: Context): String? = SecretStore.get(ctx, EMAIL)?.takeIf { SecretStore.get(ctx, REFRESH) != null }
+    fun signedInEmail(ctx: Context): String? = if (!ENABLED) null else SecretStore.get(ctx, EMAIL)?.takeIf { SecretStore.get(ctx, REFRESH) != null }
 
     private fun call(method: String, path: String, body: JSONObject?, token: String?): Resp {
         val c = URL(BASE + path).openConnection() as HttpURLConnection
