@@ -38,6 +38,8 @@ object Routes {
     const val MFS = "mfs"
     const val MFS_ENTRY = "mfs_entry/{id}"
     const val MFS_WALLETS = "mfs_wallets"
+    const val RECEIPT = "receipt/{id}"
+    const val PRINTER = "printer"
     const val SMS_ACCOUNT = "sms_account"
 
     fun productEdit(id: Long) = "product/$id"
@@ -46,6 +48,7 @@ object Routes {
     fun supplier(id: Long) = "supplier/$id"
     fun supplierEdit(id: Long) = "supplier_edit/$id"
     fun mfsEntry(walletId: Long) = "mfs_entry/$walletId"
+    fun receipt(id: Long) = "receipt/$id"
 }
 
 /** Top-level moves (after login, sign out) clear the back stack so Back never returns to a signed-out screen. */
@@ -80,7 +83,11 @@ fun ErpNavHost() {
         composable(Routes.PRODUCT_EDIT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
             ProductEditScreen(e.arguments?.getLong("id") ?: 0L, back)
         }
-        composable(Routes.SALE) { SaleScreen(back) }
+        composable(Routes.SALE) { SaleScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.RECEIPT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            ReceiptScreen(e.arguments?.getLong("id") ?: 0L, back)
+        }
+        composable(Routes.PRINTER) { PrinterScreen(back) }
         composable(Routes.MORE) {
             MoreScreen(go = { nav.navigate(it) }, tab = { nav.goTab(it) }, signedOut = { nav.goRoot(Routes.LOGIN) })
         }
