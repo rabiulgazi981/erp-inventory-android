@@ -371,8 +371,8 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                     }
                 }
             },
-            confirmButton = { GradButton(stringResource(R.string.sale_new), Brand.BlueGrad, height = 44.dp) { reset(); saved = null } },
-            dismissButton = { WhiteButton(stringResource(R.string.sale_done), height = 44.dp) { saved = null; onBack() } },
+            confirmButton = { GradButton(stringResource(R.string.sale_new), Brand.BlueGrad, height = 44.dp) { reset(); saved = null; com.bongshaltech.erpinventory.ads.Ads.afterSale(ctx) } },
+            dismissButton = { WhiteButton(stringResource(R.string.sale_done), height = 44.dp) { saved = null; com.bongshaltech.erpinventory.ads.Ads.afterSale(ctx); onBack() } },
             containerColor = Ui.c.card,
         )
     }

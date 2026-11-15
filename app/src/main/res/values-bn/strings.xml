@@ -501,4 +501,15 @@
     <string name="ord_saved">সেভ হয়েছে</string>
     <string name="ord_sell">এখন বিক্রি করুন</string>
     <string name="ord_receive">মাল এসেছে</string>
+    <string name="adfree_help">ছোট একটা সাবস্ক্রিপশন নিলে অ্যাপে কোনো বিজ্ঞাপন দেখাবে না। দোকানের তথ্য দুই অবস্থাতেই এই ফোনেই থাকে।</string>
+    <string name="adfree_per_month">/ মাস</string>
+    <string name="adfree_per_year">/ বছর</string>
+    <string name="adfree_trial">ফ্রি ট্রায়াল সহ</string>
+    <string name="adfree_unavailable">এখন সাবস্ক্রিপশন পাওয়া যাচ্ছে না। Google Play-তে সাইন ইন আছে আর ইন্টারনেট চালু আছে কিনা দেখুন।</string>
+    <string name="adfree_restore">আগে কিনেছেন? আবার চালু করুন</string>
+    <string name="adfree_cancel_note">টাকা কাটবে Google Play। যেকোনো সময় Play Store › Payments &amp; subscriptions থেকে বন্ধ করা যায়।</string>
+    <string name="adfree_on">বিজ্ঞাপন বন্ধ আছে</string>
+    <string name="adfree_on_note">ধন্যবাদ! সাবস্ক্রিপশন চালু থাকা পর্যন্ত এই ফোনে কোনো বিজ্ঞাপন দেখাবে না।</string>
+    <string name="adfree_on_short">বিজ্ঞাপন নেই</string>
+    <string name="adfree_manage">সাবস্ক্রিপশন দেখুন</string>
 </resources>
