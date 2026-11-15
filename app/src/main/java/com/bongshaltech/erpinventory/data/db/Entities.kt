@@ -40,6 +40,12 @@ data class CustomerEntity(
     /** [CustomerType] name. */
     @ColumnInfo(defaultValue = "RETAIL") val type: String = CustomerType.RETAIL.name,
     @ColumnInfo(defaultValue = "") val address: String = "",
+    /** Most this customer may owe; 0 means no limit. */
+    @ColumnInfo(defaultValue = "0") val creditLimitPaisa: Long = 0,
+    /** Area or route, for grouping dues. */
+    @ColumnInfo(defaultValue = "") val area: String = "",
+    /** Loyalty points to spend. */
+    @ColumnInfo(defaultValue = "0") val points: Long = 0,
 )
 
 enum class CustomerType { RETAIL, WHOLESALE }
@@ -145,6 +151,9 @@ data class SaleEntity(
     /** Staff who made the sale; null means the owner. */
     val staffId: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
+    /** Loyalty points this sale gave and spent; kept so a delete can undo them. */
+    @ColumnInfo(defaultValue = "0") val pointsEarned: Long = 0,
+    @ColumnInfo(defaultValue = "0") val pointsUsed: Long = 0,
 )
 
 @Entity(

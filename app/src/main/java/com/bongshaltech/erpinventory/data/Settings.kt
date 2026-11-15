@@ -20,7 +20,7 @@ enum class ShopType { GENERAL, GROCERY, SUPER_SHOP, PHARMACY, RESTAURANT }
  * Optional modules, like the web dashboard's Settings > Features. Each is off until the owner turns it on,
  * except the module that belongs to the shop's own business type. Turning one off only hides it; no data is removed.
  */
-enum class Feature { CASH_DAY, LOANS, PROMOS, HR, ORDERS, TABLES, BATCHES, REPACK, SERIALS, WAREHOUSES, MOBILE_BANKING, INSTALLMENTS, SCALE_BARCODE, PACKS }
+enum class Feature { CASH_DAY, LOANS, PROMOS, HR, ORDERS, TABLES, BATCHES, REPACK, SERIALS, WAREHOUSES, MOBILE_BANKING, INSTALLMENTS, SCALE_BARCODE, PACKS, CREDIT_LIMIT, AREAS, LOYALTY }
 
 fun defaultFeatures(type: ShopType): Set<Feature> = when (type) {
     ShopType.RESTAURANT -> setOf(Feature.TABLES)
@@ -74,6 +74,9 @@ data class AppSettings(
     val features: Set<Feature>,
     /** Scale labels carry the price instead of the weight. */
     val scaleByPrice: Boolean = false,
+    /** Loyalty: one point for every this much paid (paisa), and what one point is worth when spent (paisa). */
+    val pointEveryPaisa: Long = 100_00,
+    val pointValuePaisa: Long = 1_00,
 ) {
     fun on(f: Feature) = f in features
 }
@@ -106,6 +109,8 @@ class SettingsRepo(private val context: Context) {
         val adFree = booleanPreferencesKey("ad_free")
         val features = stringSetPreferencesKey("features_on")
         val scaleByPrice = booleanPreferencesKey("scale_by_price")
+        val pointEvery = longPreferencesKey("point_every_paisa")
+        val pointValue = longPreferencesKey("point_value_paisa")
     }
 
     val settings: Flow<AppSettings> = context.store.data.map(::read)
@@ -145,7 +150,13 @@ class SettingsRepo(private val context: Context) {
         adFree = p[K.adFree] ?: false,
         features = features,
         scaleByPrice = p[K.scaleByPrice] ?: false,
+        pointEveryPaisa = (p[K.pointEvery] ?: 100_00L).coerceAtLeast(1),
+        pointValuePaisa = (p[K.pointValue] ?: 1_00L).coerceAtLeast(0),
     )
+
+    suspend fun setLoyalty(everyPaisa: Long, valuePaisa: Long) = context.store.edit {
+        it[K.pointEvery] = everyPaisa.coerceAtLeast(1); it[K.pointValue] = valuePaisa.coerceAtLeast(0)
+    }
 
     suspend fun setScaleByPrice(on: Boolean) = context.store.edit { it[K.scaleByPrice] = on }
 

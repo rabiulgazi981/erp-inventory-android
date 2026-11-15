@@ -771,4 +771,22 @@
     <string name="labels_barcode">বারকোড</string>
     <string name="labels_qr">QR কোড</string>
     <string name="labels_shelf">শেলফ</string>
+    <string name="feat_credit">ক্রেডিট লিমিট</string>
+    <string name="feat_credit_sub">কাস্টমার সর্বোচ্চ কত বাকি রাখতে পারবে; বেশি হলে বিক্রি আটকাবে</string>
+    <string name="feat_areas">কাস্টমার এরিয়া</string>
+    <string name="feat_areas_sub">এলাকা বা রুট অনুযায়ী কাস্টমার ভাগ, প্রতি এলাকার বাকি সহ</string>
+    <string name="feat_loyalty">লয়্যালটি পয়েন্ট</string>
+    <string name="feat_loyalty_sub">কাস্টমার টাকা দিলে পয়েন্ট পান, পরে পয়েন্ট দিয়ে ছাড় নেন</string>
+    <string name="loyalty_every">প্রতি কত ৳-তে ১ পয়েন্ট</string>
+    <string name="loyalty_value">১ পয়েন্ট = কত ৳</string>
+    <string name="cust_area">এরিয়া</string>
+    <string name="cust_credit_limit">ক্রেডিট লিমিট (৳)</string>
+    <string name="cust_no_limit">লিমিট নেই</string>
+    <string name="cust_limit_left">ক্রেডিট লিমিট %1$s · আরও বাকি রাখতে পারবেন %2$s</string>
+    <string name="cust_points">লয়্যালটি পয়েন্ট: %1$d</string>
+    <string name="credit_over">ক্রেডিট লিমিট (%1$s) পার হচ্ছে। এই কাস্টমারের আগেই %2$s বাকি। এখন আরও টাকা নিন।</string>
+    <string name="points_short">কাস্টমারের এত পয়েন্ট নেই।</string>
+    <string name="points_use">পয়েন্ট ব্যবহার</string>
+    <string name="points_have">%1$d পয়েন্ট আছে (%2$s)</string>
+    <string name="points_off">পয়েন্ট ছাড়</string>
 </resources>

@@ -125,6 +125,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
     var message by remember { mutableStateOf<String?>(null) }
     var codeOpen by remember { mutableStateOf(false) }
     var parts by remember { mutableStateOf(0) }
+    var usePoints by remember { mutableStateOf("") }
     var codeText by remember { mutableStateOf("") }
     var codePromo by remember { mutableStateOf<com.bongshaltech.erpinventory.data.db.PromoEntity?>(null) }
     var saved by remember { mutableStateOf<SaleResult.Saved?>(null) }
@@ -152,7 +153,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
     // Typing a name (or part of a number) suggests saved customers.
     val nameQ = phone.trim().takeIf { customer == null && it.length >= 2 && digits.length < 11 }.orEmpty()
     val custMatches by remember(nameQ) {
-        if (nameQ.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList()) else app.repo.customers.search(nameQ, "", false)
+        if (nameQ.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList()) else app.repo.customers.search(nameQ, "", false, "")
     }.collectAsStateWithLifecycle(emptyList())
     val subtotal = cart.sumOf { it.totalPaisa }
     // Offers running today come off by themselves; one coupon or gift voucher can be typed in on top.
@@ -172,7 +173,13 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
         else -> if (c.kind == PromoKind.VOUCHER) PromoMath.voucher(beforeCode, c.balancePaisa)
         else PromoMath.coupon(beforeCode, PromoRule(c.id, c.percentBp, c.fixedPaisa, minPaisa = c.minPaisa))
     }
-    val discountPaisa = offerOff + manualOff + codeOff
+    val loyaltyOn = saleSettings?.on(com.bongshaltech.erpinventory.data.Feature.LOYALTY) == true
+    val pointValue = saleSettings?.pointValuePaisa ?: 100
+    val havePoints = if (loyaltyOn) customer?.points ?: 0 else 0
+    val maxPoints = if (pointValue > 0) minOf(havePoints, (beforeCode - codeOff).coerceAtLeast(0) / pointValue) else 0
+    val pointsUse = (usePoints.toLongOrNull() ?: 0).coerceIn(0, maxPoints)
+    val pointsOff = pointsUse * pointValue
+    val discountPaisa = offerOff + manualOff + codeOff + pointsOff
     val total = subtotal - discountPaisa
     fun promos() = buildList {
         if (offerOff > 0) add(AppliedPromo(null, PromoKind.OFFER, "", offerOff))
@@ -216,7 +223,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
         if (next <= 0) cart.removeAt(i) else cart[i] = cart[i].copy(qtyMilli = next, serials = cart[i].serials.take((next / 1000).toInt()))
     }
     fun reset() {
-        codeOpen = false; codeText = ""; codePromo = null; parts = 0
+        codeOpen = false; codeText = ""; codePromo = null; parts = 0; usePoints = ""
         cart.clear(); discount = ""; paid = ""; phone = ""; custName = ""; showName = false; method = PayMethod.CASH; message = null
     }
 
@@ -332,6 +339,14 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                         contentAlignment = Alignment.Center,
                     ) { T(stringResource(R.string.promo_apply), 13.sp, FontWeight.SemiBold, Color.White) }
                 } else if (promosOn) T(stringResource(R.string.promo_add_code), 13.sp, FontWeight.SemiBold, Brand.Link, modifier = Modifier.clickable { codeOpen = true }.padding(vertical = 2.dp))
+                if (havePoints > 0) Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        T(stringResource(R.string.points_use), 14.sp, color = Ui.c.muted)
+                        Muted(stringResource(R.string.points_have, havePoints, (havePoints * pointValue).taka0()))
+                    }
+                    Input(usePoints, { usePoints = it.filter(Char::isDigit).take(7) }, Modifier.width(90.dp), keyboard = KeyboardType.Number, height = 34.dp, alignEnd = true, placeholder = "0")
+                }
+                if (pointsOff > 0) SumRow(stringResource(R.string.points_off), "− " + pointsOff.taka0(), color = Brand.DarkGreen)
                 Column(
                     Modifier.fillMaxWidth().shadow(8.dp, RoundedCornerShape(12.dp), ambientColor = Brand.Blue, spotColor = Brand.Blue)
                         .clip(RoundedCornerShape(12.dp)).background(Brand.TotalGrad).padding(horizontal = 14.dp, vertical = 10.dp),
@@ -416,6 +431,8 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                             lines = cart.toList(), discountPaisa = discountPaisa, paidPaisa = paidPaisa, method = method,
                             customerPhone = phone, customerName = custName, smsRequested = sms && hasPhone, staffId = who.staffId,
                             promos = promos(), installments = if (instalmentsOn && paidPaisa < total) parts else 0,
+                            checkCreditLimit = saleSettings?.on(com.bongshaltech.erpinventory.data.Feature.CREDIT_LIMIT) == true,
+                            pointsUsed = pointsUse, pointEveryPaisa = if (loyaltyOn) saleSettings?.pointEveryPaisa ?: 0 else 0,
                         )
                     )
                     when (r) {
@@ -431,6 +448,8 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                         is SaleResult.NotEnoughStock -> message = notEnough.replace("%s", r.productName)
                         SaleResult.DueNeedsCustomer -> message = dueNeeds
                         is SaleResult.PromoUsedUp -> { message = codeGone; codePromo = null }
+                        is SaleResult.OverCreditLimit -> message = ctx.getString(R.string.credit_over, r.limitPaisa.taka0(), r.nowDuePaisa.taka0())
+                        SaleResult.NotEnoughPoints -> { message = ctx.getString(R.string.points_short); usePoints = "" }
                     }
                 }
             }

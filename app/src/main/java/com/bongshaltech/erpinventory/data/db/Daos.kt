@@ -75,6 +75,8 @@ interface ProductDao {
     suspend fun addStock(id: Long, qtyMilli: Long)
 }
 
+data class AreaTotal(val area: String, val count: Int, val duePaisa: Long)
+
 @Dao
 interface CustomerDao {
     @Query("SELECT * FROM customer WHERE phone = :phone")
@@ -96,10 +98,20 @@ interface CustomerDao {
     @Query(
         """SELECT * FROM customer
            WHERE (:q = '' OR name LIKE '%' || :q || '%' OR phone LIKE '%' || :q || '%')
-             AND (:type = '' OR type = :type) AND (:dueOnly = 0 OR duePaisa > 0)
+             AND (:type = '' OR type = :type) AND (:dueOnly = 0 OR duePaisa > 0) AND (:area = '' OR area = :area)
            ORDER BY duePaisa > 0 DESC, name COLLATE NOCASE"""
     )
-    fun search(q: String, type: String, dueOnly: Boolean): Flow<List<CustomerEntity>>
+    fun search(q: String, type: String, dueOnly: Boolean, area: String): Flow<List<CustomerEntity>>
+
+    @Query("SELECT area, COUNT(*) AS count, COALESCE(SUM(duePaisa), 0) AS duePaisa FROM customer WHERE area != '' GROUP BY area ORDER BY area COLLATE NOCASE")
+    fun areas(): Flow<List<AreaTotal>>
+
+    @Query("UPDATE customer SET points = MAX(points + :delta, 0) WHERE id = :id")
+    suspend fun addPoints(id: Long, delta: Long)
+
+    /** Spends points; 0 rows when the customer doesn't have enough. */
+    @Query("UPDATE customer SET points = points - :n WHERE id = :id AND points >= :n")
+    suspend fun spendPoints(id: Long, n: Long): Int
 
     @Query("SELECT COUNT(*) FROM customer")
     fun count(): Flow<Int>

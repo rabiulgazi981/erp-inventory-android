@@ -772,4 +772,22 @@
     <string name="labels_barcode">Barcode</string>
     <string name="labels_qr">QR code</string>
     <string name="labels_shelf">Shelf</string>
+    <string name="feat_credit">Credit limit</string>
+    <string name="feat_credit_sub">Set the most a customer may owe; a sale over it is stopped</string>
+    <string name="feat_areas">Customer areas</string>
+    <string name="feat_areas_sub">Group customers by area or route, with the due of each area</string>
+    <string name="feat_loyalty">Loyalty points</string>
+    <string name="feat_loyalty_sub">Customers earn points on what they pay and spend them as a discount</string>
+    <string name="loyalty_every">1 point for every ৳</string>
+    <string name="loyalty_value">1 point is worth ৳</string>
+    <string name="cust_area">Area</string>
+    <string name="cust_credit_limit">Credit limit (৳)</string>
+    <string name="cust_no_limit">No limit</string>
+    <string name="cust_limit_left">Credit limit %1$s · can still owe %2$s</string>
+    <string name="cust_points">Loyalty points: %1$d</string>
+    <string name="credit_over">Over the credit limit (%1$s). This customer already owes %2$s. Take more payment now.</string>
+    <string name="points_short">The customer doesn\'t have that many points.</string>
+    <string name="points_use">Use points</string>
+    <string name="points_have">Has %1$d points (%2$s)</string>
+    <string name="points_off">Points discount</string>
 </resources>

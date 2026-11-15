@@ -70,6 +70,11 @@ data class NewSale(
     val promos: List<AppliedPromo> = emptyList(),
     /** Split the due into this many monthly payments; 0 for a plain due. */
     val installments: Int = 0,
+    /** Stop the sale when the customer's due would go over their credit limit. */
+    val checkCreditLimit: Boolean = false,
+    /** Loyalty: points spent on this sale (their value is already inside [discountPaisa]); earn one per [pointEveryPaisa] paid, 0 = off. */
+    val pointsUsed: Long = 0,
+    val pointEveryPaisa: Long = 0,
 )
 
 sealed interface DeleteResult {
@@ -109,6 +114,8 @@ sealed interface SaleResult {
     data object DueNeedsCustomer : SaleResult
     /** A coupon ran out of uses or a voucher's balance dropped while the sale was open. */
     data class PromoUsedUp(val code: String) : SaleResult
+    data class OverCreditLimit(val limitPaisa: Long, val nowDuePaisa: Long) : SaleResult
+    data object NotEnoughPoints : SaleResult
 }
 
 data class OrderLine(val product: ProductEntity, val qtyMilli: Long, val unitPricePaisa: Long) {
@@ -315,6 +322,13 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                     db.customers().byPhone(it)?.id
                         ?: db.customers().insert(CustomerEntity(name = s.customerName?.ifBlank { null } ?: it, phone = it))
                 }
+                if (due > 0 && customerId != null && s.checkCreditLimit) {
+                    val c = db.customers().get(customerId)
+                    if (c != null && c.creditLimitPaisa > 0 && c.duePaisa + due > c.creditLimitPaisa) throw OverLimit(c.creditLimitPaisa, c.duePaisa)
+                }
+                if (s.pointsUsed > 0 && (customerId == null || db.customers().spendPoints(customerId, s.pointsUsed) == 0)) throw NoPoints()
+                val earned = if (s.pointEveryPaisa > 0 && customerId != null) minOf(s.paidPaisa, total) / s.pointEveryPaisa else 0
+                if (earned > 0 && customerId != null) db.customers().addPoints(customerId, earned)
                 if (due > 0 && customerId != null) db.customers().addDue(customerId, due)
 
                 val year = LocalDate.now().year
@@ -327,6 +341,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                         number = number, customerId = customerId, subtotalPaisa = subtotal, discountPaisa = s.discountPaisa,
                         totalPaisa = total, paidPaisa = minOf(s.paidPaisa, total), method = s.method,
                         smsRequested = s.smsRequested && phone != null, staffId = s.staffId,
+                        pointsEarned = earned, pointsUsed = if (customerId != null) s.pointsUsed else 0,
                     )
                 )
                 db.sales().insertItems(s.lines.map {
@@ -367,6 +382,10 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             SaleResult.NotEnoughStock(e.productName)
         } catch (e: PromoGone) {
             SaleResult.PromoUsedUp(e.code)
+        } catch (e: OverLimit) {
+            SaleResult.OverCreditLimit(e.limit, e.now)
+        } catch (e: NoPoints) {
+            SaleResult.NotEnoughPoints
         }
     }
 
@@ -441,6 +460,9 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                 val cut = minOf(saleDue, owes.coerceAtLeast(0))
                 if (cut > 0) db.customers().addDue(sale.customerId, -cut)
                 manual = saleDue - cut
+            }
+            if (sale.customerId != null && (sale.pointsEarned > 0 || sale.pointsUsed > 0)) {
+                db.customers().addPoints(sale.customerId, sale.pointsUsed - sale.pointsEarned)
             }
             db.saleFix().dropPlan(sale.number)
             val request = db.saleFix().requestFor(saleId)
@@ -942,6 +964,8 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
 
     private class NotEnough(val productName: String) : RuntimeException()
     private class PromoGone(val code: String) : RuntimeException()
+    private class OverLimit(val limit: Long, val now: Long) : RuntimeException()
+    private class NoPoints : RuntimeException()
 }
 
 fun StaffEntity.menuSet(): Set<StaffMenu> =

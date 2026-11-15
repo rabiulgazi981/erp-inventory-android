@@ -33,7 +33,7 @@ class Converters {
         DeletedSaleEntity::class, SaleDeleteRequestEntity::class, InstallmentEntity::class,
         StockAdjustEntity::class,
     ],
-    version = 17,
+    version = 18,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -385,12 +385,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE customer ADD COLUMN creditLimitPaisa INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE customer ADD COLUMN area TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE customer ADD COLUMN points INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE sale ADD COLUMN pointsEarned INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE sale ADD COLUMN pointsUsed INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun open(context: Context): AppDatabase {
             System.loadLibrary("sqlcipher")
             val factory = SupportOpenHelperFactory(DbKey.get(context))
             return Room.databaseBuilder(context, AppDatabase::class.java, "shop.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18)
                 .build()
         }
     }
