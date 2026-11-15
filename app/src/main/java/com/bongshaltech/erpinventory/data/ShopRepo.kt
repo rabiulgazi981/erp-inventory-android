@@ -23,6 +23,10 @@ import com.bongshaltech.erpinventory.data.db.PurchaseReturnEntity
 import com.bongshaltech.erpinventory.data.db.PurchaseReturnItemEntity
 import com.bongshaltech.erpinventory.data.db.ReturnableLine
 import com.bongshaltech.erpinventory.data.db.OrderDocEntity
+import com.bongshaltech.erpinventory.data.db.CashSessionEntity
+import com.bongshaltech.erpinventory.data.db.LoanEntity
+import com.bongshaltech.erpinventory.data.db.MoneyMoveEntity
+import com.bongshaltech.erpinventory.data.db.MoveKind
 import com.bongshaltech.erpinventory.data.db.OrderDocItemEntity
 import com.bongshaltech.erpinventory.data.db.OrderKind
 import com.bongshaltech.erpinventory.data.db.OrderStatus
@@ -143,6 +147,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     val mfs get() = db.mfs()
     val returns get() = db.returns()
     val orders get() = db.orders()
+    val money get() = db.money()
 
     /** Makes sure every provider has a row, so the owner only switches them on. */
     suspend fun ensureWallets() = db.mfs().insertWallets(MfsProvider.entries.map { MfsWalletEntity(provider = it.name) })
@@ -312,6 +317,56 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             )
             number
         }
+    }
+
+    /** Records a money movement that isn't a sale or purchase. Returns its number. */
+    suspend fun moveMoney(kind: MoveKind, from: PayMethod?, to: PayMethod?, amountPaisa: Long, note: String, staffId: Long?, loanId: Long? = null): String? {
+        if (amountPaisa <= 0 || (from == null && to == null) || from == to) return null
+        val code = settings.current().shopCode
+        return db.withTransaction {
+            val number = nextNumber(code, DocType.MONEY)
+            db.money().insertMove(
+                MoneyMoveEntity(number = number, kind = kind.name, fromMethod = from?.name, toMethod = to?.name,
+                    amountPaisa = amountPaisa, loanId = loanId, note = note.trim(), staffId = staffId)
+            )
+            number
+        }
+    }
+
+    /** A new loan: borrowed money comes in through [method], lent money goes out through it. */
+    suspend fun newLoan(given: Boolean, party: String, phone: String, amountPaisa: Long, method: PayMethod, note: String, staffId: Long?): Long? {
+        if (amountPaisa <= 0 || party.isBlank()) return null
+        return db.withTransaction {
+            val id = db.money().insertLoan(LoanEntity(party = party.trim(), phone = phone.filter(Char::isDigit), given = given,
+                principalPaisa = amountPaisa, outstandingPaisa = amountPaisa, note = note.trim()))
+            if (given) moveMoney(MoveKind.LOAN_GIVEN, method, null, amountPaisa, note, staffId, id)
+            else moveMoney(MoveKind.LOAN_TAKEN, null, method, amountPaisa, note, staffId, id)
+            id
+        }
+    }
+
+    /** A payment against a loan, capped at what is still outstanding. */
+    suspend fun loanPayment(loanId: Long, amountPaisa: Long, method: PayMethod, note: String, staffId: Long?): String? =
+        db.withTransaction {
+            val l = db.money().loan(loanId) ?: return@withTransaction null
+            val amount = minOf(amountPaisa, l.outstandingPaisa)
+            if (amount <= 0) return@withTransaction null
+            val n = if (l.given) moveMoney(MoveKind.LOAN_RECEIVED, null, method, amount, note, staffId, loanId)
+            else moveMoney(MoveKind.LOAN_REPAID, method, null, amount, note, staffId, loanId)
+            db.money().addOutstanding(loanId, -amount)
+            n
+        }
+
+    suspend fun openDay(countedPaisa: Long, staffId: Long?): Long =
+        db.money().insertSession(CashSessionEntity(openingPaisa = countedPaisa, staffId = staffId))
+
+    /** Closes the open day: expected cash = counted at opening + every cash flow since. */
+    suspend fun closeDay(countedPaisa: Long, note: String): CashSessionEntity? = db.withTransaction {
+        val s = db.money().currentSession() ?: return@withTransaction null
+        val expected = s.openingPaisa + db.money().cashFlowSince(s.openedAt)
+        val closed = s.copy(closedAt = System.currentTimeMillis(), expectedPaisa = expected, countedPaisa = countedPaisa, note = note.trim())
+        db.money().updateSession(closed)
+        closed
     }
 
     /** Saves a new quote / order, or edits an open one. Returns its id and number. */

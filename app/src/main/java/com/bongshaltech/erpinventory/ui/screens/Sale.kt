@@ -84,6 +84,7 @@ import kotlinx.coroutines.launch
 internal val methods = listOf(
     PayMethod.CASH to R.string.pay_cash, PayMethod.BKASH to R.string.pay_bkash,
     PayMethod.NAGAD to R.string.pay_nagad, PayMethod.CARD to R.string.pay_card,
+    PayMethod.BANK to R.string.pay_bank,
 )
 
 @Composable

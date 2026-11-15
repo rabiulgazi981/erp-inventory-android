@@ -49,8 +49,15 @@ object Routes {
     const val SALE_RETURN = "sale_return/{id}"
     const val PURCHASE_RETURN = "purchase_return/{id}"
     const val AD_FREE = "ad_free"
+    const val CASH_BANK = "cash_bank"
+    const val LEDGER = "ledger/{m}"
+    const val LOANS = "loans"
+    const val LOAN = "loan/{id}"
+    const val CASH_DAY = "cash_day"
 
     fun productEdit(id: Long) = "product/$id"
+    fun ledger(m: com.bongshaltech.erpinventory.data.db.PayMethod) = "ledger/${m.name}"
+    fun loan(id: Long) = "loan/$id"
     fun saleReturn(saleId: Long) = "sale_return/$saleId"
     fun order(kind: com.bongshaltech.erpinventory.data.db.OrderKind, id: Long) = "order/${kind.name}/$id"
     fun purchaseReturn(purchaseId: Long) = "purchase_return/$purchaseId"
@@ -141,6 +148,15 @@ fun ErpNavHost() {
                 .getOrDefault(com.bongshaltech.erpinventory.data.db.OrderKind.QUOTE)
             OrderScreen(kind, e.arguments?.getLong("id") ?: 0L, go = { nav.navigate(it) }, onBack = back)
         }
+        composable(Routes.CASH_BANK) { CashBankScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.LEDGER, arguments = listOf(navArgument("m") { type = NavType.StringType })) { e ->
+            val m = runCatching { com.bongshaltech.erpinventory.data.db.PayMethod.valueOf(e.arguments?.getString("m").orEmpty()) }
+                .getOrDefault(com.bongshaltech.erpinventory.data.db.PayMethod.CASH)
+            LedgerScreen(m, back)
+        }
+        composable(Routes.LOANS) { LoansScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.LOAN, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e -> LoanScreen(e.arguments?.getLong("id") ?: 0L, back) }
+        composable(Routes.CASH_DAY) { CashDayScreen(back) }
         composable(Routes.RETURNS) { ReturnsScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.SALE_RETURN, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
             ReturnScreen(purchase = false, docId = e.arguments?.getLong("id") ?: 0L, onBack = back)

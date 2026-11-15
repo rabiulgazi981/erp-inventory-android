@@ -51,7 +51,7 @@ data class DuePaymentEntity(
     val createdAt: Long = System.currentTimeMillis(),
 )
 
-enum class PayMethod { CASH, BKASH, NAGAD, CARD }
+enum class PayMethod { CASH, BKASH, NAGAD, CARD, BANK }
 
 /** Someone the shop buys from. [duePaisa] is what the shop still owes them. */
 @Entity(tableName = "supplier", indices = [Index("phone"), Index("name")])
@@ -329,4 +329,50 @@ data class OrderDocItemEntity(
     /** Selling price for quotes and sales orders, buying price for purchase orders. */
     val unitPricePaisa: Long,
     val lineTotalPaisa: Long,
+)
+
+/** Money moved without a sale or purchase: transfers between cash / bank / wallets, owner's money in or out, loans, opening balances. */
+enum class MoveKind { OPENING, TRANSFER, CAPITAL_IN, DRAWING, LOAN_TAKEN, LOAN_REPAID, LOAN_GIVEN, LOAN_RECEIVED }
+
+@Entity(tableName = "money_move", indices = [Index("createdAt"), Index("loanId")])
+data class MoneyMoveEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val number: String,
+    /** [MoveKind] name. */
+    val kind: String,
+    /** [PayMethod] name money left, or null. */
+    val fromMethod: String? = null,
+    /** [PayMethod] name money went into, or null. */
+    val toMethod: String? = null,
+    val amountPaisa: Long,
+    val loanId: Long? = null,
+    val note: String = "",
+    val staffId: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** Money the shop borrowed ([given] false) or lent ([given] true). [outstandingPaisa] is what is still to be paid back. */
+@Entity(tableName = "loan", indices = [Index("createdAt")])
+data class LoanEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val party: String,
+    val phone: String = "",
+    val given: Boolean,
+    val principalPaisa: Long,
+    val outstandingPaisa: Long,
+    val note: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** One shop day: cash counted at opening and at closing, and what the app expected. */
+@Entity(tableName = "cash_session", indices = [Index("openedAt")])
+data class CashSessionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val openedAt: Long = System.currentTimeMillis(),
+    val openingPaisa: Long,
+    val closedAt: Long? = null,
+    val expectedPaisa: Long? = null,
+    val countedPaisa: Long? = null,
+    val note: String = "",
+    val staffId: Long? = null,
 )

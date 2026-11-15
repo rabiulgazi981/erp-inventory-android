@@ -22,6 +22,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Handshake
+import androidx.compose.material.icons.outlined.PointOfSale
+import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
@@ -170,6 +173,9 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     ListRow(stringResource(R.string.sms_customers), Icons.Outlined.ChatBubbleOutline, Tints.Orange, trailing = {
                         Toggle(s?.smsDefaultOn == true, { on -> scope.launch { app.settings.setSmsDefault(on) } })
                     }, sub = stringResource(R.string.sms_default_note))
+                    ListRow(stringResource(R.string.cash_bank), Icons.Outlined.AccountBalance, Tints.Green, trailing = { Chevron() }) { go(Routes.CASH_BANK) }
+                    ListRow(stringResource(R.string.cash_day), Icons.Outlined.PointOfSale, Tints.Amber, trailing = { Chevron() }) { go(Routes.CASH_DAY) }
+                    ListRow(stringResource(R.string.loans), Icons.Outlined.Handshake, Tints.Orange, trailing = { Chevron() }) { go(Routes.LOANS) }
                     ListRow(stringResource(R.string.orders), Icons.Outlined.Description, Tints.Blue, trailing = { Chevron() }) { go(Routes.ORDERS) }
                     ListRow(stringResource(R.string.returns), Icons.Outlined.Replay, Tints.Purple, trailing = { Chevron() }) { go(Routes.RETURNS) }
                     ListRow(stringResource(R.string.backup), Icons.Outlined.CloudUpload, Tints.Blue, trailing = { Chevron() }) { go(Routes.BACKUP) }

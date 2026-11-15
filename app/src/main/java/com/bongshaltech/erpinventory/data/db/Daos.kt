@@ -8,6 +8,24 @@ import androidx.room.Update
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Every movement of money, one row per payment method touched: number, kind, time, signed amount
+ * (+ in, − out) and method. Cash & bank balances, the ledger and "cash today" all read this one list,
+ * so they always agree.
+ */
+const val MONEY_FLOWS = """
+    SELECT number, 'SALE' AS kind, createdAt, paidPaisa AS delta, method FROM sale WHERE paidPaisa > 0
+    UNION ALL SELECT number, 'DUE_IN' AS kind, createdAt, amountPaisa AS delta, method FROM due_payment
+    UNION ALL SELECT number, 'PURCHASE' AS kind, createdAt, -paidPaisa AS delta, method FROM purchase WHERE paidPaisa > 0
+    UNION ALL SELECT number, 'SUPPLIER_PAY' AS kind, createdAt, -amountPaisa AS delta, method FROM supplier_payment
+    UNION ALL SELECT number, 'EXPENSE' AS kind, createdAt, -amountPaisa AS delta, method FROM expense
+    UNION ALL SELECT number, 'SALE_RETURN' AS kind, createdAt, -refundPaisa AS delta, method FROM sale_return WHERE refundPaisa > 0
+    UNION ALL SELECT number, 'PURCHASE_RETURN' AS kind, createdAt, refundPaisa AS delta, method FROM purchase_return WHERE refundPaisa > 0
+    UNION ALL SELECT number, 'MFS' AS kind, createdAt, cashDeltaPaisa AS delta, 'CASH' AS method FROM mfs_txn WHERE cashDeltaPaisa != 0
+    UNION ALL SELECT number, kind, createdAt, -amountPaisa AS delta, fromMethod AS method FROM money_move WHERE fromMethod IS NOT NULL
+    UNION ALL SELECT number, kind, createdAt, amountPaisa AS delta, toMethod AS method FROM money_move WHERE toMethod IS NOT NULL
+"""
+
 @Dao
 interface ProductDao {
     @Query("SELECT * FROM product WHERE active = 1 AND (:q = '' OR name LIKE '%' || :q || '%' OR barcode = :q) ORDER BY name COLLATE NOCASE")
@@ -145,22 +163,8 @@ interface SaleDao {
     @Query("SELECT COALESCE(SUM(totalPaisa), 0) FROM sale WHERE createdAt >= :from AND createdAt < :to")
     fun totalBetween(from: Long, to: Long): Flow<Long>
 
-    /**
-     * Net cash since [from]: cash sales and cash due collected, minus cash paid for
-     * purchases, to suppliers and for expenses, plus the cash side of mobile banking entries.
-     * Cash paid back on a sale return goes out; cash a supplier paid back on a purchase return comes in.
-     */
-    @Query(
-        """SELECT
-             (SELECT COALESCE(SUM(paidPaisa), 0) FROM sale WHERE createdAt >= :from AND method = 'CASH')
-           + (SELECT COALESCE(SUM(amountPaisa), 0) FROM due_payment WHERE createdAt >= :from AND method = 'CASH')
-           - (SELECT COALESCE(SUM(paidPaisa), 0) FROM purchase WHERE createdAt >= :from AND method = 'CASH')
-           - (SELECT COALESCE(SUM(amountPaisa), 0) FROM supplier_payment WHERE createdAt >= :from AND method = 'CASH')
-           - (SELECT COALESCE(SUM(amountPaisa), 0) FROM expense WHERE createdAt >= :from AND method = 'CASH')
-           + (SELECT COALESCE(SUM(cashDeltaPaisa), 0) FROM mfs_txn WHERE createdAt >= :from)
-           - (SELECT COALESCE(SUM(refundPaisa), 0) FROM sale_return WHERE createdAt >= :from AND method = 'CASH')
-           + (SELECT COALESCE(SUM(refundPaisa), 0) FROM purchase_return WHERE createdAt >= :from AND method = 'CASH')"""
-    )
+    /** Net cash since [from]: every money flow that went into or out of the cash drawer. */
+    @Query("SELECT COALESCE(SUM(delta), 0) FROM ($MONEY_FLOWS) WHERE method = 'CASH' AND createdAt >= :from")
     fun cashSince(from: Long): Flow<Long>
 
     @Query(
@@ -533,4 +537,61 @@ interface OrderDao {
 
     @Query("SELECT COUNT(*) FROM order_doc WHERE kind = :kind AND status = 'OPEN'")
     fun openCount(kind: String): Flow<Int>
+}
+
+data class MethodBalance(val method: String, val balancePaisa: Long)
+data class LedgerEntry(val number: String, val kind: String, val createdAt: Long, val delta: Long, val method: String)
+
+@Dao
+interface MoneyDao {
+    @Query("SELECT method, COALESCE(SUM(delta), 0) AS balancePaisa FROM ($MONEY_FLOWS) GROUP BY method")
+    fun balances(): Flow<List<MethodBalance>>
+
+    @Query("SELECT * FROM ($MONEY_FLOWS) WHERE method = :method ORDER BY createdAt DESC LIMIT 300")
+    fun ledger(method: String): Flow<List<LedgerEntry>>
+
+    @Query("SELECT COALESCE(SUM(delta), 0) FROM ($MONEY_FLOWS) WHERE method = :method AND createdAt < :before")
+    suspend fun balanceBefore(method: String, before: Long): Long
+
+    @Query("SELECT COALESCE(SUM(delta), 0) FROM ($MONEY_FLOWS) WHERE method = 'CASH' AND createdAt >= :from AND kind != 'OPENING'")
+    suspend fun cashFlowSince(from: Long): Long
+
+    @Query("SELECT COALESCE(SUM(delta), 0) FROM ($MONEY_FLOWS) WHERE method = 'CASH' AND createdAt >= :from AND kind != 'OPENING'")
+    fun watchCashFlowSince(from: Long): Flow<Long>
+
+    @Insert
+    suspend fun insertMove(m: MoneyMoveEntity): Long
+
+    @Query("SELECT * FROM loan ORDER BY outstandingPaisa > 0 DESC, createdAt DESC")
+    fun loans(): Flow<List<LoanEntity>>
+
+    @Query("SELECT * FROM loan WHERE id = :id")
+    fun watchLoan(id: Long): Flow<LoanEntity?>
+
+    @Query("SELECT * FROM loan WHERE id = :id")
+    suspend fun loan(id: Long): LoanEntity?
+
+    @Insert
+    suspend fun insertLoan(l: LoanEntity): Long
+
+    @Query("UPDATE loan SET outstandingPaisa = outstandingPaisa + :delta WHERE id = :id")
+    suspend fun addOutstanding(id: Long, delta: Long)
+
+    @Query("SELECT * FROM money_move WHERE loanId = :id ORDER BY createdAt DESC")
+    fun loanMoves(id: Long): Flow<List<MoneyMoveEntity>>
+
+    @Query("SELECT * FROM cash_session WHERE closedAt IS NULL ORDER BY openedAt DESC LIMIT 1")
+    fun openSession(): Flow<CashSessionEntity?>
+
+    @Query("SELECT * FROM cash_session WHERE closedAt IS NULL ORDER BY openedAt DESC LIMIT 1")
+    suspend fun currentSession(): CashSessionEntity?
+
+    @Query("SELECT * FROM cash_session WHERE closedAt IS NOT NULL ORDER BY openedAt DESC LIMIT 30")
+    fun pastSessions(): Flow<List<CashSessionEntity>>
+
+    @Insert
+    suspend fun insertSession(c: CashSessionEntity): Long
+
+    @Update
+    suspend fun updateSession(c: CashSessionEntity)
 }
