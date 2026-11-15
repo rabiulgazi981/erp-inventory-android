@@ -404,11 +404,11 @@ interface ReturnDao {
     suspend fun insertPurchaseReturnItems(items: List<PurchaseReturnItemEntity>)
 
     @Query(
-        """SELECT r.id, r.number, r.createdAt, r.totalPaisa, r.dueCutPaisa, r.refundPaisa, 0 AS isPurchase,
+        """SELECT r.id AS id, r.number AS number, r.createdAt AS createdAt, r.totalPaisa AS totalPaisa, r.dueCutPaisa AS dueCutPaisa, r.refundPaisa AS refundPaisa, 0 AS isPurchase,
                   c.name AS party, s.number AS fromNumber
            FROM sale_return r LEFT JOIN customer c ON c.id = r.customerId LEFT JOIN sale s ON s.id = r.saleId
            UNION ALL
-           SELECT r.id, r.number, r.createdAt, r.totalPaisa, r.dueCutPaisa, r.refundPaisa, 1 AS isPurchase,
+           SELECT r.id AS id, r.number AS number, r.createdAt AS createdAt, r.totalPaisa AS totalPaisa, r.dueCutPaisa AS dueCutPaisa, r.refundPaisa AS refundPaisa, 1 AS isPurchase,
                   sp.name AS party, p.number AS fromNumber
            FROM purchase_return r LEFT JOIN supplier sp ON sp.id = r.supplierId LEFT JOIN purchase p ON p.id = r.purchaseId
            ORDER BY createdAt DESC LIMIT :limit"""
