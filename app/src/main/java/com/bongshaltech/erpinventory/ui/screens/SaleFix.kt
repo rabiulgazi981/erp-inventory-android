@@ -37,7 +37,6 @@ import com.bongshaltech.erpinventory.ui.components.Muted
 import com.bongshaltech.erpinventory.ui.components.Segmented
 import com.bongshaltech.erpinventory.ui.components.T
 import com.bongshaltech.erpinventory.ui.components.WhiteButton
-import com.bongshaltech.erpinventory.ui.taka0
 import com.bongshaltech.erpinventory.ui.theme.Brand
 import com.bongshaltech.erpinventory.ui.theme.Ui
 import kotlinx.coroutines.launch
