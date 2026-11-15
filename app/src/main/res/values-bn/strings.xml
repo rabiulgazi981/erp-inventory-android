@@ -1011,5 +1011,7 @@
     <string name="guide_backup_t">ব্যাকআপ</string>
     <string name="guide_backup_b">সব তথ্য শুধু এই ফোনে থাকে। নিয়মিত More › Backup থেকে ব্যাকআপ নিন আর ফাইলটা Google Drive বা অন্য ডিভাইসে রাখুন। নতুন ফোনে ওই ফাইল থেকে ফেরত আনা যায়।</string>
     <string name="guide_adfree_t">বিজ্ঞাপন বন্ধ</string>
-    <string name="guide_adfree_b">অ্যাপটা বিজ্ঞাপনসহ ফ্রি। More › বিজ্ঞাপন বন্ধ থেকে Google Play সাবস্ক্রিপশন নিলে বিজ্ঞাপন চলে যায়, যেকোনো সময় Google Play-তে বাতিল করা যায়।</string>
+    <string name="guide_adfree_b">প্রথম ৭ দিন কোনো বিজ্ঞাপন নেই। তারপর অ্যাপটা অল্প বিজ্ঞাপনসহ ফ্রি। More › বিজ্ঞাপন বন্ধ থেকে Google Play সাবস্ক্রিপশন নিলে বিজ্ঞাপন চলে যায়, যেকোনো সময় Google Play-তে বাতিল করা যায়।</string>
+    <string name="adfree_per_n_months">/ %1$d মাস</string>
+    <string name="adfree_save">মাসিকের চেয়ে %1$d%% সাশ্রয়</string>
 </resources>

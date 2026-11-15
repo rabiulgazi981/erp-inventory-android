@@ -1012,5 +1012,7 @@
     <string name="guide_backup_t">Backup</string>
     <string name="guide_backup_b">Everything is stored on this phone only. Make a backup from More › Backup regularly and keep the file in Google Drive or on another device. A new phone can restore from that file.</string>
     <string name="guide_adfree_t">Removing ads</string>
-    <string name="guide_adfree_b">The app is free with ads. More › Go ad-free removes them through a Google Play subscription, which you can cancel any time in Google Play.</string>
+    <string name="guide_adfree_b">The first 7 days have no ads. After that the app is free with a few ads. More › Go ad-free removes them through a Google Play subscription, which you can cancel any time in Google Play.</string>
+    <string name="adfree_per_n_months">/ %1$d months</string>
+    <string name="adfree_save">Save %1$d%% compared with monthly</string>
 </resources>

@@ -15,6 +15,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bongshaltech.erpinventory.BuildConfig
 import com.bongshaltech.erpinventory.ErpApp
+import com.bongshaltech.erpinventory.core.billing.AdSchedule
 import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
@@ -33,6 +34,7 @@ import kotlinx.coroutines.flow.combine
 /**
  * AdMob for the free version: a banner at the bottom of the main tabs, and a full-screen ad
  * after some sales (never more than once every [MIN_GAP_MS], and only between sales).
+ * How many depends on the app's age ([AdSchedule]): none in the first week, then a light amount.
  * Nothing is shown when the ad-free subscription is active or when no ad unit is configured.
  */
 object Ads {
@@ -76,13 +78,21 @@ object Ads {
         val activity = ctx.findActivity() ?: return
         val app = activity.application as ErpApp
         if (!_ready.value || app.adFreeCached) return
-        salesSinceAd++
         val now = System.currentTimeMillis()
+        val rule = AdSchedule.rule(AdSchedule.days(app.installedAtCached, now))
+        if (rule.fullPerDay == 0) return
+        salesSinceAd++
         if (salesSinceAd < SALES_PER_AD || now - lastShownAt < MIN_GAP_MS) return
+        // Count full-screen ads per calendar day, kept across app restarts.
+        val prefs = activity.getSharedPreferences("ads", Context.MODE_PRIVATE)
+        val today = java.time.LocalDate.now().toEpochDay()
+        val shownToday = if (prefs.getLong("day", -1) == today) prefs.getInt("count", 0) else 0
+        if (shownToday >= rule.fullPerDay) return
         val ad = interstitial ?: return loadInterstitial(activity.applicationContext)
         interstitial = null
         salesSinceAd = 0
         lastShownAt = now
+        prefs.edit().putLong("day", today).putInt("count", shownToday + 1).apply()
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() = loadInterstitial(activity.applicationContext)
             override fun onAdFailedToShowFullScreenContent(e: com.google.android.gms.ads.AdError) = loadInterstitial(activity.applicationContext)
@@ -102,7 +112,9 @@ fun Context.findActivity(): Activity? {
 fun AdBanner(modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val app = ctx.applicationContext as ErpApp
-    val show by remember { combine(Ads.ready, app.settings.settings) { r, s -> r && !s.adFree } }
+    val show by remember {
+        combine(Ads.ready, app.settings.settings) { r, s -> r && !s.adFree && AdSchedule.rule(AdSchedule.days(s.installedAt, System.currentTimeMillis())).banner }
+    }
         .collectAsStateWithLifecycle(false)
     val unit = BuildConfig.BANNER_AD_UNIT
     if (!show || unit.isBlank()) return
