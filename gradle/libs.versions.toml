@@ -17,6 +17,8 @@ desugar = "2.1.3"
 coreSplash = "1.0.1"
 appcompat = "1.7.0"
 codeScanner = "16.1.0"
+billing = "7.1.1"
+ump = "3.1.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -38,6 +40,8 @@ sqlcipher = { module = "net.zetetic:sqlcipher-android", version.ref = "sqlcipher
 androidx-sqlite = { module = "androidx.sqlite:sqlite-ktx", version.ref = "sqlite" }
 datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+play-billing = { module = "com.android.billingclient:billing-ktx", version.ref = "billing" }
+ump = { module = "com.google.android.ump:user-messaging-platform", version.ref = "ump" }
 play-services-ads = { module = "com.google.android.gms:play-services-ads", version.ref = "playAds" }
 junit = { module = "junit:junit", version.ref = "junit" }
 desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar" }

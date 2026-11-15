@@ -55,6 +55,8 @@ data class AppSettings(
     val printerName: String,
     /** Paper roll width: 58 or 80 mm. */
     val paperMm: Int,
+    /** Ad-free subscription active, as last confirmed by Google Play. */
+    val adFree: Boolean,
 )
 
 private val Context.store by preferencesDataStore("settings")
@@ -82,6 +84,7 @@ class SettingsRepo(private val context: Context) {
         val printerAddress = stringPreferencesKey("printer_address")
         val printerName = stringPreferencesKey("printer_name")
         val paperMm = intPreferencesKey("paper_mm")
+        val adFree = booleanPreferencesKey("ad_free")
     }
 
     val settings: Flow<AppSettings> = context.store.data.map(::read)
@@ -110,11 +113,14 @@ class SettingsRepo(private val context: Context) {
         printerAddress = p[K.printerAddress] ?: "",
         printerName = p[K.printerName] ?: "",
         paperMm = p[K.paperMm] ?: 58,
+        adFree = p[K.adFree] ?: false,
     )
 
     suspend fun setPrinter(address: String, name: String) = context.store.edit {
         it[K.printerAddress] = address; it[K.printerName] = name
     }
+
+    suspend fun setAdFree(on: Boolean) = context.store.edit { it[K.adFree] = on }
 
     suspend fun setPaper(mm: Int) = context.store.edit { it[K.paperMm] = mm }
 

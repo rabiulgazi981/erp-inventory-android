@@ -135,6 +135,7 @@ fun ProductsScreen(lowOnly: Boolean, go: (String) -> Unit, tab: (Tab) -> Unit) {
                 }
             }
         }
+        com.bongshaltech.erpinventory.ads.AdBanner()
         BottomNav(Tab.PRODUCTS, tab)
     }
 }

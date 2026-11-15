@@ -24,6 +24,7 @@ class MainActivity : AppCompatActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         takeSharedSms(intent)
+        com.bongshaltech.erpinventory.ads.Ads.start(this)
         enableEdgeToEdge()
         val themeFlow = (application as ErpApp).settings.settings.map { it.theme }
         setContent {

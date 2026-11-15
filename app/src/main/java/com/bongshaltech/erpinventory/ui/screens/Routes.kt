@@ -43,6 +43,7 @@ object Routes {
     const val RECEIPT = "receipt/{id}"
     const val PRINTER = "printer"
     const val SMS_ACCOUNT = "sms_account"
+    const val AD_FREE = "ad_free"
 
     fun productEdit(id: Long) = "product/$id"
     fun customer(id: Long) = "customer/$id"
@@ -123,6 +124,7 @@ fun ErpNavHost() {
         composable(Routes.MFS_WALLETS) { MfsWalletsScreen(back) }
         composable(Routes.BACKUP) { BackupScreen(back) }
         composable(Routes.SMS_ACCOUNT) { SmsAccountScreen(back) }
+        composable(Routes.AD_FREE) { AdFreeScreen(back) }
         composable(Routes.REPORTS) { ReportsScreen(tab = { nav.goTab(it) }) }
     }
 }
