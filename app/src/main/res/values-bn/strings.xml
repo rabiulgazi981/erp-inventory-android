@@ -376,6 +376,8 @@
     <string name="mfs_rate_out">ক্যাশ আউট %</string>
     <string name="mfs_rate_pay">পেমেন্ট %</string>
     <string name="mfs_save_wallet">সেভ</string>
+    <string name="scan_failed">স্ক্যানার খোলা যায়নি। Google Play services আপডেট করে আবার চেষ্টা করুন।</string>
+    <string name="scan_not_found">%1$s বারকোডের কোনো পণ্য নেই। Products-এ যোগ করুন।</string>
     <string name="receipt_title">রসিদ</string>
     <string name="receipt_print">প্রিন্ট</string>
     <string name="receipt_share">শেয়ার</string>
