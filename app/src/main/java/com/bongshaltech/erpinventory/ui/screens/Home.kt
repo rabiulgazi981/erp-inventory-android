@@ -178,7 +178,7 @@ fun HomeScreen(go: (String) -> Unit, tab: (Tab) -> Unit) {
                     val walkIn = stringResource(R.string.walk_in)
                     val dueWord = stringResource(R.string.sale_due)
                     recent.forEach { r ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.clickable { go(Routes.receipt(r.id)) }, verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 T(r.number, 14.sp, FontWeight.SemiBold)
                                 Muted(
