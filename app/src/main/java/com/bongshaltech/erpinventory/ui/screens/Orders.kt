@@ -249,7 +249,7 @@ fun OrderScreen(kind: OrderKind, id: Long, go: (String) -> Unit, onBack: () -> U
                 }
                 lines.forEachIndexed { i, l ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        T(l.product.name, 14.sp, FontWeight.SemiBold, Modifier.weight(1f), maxLines = 2)
+                        T(l.product.name, 14.sp, FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 2)
                         Input(l.qty, { lines[i] = l.copy(qty = it) }, Modifier.width(64.dp), keyboard = KeyboardType.Decimal, alignEnd = true, height = 40.dp)
                         Input(l.price, { lines[i] = l.copy(price = it) }, Modifier.width(84.dp), keyboard = KeyboardType.Decimal, alignEnd = true, height = 40.dp)
                         if (open) Icon(Icons.Outlined.Close, null, tint = Ui.c.muted, modifier = Modifier.size(22.dp).clickable { lines.removeAt(i) })
