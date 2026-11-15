@@ -249,7 +249,7 @@ private val actionLabel = mapOf(
     "DAY_CLOSE" to R.string.cash_day_close, "DAY_OPEN" to R.string.cash_day_open,
     "PROMO_NEW" to R.string.audit_promo_new, "PROMO_ON" to R.string.audit_promo_on, "PROMO_OFF" to R.string.audit_promo_off,
     "SALE_DELETE" to R.string.audit_sale_delete, "SALE_DELETE_ASK" to R.string.audit_sale_delete_ask, "SALE_DELETE_NO" to R.string.audit_sale_delete_no,
-    "STOCK_ADJUST" to R.string.adj_title, "SALARY_ADVANCE" to R.string.hr_advance,
+    "STOCK_ADJUST" to R.string.adj_title, "SALARY_ADVANCE" to R.string.hr_advance, "INVESTOR_ADD" to R.string.audit_investor_add, "JOURNAL" to R.string.audit_journal,
     "HR_LOCK" to R.string.hr_lock, "HR_UNLOCK" to R.string.hr_unlocked,
 )
 

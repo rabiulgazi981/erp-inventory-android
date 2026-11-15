@@ -347,7 +347,7 @@ data class OrderDocItemEntity(
 )
 
 /** Money moved without a sale or purchase: transfers between cash / bank / wallets, owner's money in or out, loans, opening balances. */
-enum class MoveKind { OPENING, TRANSFER, CAPITAL_IN, DRAWING, LOAN_TAKEN, LOAN_REPAID, LOAN_GIVEN, LOAN_RECEIVED, VOUCHER_SOLD }
+enum class MoveKind { OPENING, TRANSFER, CAPITAL_IN, DRAWING, LOAN_TAKEN, LOAN_REPAID, LOAN_GIVEN, LOAN_RECEIVED, VOUCHER_SOLD, INVEST_IN, INVEST_OUT }
 
 @Entity(tableName = "money_move", indices = [Index("createdAt"), Index("loanId")])
 data class MoneyMoveEntity(
@@ -364,6 +364,8 @@ data class MoneyMoveEntity(
     val note: String = "",
     val staffId: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
+    /** Investor whose money this is (INVEST_IN / INVEST_OUT), or null. */
+    val investorId: Long? = null,
 )
 
 /** Money the shop borrowed ([given] false) or lent ([given] true). [outstandingPaisa] is what is still to be paid back. */
@@ -652,4 +654,63 @@ data class StockAdjustEntity(
     val costPaisa: Long,
     val staffId: Long?,
     val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** Someone who put money into the business. Their money moves are money_move rows with [MoneyMoveEntity.investorId]. */
+@Entity(tableName = "investor")
+data class InvestorEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val phone: String = "",
+    /** Share of profit in basis points (2500 = 25%), for information. */
+    val shareBp: Int = 0,
+    val note: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** Chart of accounts for the manual journal. [type] is an AccountType name. */
+@Entity(tableName = "ledger_account")
+data class LedgerAccountEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val type: String,
+    val active: Boolean = true,
+)
+
+@Entity(tableName = "journal_entry", indices = [Index("day")])
+data class JournalEntryEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val number: String,
+    /** Days since 1970-01-01. */
+    val day: Long,
+    val note: String,
+    val staffId: Long?,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+@Entity(
+    tableName = "journal_line",
+    foreignKeys = [ForeignKey(entity = JournalEntryEntity::class, parentColumns = ["id"], childColumns = ["entryId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("entryId"), Index("accountId")],
+)
+data class JournalLineEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val entryId: Long,
+    val accountId: Long,
+    val debitPaisa: Long,
+    val creditPaisa: Long,
+)
+
+/** A monthly expense the shop pays again and again (rent, bills). Posting it makes a normal expense. */
+@Entity(tableName = "recurring_expense")
+data class RecurringExpenseEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val category: String,
+    val amountPaisa: Long,
+    val method: PayMethod,
+    val dayOfMonth: Int,
+    val note: String = "",
+    /** yyyyMM it was last posted for, 0 if never. */
+    val lastMonth: Int = 0,
+    val active: Boolean = true,
 )

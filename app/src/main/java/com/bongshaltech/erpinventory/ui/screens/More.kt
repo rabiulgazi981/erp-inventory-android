@@ -23,6 +23,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.EventRepeat
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import com.bongshaltech.erpinventory.core.books.Recurring
+import java.time.LocalDate
+import kotlinx.coroutines.flow.map
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.ShoppingCartCheckout
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -142,6 +148,7 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
     val settings by app.settings.settings.collectAsStateWithLifecycle(null)
     val staff by remember { app.repo.staff.all() }.collectAsStateWithLifecycle(emptyList())
     val delAsks by remember { app.repo.saleFix.requestCount() }.collectAsStateWithLifecycle(0)
+    val dueRecurring by remember { app.repo.books.recurring().map { l -> l.count { it.active && Recurring.isDue(it.dayOfMonth, it.lastMonth, LocalDate.now()) } } }.collectAsStateWithLifecycle(0)
     val s = settings
     val appId = ctx.packageName.removeSuffix(".debug")
     fun open(url: String) = runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
@@ -191,6 +198,11 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     ListRow(stringResource(R.string.cash_bank), Icons.Outlined.AccountBalance, Tints.Green, trailing = { Chevron() }) { go(Routes.CASH_BANK) }
                     if (s?.on(Feature.CASH_DAY) == true) ListRow(stringResource(R.string.cash_day), Icons.Outlined.PointOfSale, Tints.Amber, trailing = { Chevron() }) { go(Routes.CASH_DAY) }
                     if (s?.on(Feature.LOANS) == true) ListRow(stringResource(R.string.loans), Icons.Outlined.Handshake, Tints.Orange, trailing = { Chevron() }) { go(Routes.LOANS) }
+                    if (s?.on(Feature.INVESTORS) == true) ListRow(stringResource(R.string.investors), Icons.Outlined.Groups, Tints.Teal, trailing = { Chevron() }) { go(Routes.INVESTORS) }
+                    if (s?.on(Feature.RECURRING) == true) ListRow(stringResource(R.string.recurring), Icons.Outlined.EventRepeat, Tints.Purple, trailing = {
+                        if (dueRecurring > 0) Tag(stringResource(R.string.rec_due_n, dueRecurring), Color(0xFF92400E), Tints.Amber.brush) else Chevron()
+                    }) { go(Routes.RECURRING) }
+                    if (s?.on(Feature.ACCOUNTING) == true) ListRow(stringResource(R.string.accounts), Icons.AutoMirrored.Outlined.MenuBook, Tints.Indigo, trailing = { Chevron() }) { go(Routes.ACCOUNTS) }
                     if (s?.on(Feature.PROMOS) == true) ListRow(stringResource(R.string.promos), Icons.Outlined.LocalOffer, Tints.Pink, trailing = { Chevron() }) { go(Routes.PROMOS) }
                     if (s?.on(Feature.HR) == true) ListRow(stringResource(R.string.hr), Icons.Outlined.Badge, Tints.Indigo, trailing = { Chevron() }) { go(Routes.HR) }
                     if (s?.on(Feature.TABLES) == true)

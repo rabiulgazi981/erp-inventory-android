@@ -49,7 +49,15 @@ import com.bongshaltech.erpinventory.data.db.OrderStatus
 import com.bongshaltech.erpinventory.data.db.SaleReturnEntity
 import com.bongshaltech.erpinventory.data.db.SaleReturnItemEntity
 import com.bongshaltech.erpinventory.security.PinHasher
+import com.bongshaltech.erpinventory.data.db.InvestorEntity
+import com.bongshaltech.erpinventory.data.db.LedgerAccountEntity
+import com.bongshaltech.erpinventory.data.db.JournalEntryEntity
+import com.bongshaltech.erpinventory.data.db.JournalLineEntity
+import com.bongshaltech.erpinventory.data.db.RecurringExpenseEntity
 import java.time.LocalDate
+import com.bongshaltech.erpinventory.core.books.AccountType
+import com.bongshaltech.erpinventory.core.books.Books
+import com.bongshaltech.erpinventory.core.books.JournalLine
 import kotlinx.coroutines.flow.map
 
 data class CartLine(val product: ProductEntity, val qtyMilli: Long, val serials: List<String> = emptyList()) {
@@ -788,18 +796,73 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     }
 
     /** Records a money movement that isn't a sale or purchase. Returns its number. */
-    suspend fun moveMoney(kind: MoveKind, from: PayMethod?, to: PayMethod?, amountPaisa: Long, note: String, staffId: Long?, loanId: Long? = null): String? {
+    suspend fun moveMoney(kind: MoveKind, from: PayMethod?, to: PayMethod?, amountPaisa: Long, note: String, staffId: Long?, loanId: Long? = null, investorId: Long? = null): String? {
         if (amountPaisa <= 0 || (from == null && to == null) || from == to) return null
         val code = settings.current().shopCode
         return db.withTransaction {
             val number = nextNumber(code, DocType.MONEY)
             db.money().insertMove(
                 MoneyMoveEntity(number = number, kind = kind.name, fromMethod = from?.name, toMethod = to?.name,
-                    amountPaisa = amountPaisa, loanId = loanId, note = note.trim(), staffId = staffId)
+                    amountPaisa = amountPaisa, loanId = loanId, note = note.trim(), staffId = staffId, investorId = investorId)
             )
             audit("MONEY", "$number · ${kind.name} · ${tk(amountPaisa)}")
             number
         }
+    }
+
+    val books get() = db.books()
+
+    suspend fun addInvestor(name: String, phone: String, shareBp: Int, note: String): Long? {
+        if (name.isBlank()) return null
+        val id = db.books().insertInvestor(InvestorEntity(name = name.trim(), phone = phone.filter(Char::isDigit), shareBp = shareBp.coerceIn(0, 10_000), note = note.trim()))
+        audit("INVESTOR_ADD", name.trim())
+        return id
+    }
+
+    /** Investor money in (adds to [method]) or paid back / profit share out (takes from [method]). */
+    suspend fun investorMoney(investorId: Long, incoming: Boolean, method: PayMethod, amountPaisa: Long, note: String, staffId: Long?): String? =
+        if (incoming) moveMoney(MoveKind.INVEST_IN, null, method, amountPaisa, note, staffId, investorId = investorId)
+        else moveMoney(MoveKind.INVEST_OUT, method, null, amountPaisa, note, staffId, investorId = investorId)
+
+    /** Adds the starter chart of accounts once, when the shop has none. */
+    suspend fun seedAccounts(starter: List<Pair<String, AccountType>>) = db.withTransaction {
+        if (db.books().accountCount() == 0) starter.forEach { (n, t) -> db.books().insertAccount(LedgerAccountEntity(name = n, type = t.name)) }
+    }
+
+    suspend fun addAccount(name: String, type: AccountType): Long? {
+        if (name.isBlank()) return null
+        return db.books().insertAccount(LedgerAccountEntity(name = name.trim(), type = type.name))
+    }
+
+    /** Saves a balanced journal entry. Returns its number, or null when debits and credits don't match. */
+    suspend fun postJournal(day: Long, note: String, lines: List<JournalLine>, staffId: Long?): String? {
+        if (!Books.isValid(lines)) return null
+        val used = lines.filter { it.debitPaisa > 0 || it.creditPaisa > 0 }
+        val code = settings.current().shopCode
+        return db.withTransaction {
+            val number = nextNumber(code, DocType.JOURNAL)
+            val id = db.books().insertEntry(JournalEntryEntity(number = number, day = day, note = note.trim(), staffId = staffId))
+            db.books().insertLines(used.map { JournalLineEntity(entryId = id, accountId = it.accountId, debitPaisa = it.debitPaisa, creditPaisa = it.creditPaisa) })
+            audit("JOURNAL", "$number · ${tk(used.sumOf { it.debitPaisa })}")
+            number
+        }
+    }
+
+    suspend fun addRecurring(category: String, amountPaisa: Long, method: PayMethod, dayOfMonth: Int, note: String): Long? {
+        if (category.isBlank() || amountPaisa <= 0) return null
+        return db.books().insertRecurring(RecurringExpenseEntity(category = category.trim(), amountPaisa = amountPaisa, method = method,
+            dayOfMonth = dayOfMonth.coerceIn(1, 31), note = note.trim()))
+    }
+
+    /** Posts a monthly expense as a normal expense for this month. Returns the expense number, or null if already posted. */
+    suspend fun postRecurring(id: Long, staffId: Long?): String? = db.withTransaction {
+        val r = db.books().recurringById(id) ?: return@withTransaction null
+        val today = LocalDate.now()
+        val month = today.year * 100 + today.monthValue
+        if (r.lastMonth >= month) return@withTransaction null
+        val number = addExpense(r.category, r.amountPaisa, r.method, r.note, staffId)
+        db.books().setPosted(id, month)
+        number
     }
 
     /** A new loan: borrowed money comes in through [method], lent money goes out through it. */

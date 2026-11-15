@@ -32,8 +32,9 @@ class Converters {
         AuditLogEntity::class,
         DeletedSaleEntity::class, SaleDeleteRequestEntity::class, InstallmentEntity::class,
         StockAdjustEntity::class, HrLockEntity::class,
+        InvestorEntity::class, LedgerAccountEntity::class, JournalEntryEntity::class, JournalLineEntity::class, RecurringExpenseEntity::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -59,6 +60,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun audit(): AuditDao
     abstract fun saleFix(): SaleFixDao
     abstract fun stockMore(): StockMoreDao
+    abstract fun books(): BooksDao
 
     companion object {
         // Schema changes must be additive migrations: shop data on the phone is never wiped.
@@ -405,12 +407,43 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE money_move ADD COLUMN investorId INTEGER")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `investor` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`phone` TEXT NOT NULL, `shareBp` INTEGER NOT NULL, `note` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `ledger_account` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`type` TEXT NOT NULL, `active` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `journal_entry` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, " +
+                        "`day` INTEGER NOT NULL, `note` TEXT NOT NULL, `staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_journal_entry_day` ON `journal_entry` (`day`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `journal_line` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `entryId` INTEGER NOT NULL, " +
+                        "`accountId` INTEGER NOT NULL, `debitPaisa` INTEGER NOT NULL, `creditPaisa` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`entryId`) REFERENCES `journal_entry`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_journal_line_entryId` ON `journal_line` (`entryId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_journal_line_accountId` ON `journal_line` (`accountId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `recurring_expense` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `category` TEXT NOT NULL, " +
+                        "`amountPaisa` INTEGER NOT NULL, `method` TEXT NOT NULL, `dayOfMonth` INTEGER NOT NULL, `note` TEXT NOT NULL, " +
+                        "`lastMonth` INTEGER NOT NULL, `active` INTEGER NOT NULL)"
+                )
+            }
+        }
+
         fun open(context: Context): AppDatabase {
             System.loadLibrary("sqlcipher")
             val factory = SupportOpenHelperFactory(DbKey.get(context))
             return Room.databaseBuilder(context, AppDatabase::class.java, "shop.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
                 .build()
         }
     }

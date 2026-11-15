@@ -991,3 +991,77 @@ interface StockMoreDao {
     @Query("SELECT * FROM product WHERE active = 1 AND lowStockMilli > 0 AND stockMilli <= lowStockMilli ORDER BY stockMilli * 1.0 / lowStockMilli, name COLLATE NOCASE")
     fun reorder(): Flow<List<ProductEntity>>
 }
+
+data class AccountTotal(val id: Long, val name: String, val type: String, val active: Boolean, val debitPaisa: Long, val creditPaisa: Long)
+
+data class InvestorTotal(val id: Long, val name: String, val phone: String, val shareBp: Int, val inPaisa: Long, val outPaisa: Long)
+
+data class JournalRow(val id: Long, val number: String, val day: Long, val note: String, val totalPaisa: Long)
+
+@Dao
+interface BooksDao {
+    @Query(
+        "SELECT a.id, a.name, a.type, a.active, COALESCE(SUM(l.debitPaisa), 0) AS debitPaisa, COALESCE(SUM(l.creditPaisa), 0) AS creditPaisa " +
+            "FROM ledger_account a LEFT JOIN journal_line l ON l.accountId = a.id GROUP BY a.id ORDER BY a.type, a.name"
+    )
+    fun accountTotals(): Flow<List<AccountTotal>>
+
+    @Query("SELECT * FROM ledger_account WHERE active = 1 ORDER BY type, name")
+    fun activeAccounts(): Flow<List<LedgerAccountEntity>>
+
+    @Query("SELECT COUNT(*) FROM ledger_account")
+    suspend fun accountCount(): Int
+
+    @Insert
+    suspend fun insertAccount(a: LedgerAccountEntity): Long
+
+    @Query("UPDATE ledger_account SET active = :active WHERE id = :id")
+    suspend fun setAccountActive(id: Long, active: Boolean)
+
+    @Insert
+    suspend fun insertEntry(e: JournalEntryEntity): Long
+
+    @Insert
+    suspend fun insertLines(l: List<JournalLineEntity>)
+
+    @Query(
+        "SELECT e.id, e.number, e.day, e.note, COALESCE((SELECT SUM(debitPaisa) FROM journal_line WHERE entryId = e.id), 0) AS totalPaisa " +
+            "FROM journal_entry e ORDER BY e.day DESC, e.id DESC LIMIT 300"
+    )
+    fun entries(): Flow<List<JournalRow>>
+
+    @Query("SELECT * FROM journal_line WHERE entryId = :entryId ORDER BY creditPaisa, id")
+    suspend fun lines(entryId: Long): List<JournalLineEntity>
+
+    @Query("SELECT * FROM recurring_expense ORDER BY active DESC, dayOfMonth")
+    fun recurring(): Flow<List<RecurringExpenseEntity>>
+
+    @Query("SELECT * FROM recurring_expense WHERE id = :id")
+    suspend fun recurringById(id: Long): RecurringExpenseEntity?
+
+    @Insert
+    suspend fun insertRecurring(r: RecurringExpenseEntity): Long
+
+    @Query("UPDATE recurring_expense SET lastMonth = :month WHERE id = :id")
+    suspend fun setPosted(id: Long, month: Int)
+
+    @Query("UPDATE recurring_expense SET active = :active WHERE id = :id")
+    suspend fun setRecurringActive(id: Long, active: Boolean)
+
+    @Query("DELETE FROM recurring_expense WHERE id = :id")
+    suspend fun deleteRecurring(id: Long)
+
+    @Query(
+        "SELECT i.id, i.name, i.phone, i.shareBp, " +
+            "COALESCE((SELECT SUM(amountPaisa) FROM money_move WHERE investorId = i.id AND kind = 'INVEST_IN'), 0) AS inPaisa, " +
+            "COALESCE((SELECT SUM(amountPaisa) FROM money_move WHERE investorId = i.id AND kind = 'INVEST_OUT'), 0) AS outPaisa " +
+            "FROM investor i ORDER BY i.name"
+    )
+    fun investors(): Flow<List<InvestorTotal>>
+
+    @Insert
+    suspend fun insertInvestor(i: InvestorEntity): Long
+
+    @Query("SELECT * FROM money_move WHERE investorId = :id ORDER BY createdAt DESC")
+    fun investorMoves(id: Long): Flow<List<MoneyMoveEntity>>
+}

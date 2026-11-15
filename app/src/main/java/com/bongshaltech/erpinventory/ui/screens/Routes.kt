@@ -69,6 +69,10 @@ object Routes {
     const val DELETED_SALES = "deleted_sales"
     const val STOCK_ADJUST = "stock_adjust"
     const val REORDER = "reorder"
+    const val ACCOUNTS = "accounts"
+    const val JOURNAL = "journal"
+    const val RECURRING = "recurring"
+    const val INVESTORS = "investors"
     const val TABLE = "table/{id}"
 
     fun productEdit(id: Long) = "product/$id"
@@ -185,6 +189,10 @@ fun ErpNavHost() {
         composable(Routes.FEATURES) { FeaturesScreen(back) }
         composable(Routes.STOCK_ADJUST) { StockAdjustScreen(back) }
         composable(Routes.REORDER) { ReorderScreen(back) }
+        composable(Routes.ACCOUNTS) { AccountsScreen(go, back) }
+        composable(Routes.JOURNAL) { JournalScreen(back) }
+        composable(Routes.RECURRING) { RecurringScreen(back) }
+        composable(Routes.INVESTORS) { InvestorsScreen(back) }
         composable(Routes.DELETED_SALES) { DeletedSalesScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.SERIALS) { SerialsScreen(back) }
         composable(Routes.WAREHOUSES) { WarehousesScreen(go = { nav.navigate(it) }, onBack = back) }
