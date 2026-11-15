@@ -43,6 +43,7 @@ object Routes {
     const val RECEIPT = "receipt/{id}"
     const val PRINTER = "printer"
     const val SMS_ACCOUNT = "sms_account"
+    const val SMS_GATEWAY = "sms_gateway"
     const val RETURNS = "returns"
     const val ORDERS = "orders"
     const val ORDER = "order/{kind}/{id}"
@@ -172,6 +173,7 @@ fun ErpNavHost() {
         composable(Routes.MFS_WALLETS) { MfsWalletsScreen(back) }
         composable(Routes.BACKUP) { BackupScreen(back) }
         composable(Routes.SMS_ACCOUNT) { SmsAccountScreen(back) }
+        composable(Routes.SMS_GATEWAY) { SmsGatewayScreen(back) }
         composable(Routes.ORDERS) { OrdersScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(
             Routes.ORDER,

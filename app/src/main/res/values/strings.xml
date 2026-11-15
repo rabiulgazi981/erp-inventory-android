@@ -1015,4 +1015,22 @@
     <string name="guide_adfree_b">The first 7 days have no ads. After that the app is free with a few ads. More › Go ad-free removes them through a Google Play subscription, which you can cancel any time in Google Play.</string>
     <string name="adfree_per_n_months">/ %1$d months</string>
     <string name="adfree_save">Save %1$d%% compared with monthly</string>
+    <string name="gw_title">SMS gateway</string>
+    <string name="gw_save">Save</string>
+    <string name="gw_phone">Mobile number</string>
+    <string name="gw_help">Buy SMS from any Bangladeshi SMS provider and put your own API key here. Receipts then go out by themselves in your shop\'s name. The key stays encrypted on this phone. Without a gateway, or when there is no internet, the phone\'s SIM is used.</string>
+    <string name="gw_provider">Provider and API key</string>
+    <string name="gw_key">API key</string>
+    <string name="gw_sender">Sender ID (optional)</string>
+    <string name="gw_url">Send link (https)</string>
+    <string name="gw_url_help">Paste your provider\'s GET send link and put {number}, {message}, {key} and {sender} where they go.</string>
+    <string name="gw_test">Test</string>
+    <string name="gw_test_send">Send a test SMS</string>
+    <string name="gw_test_text">ERP Inventory test SMS. Your SMS gateway works.</string>
+    <string name="gw_sent">SMS sent through your gateway</string>
+    <string name="gw_bad_number">Not a Bangladeshi mobile number</string>
+    <string name="gw_refused">Gateway said: %1$s. Sending from your SIM.</string>
+    <string name="gw_on">Gateway is on. Receipts go through it.</string>
+    <string name="gw_off">No gateway. Receipts go from your SIM.</string>
+    <string name="gw_remove">Remove gateway</string>
 </resources>

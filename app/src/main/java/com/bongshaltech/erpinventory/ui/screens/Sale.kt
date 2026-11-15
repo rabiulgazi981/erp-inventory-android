@@ -493,30 +493,29 @@ fun smsPreview(shop: String, number: String, totalPaisa: Long, duePaisa: Long = 
     "$shop: Memo $number, total Tk ${totalPaisa / 100}" + (if (duePaisa > 0) ", due Tk ${duePaisa / 100}" else "") + ". Thank you!"
 
 /**
- * Sends through the shop's SMS pack when an SMS account is connected; falls back to the shop's
- * own SIM when there is no credit, no internet, or the gateway is down.
+ * Sends through the shop's own SMS gateway when one is set up in More › SMS gateway; otherwise,
+ * or when there is no internet or the gateway refuses, the shop's own SIM is used.
  */
+@Suppress("UNUSED_PARAMETER")
 fun sendReceiptSms(ctx: android.content.Context, scope: kotlinx.coroutines.CoroutineScope, phone: String, text: String, key: String) {
-    if (com.bongshaltech.erpinventory.data.SmsCloud.signedInEmail(ctx) == null) return sendSmsFromSim(ctx, phone, text)
+    val gw = com.bongshaltech.erpinventory.data.SmsGateway
+    if (!gw.ready(ctx)) return sendSmsFromSim(ctx, phone, text)
     scope.launch {
-        when (val r = com.bongshaltech.erpinventory.data.SmsCloud.send(ctx, phone, text, key)) {
-            is com.bongshaltech.erpinventory.data.SmsCloud.Send.Sent ->
-                Toast.makeText(ctx, ctx.getString(R.string.sms_sent, r.balance), Toast.LENGTH_SHORT).show()
-            is com.bongshaltech.erpinventory.data.SmsCloud.Send.UseSim -> {
-                Toast.makeText(ctx, ctx.getString(simReason(r.reason)), Toast.LENGTH_LONG).show()
+        when (val r = gw.send(ctx, phone, text)) {
+            com.bongshaltech.erpinventory.data.SmsGateway.Result.Sent ->
+                Toast.makeText(ctx, ctx.getString(R.string.gw_sent), Toast.LENGTH_SHORT).show()
+            com.bongshaltech.erpinventory.data.SmsGateway.Result.BadNumber ->
+                Toast.makeText(ctx, ctx.getString(R.string.gw_bad_number), Toast.LENGTH_LONG).show()
+            com.bongshaltech.erpinventory.data.SmsGateway.Result.Offline -> {
+                Toast.makeText(ctx, ctx.getString(R.string.sms_sim_offline), Toast.LENGTH_LONG).show()
                 sendSmsFromSim(ctx, phone, text)
             }
-            is com.bongshaltech.erpinventory.data.SmsCloud.Send.Failed ->
-                Toast.makeText(ctx, ctx.getString(R.string.sms_failed, r.message), Toast.LENGTH_LONG).show()
+            is com.bongshaltech.erpinventory.data.SmsGateway.Result.Refused -> {
+                Toast.makeText(ctx, ctx.getString(R.string.gw_refused, r.why), Toast.LENGTH_LONG).show()
+                sendSmsFromSim(ctx, phone, text)
+            }
         }
     }
-}
-
-private fun simReason(r: com.bongshaltech.erpinventory.data.SmsCloud.Reason) = when (r) {
-    com.bongshaltech.erpinventory.data.SmsCloud.Reason.NO_BALANCE -> R.string.sms_sim_no_balance
-    com.bongshaltech.erpinventory.data.SmsCloud.Reason.OFFLINE -> R.string.sms_sim_offline
-    com.bongshaltech.erpinventory.data.SmsCloud.Reason.SIGNED_OUT -> R.string.sms_sim_signed_out
-    else -> R.string.sms_sim_busy
 }
 
 /**
