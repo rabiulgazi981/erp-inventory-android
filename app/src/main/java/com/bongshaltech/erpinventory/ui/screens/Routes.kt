@@ -189,7 +189,7 @@ fun ErpNavHost() {
         composable(Routes.FEATURES) { FeaturesScreen(back) }
         composable(Routes.STOCK_ADJUST) { StockAdjustScreen(back) }
         composable(Routes.REORDER) { ReorderScreen(back) }
-        composable(Routes.ACCOUNTS) { AccountsScreen(go, back) }
+        composable(Routes.ACCOUNTS) { AccountsScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.JOURNAL) { JournalScreen(back) }
         composable(Routes.RECURRING) { RecurringScreen(back) }
         composable(Routes.INVESTORS) { InvestorsScreen(back) }
