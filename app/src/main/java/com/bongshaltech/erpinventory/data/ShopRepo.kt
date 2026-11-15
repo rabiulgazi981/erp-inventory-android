@@ -58,6 +58,7 @@ import java.time.LocalDate
 import com.bongshaltech.erpinventory.core.stock.Recipe
 import com.bongshaltech.erpinventory.data.db.RecipeEntity
 import com.bongshaltech.erpinventory.data.db.KotEntity
+import com.bongshaltech.erpinventory.data.db.CourierParcelEntity
 import com.bongshaltech.erpinventory.data.db.RecipeItemEntity
 import com.bongshaltech.erpinventory.data.db.WorkOrderEntity
 import com.bongshaltech.erpinventory.data.db.WorkLineEntity
@@ -580,6 +581,13 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     val stockTools get() = db.stockTools()
     val making get() = db.making()
     val kitchen get() = db.kitchen()
+    val couriers get() = db.couriers()
+
+    suspend fun saveParcel(p: CourierParcelEntity): Long {
+        val id = db.couriers().insert(p)
+        audit("COURIER_BOOK", "${p.saleNumber} · ${p.courier} · ${p.consignmentId}")
+        return id
+    }
     val reportSet get() = db.reportSet()
 
     suspend fun saveRecipe(out: ProductEntity, outMilli: Long, inputs: List<Pair<ProductEntity, Long>>, note: String): Long? {

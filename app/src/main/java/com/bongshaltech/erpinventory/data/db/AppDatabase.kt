@@ -34,8 +34,9 @@ class Converters {
         StockAdjustEntity::class, HrLockEntity::class,
         InvestorEntity::class, LedgerAccountEntity::class, JournalEntryEntity::class, JournalLineEntity::class, RecurringExpenseEntity::class,
         RecipeEntity::class, RecipeItemEntity::class, WorkOrderEntity::class, WorkLineEntity::class, KotEntity::class,
+        CourierParcelEntity::class,
     ],
-    version = 22,
+    version = 23,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -64,6 +65,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun books(): BooksDao
     abstract fun making(): MakingDao
     abstract fun kitchen(): KitchenDao
+    abstract fun couriers(): CourierDao
     abstract fun reportSet(): ReportSetDao
 
     companion object {
@@ -484,12 +486,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `courier_parcel` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `saleId` INTEGER NOT NULL, " +
+                        "`saleNumber` TEXT NOT NULL, `courier` TEXT NOT NULL, `consignmentId` TEXT NOT NULL, `trackingCode` TEXT NOT NULL, " +
+                        "`status` TEXT NOT NULL, `codPaisa` INTEGER NOT NULL, `name` TEXT NOT NULL, `phone` TEXT NOT NULL, `address` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_courier_parcel_saleId` ON `courier_parcel` (`saleId`)")
+            }
+        }
+
         fun open(context: Context): AppDatabase {
             System.loadLibrary("sqlcipher")
             val factory = SupportOpenHelperFactory(DbKey.get(context))
             return Room.databaseBuilder(context, AppDatabase::class.java, "shop.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
                 .build()
         }
     }

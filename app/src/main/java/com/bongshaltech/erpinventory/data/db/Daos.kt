@@ -1267,3 +1267,18 @@ interface ReportSetDao {
     )
     suspend fun payroll(from: Long, to: Long): List<RpPayroll>
 }
+
+@Dao
+interface CourierDao {
+    @Insert
+    suspend fun insert(p: CourierParcelEntity): Long
+
+    @Query("SELECT * FROM courier_parcel ORDER BY createdAt DESC LIMIT 300")
+    fun recent(): kotlinx.coroutines.flow.Flow<List<CourierParcelEntity>>
+
+    @Query("SELECT * FROM courier_parcel WHERE saleId = :saleId ORDER BY createdAt DESC")
+    fun forSale(saleId: Long): kotlinx.coroutines.flow.Flow<List<CourierParcelEntity>>
+
+    @Query("UPDATE courier_parcel SET status = :status, updatedAt = :at WHERE id = :id")
+    suspend fun setStatus(id: Long, status: String, at: Long)
+}

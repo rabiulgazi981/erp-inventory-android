@@ -20,7 +20,7 @@ enum class ShopType { GENERAL, GROCERY, SUPER_SHOP, PHARMACY, RESTAURANT, PET_SH
  * Optional modules, like the web dashboard's Settings > Features. Each is off until the owner turns it on,
  * except the module that belongs to the shop's own business type. Turning one off only hides it; no data is removed.
  */
-enum class Feature { CASH_DAY, LOANS, PROMOS, HR, ORDERS, TABLES, BATCHES, REPACK, SERIALS, WAREHOUSES, MOBILE_BANKING, INSTALLMENTS, SCALE_BARCODE, PACKS, CREDIT_LIMIT, AREAS, LOYALTY, ACCOUNTING, RECURRING, INVESTORS, MANUFACTURING, FACTORY, REPAIR, KITCHEN, PRESCRIPTION }
+enum class Feature { CASH_DAY, LOANS, PROMOS, HR, ORDERS, TABLES, BATCHES, REPACK, SERIALS, WAREHOUSES, MOBILE_BANKING, INSTALLMENTS, SCALE_BARCODE, PACKS, CREDIT_LIMIT, AREAS, LOYALTY, ACCOUNTING, RECURRING, INVESTORS, MANUFACTURING, FACTORY, REPAIR, KITCHEN, PRESCRIPTION, COURIER }
 
 fun defaultFeatures(type: ShopType): Set<Feature> = when (type) {
     ShopType.RESTAURANT -> setOf(Feature.TABLES, Feature.KITCHEN)

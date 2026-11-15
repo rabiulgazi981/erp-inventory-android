@@ -788,3 +788,23 @@ data class KotEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val readyAt: Long? = null,
 )
+
+/** A parcel booked with the shop's own courier account from a sale. */
+@Entity(tableName = "courier_parcel", indices = [Index("saleId")])
+data class CourierParcelEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val saleId: Long,
+    val saleNumber: String,
+    /** CourierKind name. */
+    val courier: String,
+    val consignmentId: String,
+    val trackingCode: String,
+    /** The courier's own status word; "booked" until it is checked. */
+    val status: String,
+    val codPaisa: Long,
+    val name: String,
+    val phone: String,
+    val address: String,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+)

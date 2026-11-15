@@ -262,6 +262,7 @@ fun ReceiptScreen(saleId: Long, go: (String) -> Unit, onBack: () -> Unit) {
     val paper = settings?.paperMm ?: 58
     val profile = settings?.profile
     var askDelete by remember { mutableStateOf(false) }
+    var askCourier by remember { mutableStateOf(false) }
     val pendingDelete by remember { app.repo.saleFix.watchRequest(saleId) }.collectAsStateWithLifecycle(null)
 
     LaunchedEffect(paper, profile) {
@@ -280,6 +281,9 @@ fun ReceiptScreen(saleId: Long, go: (String) -> Unit, onBack: () -> Unit) {
             com.bongshaltech.erpinventory.ui.components.HeaderIcon(
                 androidx.compose.material.icons.Icons.Outlined.DeleteOutline, stringResource(R.string.del_title),
             ) { askDelete = true }
+            if (settings?.on(com.bongshaltech.erpinventory.data.Feature.COURIER) == true) com.bongshaltech.erpinventory.ui.components.HeaderIcon(
+                androidx.compose.material.icons.Icons.Outlined.LocalShipping, stringResource(R.string.cr_send),
+            ) { askCourier = true }
             com.bongshaltech.erpinventory.ui.components.HeaderIcon(
                 androidx.compose.material.icons.Icons.Outlined.PictureAsPdf, stringResource(R.string.rs_share_pdf),
             ) {
@@ -299,6 +303,7 @@ fun ReceiptScreen(saleId: Long, go: (String) -> Unit, onBack: () -> Unit) {
             Modifier.fillMaxWidth().background(Ui.c.card).padding(horizontal = 16.dp, vertical = 8.dp),
         )
         if (askDelete) DeleteSaleDialog(saleId, onClose = { askDelete = false }, onDeleted = onBack)
+        if (askCourier) SendToCourierDialog(saleId, data?.lines?.joinToString(", ") { it.qtyText + " × " + it.name }.orEmpty()) { askCourier = false }
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
