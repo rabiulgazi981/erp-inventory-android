@@ -15,10 +15,23 @@ android {
         applicationId = "com.bongshaltech.erpinventory"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI passes -PversionCode=<run number> so every Play upload gets a higher code.
+        versionCode = providers.gradleProperty("versionCode").orNull?.toIntOrNull() ?: 1
+        versionName = "1.0.0"
         resourceConfigurations += listOf("en", "bn")
         vectorDrawables { useSupportLibrary = true }
+    }
+
+    // Upload key for Google Play. The keystore and passwords come from CI secrets or the
+    // builder's own ~/.gradle/gradle.properties and are never committed.
+    val keystorePath = providers.gradleProperty("releaseStoreFile").orNull
+    signingConfigs {
+        if (keystorePath != null) create("release") {
+            storeFile = file(keystorePath)
+            storePassword = providers.gradleProperty("releaseStorePassword").get()
+            keyAlias = providers.gradleProperty("releaseKeyAlias").get()
+            keyPassword = providers.gradleProperty("releaseKeyPassword").get()
+        }
     }
 
     buildTypes {
@@ -33,6 +46,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (keystorePath != null) signingConfig = signingConfigs.getByName("release")
             // Filled from Gradle properties (CI secrets) at release time; never committed.
             manifestPlaceholders["admobAppId"] = providers.gradleProperty("admobAppId").getOrElse("ca-app-pub-3940256099942544~3347511713")
             buildConfigField("String", "BANNER_AD_UNIT", "\"${providers.gradleProperty("bannerAdUnit").getOrElse("")}\"")
