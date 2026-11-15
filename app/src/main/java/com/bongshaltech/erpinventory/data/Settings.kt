@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -49,6 +50,11 @@ data class AppSettings(
     val theme: ThemeMode,
     /** When the owner last saved a backup file, 0 if never. */
     val lastBackupAt: Long,
+    /** Paired Bluetooth receipt printer, empty when none is chosen. */
+    val printerAddress: String,
+    val printerName: String,
+    /** Paper roll width: 58 or 80 mm. */
+    val paperMm: Int,
 )
 
 private val Context.store by preferencesDataStore("settings")
@@ -73,6 +79,9 @@ class SettingsRepo(private val context: Context) {
         val thanks = stringPreferencesKey("biz_thanks")
         val returnPolicy = stringPreferencesKey("biz_return")
         val lastBackup = longPreferencesKey("last_backup_at")
+        val printerAddress = stringPreferencesKey("printer_address")
+        val printerName = stringPreferencesKey("printer_name")
+        val paperMm = intPreferencesKey("paper_mm")
     }
 
     val settings: Flow<AppSettings> = context.store.data.map(::read)
@@ -101,6 +110,16 @@ class SettingsRepo(private val context: Context) {
     )
 
     suspend fun setLastBackup(at: Long) = context.store.edit { it[K.lastBackup] = at }
+        printerAddress = p[K.printerAddress] ?: "",
+        printerName = p[K.printerName] ?: "",
+        paperMm = p[K.paperMm] ?: 58,
+    )
+
+    suspend fun setPrinter(address: String, name: String) = context.store.edit {
+        it[K.printerAddress] = address; it[K.printerName] = name
+    }
+
+    suspend fun setPaper(mm: Int) = context.store.edit { it[K.paperMm] = mm }
 
     suspend fun ensureInstalledAt() = context.store.edit { if (it[K.installedAt] == null) it[K.installedAt] = System.currentTimeMillis() }
 

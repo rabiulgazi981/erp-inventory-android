@@ -172,7 +172,7 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     ListRow(stringResource(R.string.sms_pack), Icons.Outlined.ChatBubbleOutline, Tints.Teal, trailing = { Chevron() },
                         sub = com.bongshaltech.erpinventory.data.SmsCloud.signedInEmail(ctx) ?: stringResource(R.string.sms_pack_off)) { go(Routes.SMS_ACCOUNT) }
                 }
-                ListRow(stringResource(R.string.printer), Icons.Outlined.Print, Tints.Grey, trailing = { Chevron() }) { go(Routes.SOON) }
+                ListRow(stringResource(R.string.printer), Icons.Outlined.Print, Tints.Grey, trailing = { Chevron() }) { go(Routes.PRINTER) }
                 ListRow(stringResource(R.string.appearance), Icons.Outlined.Contrast, Tints.Indigo, trailing = {
                     val mode = s?.theme ?: ThemeMode.SYSTEM
                     Segmented(

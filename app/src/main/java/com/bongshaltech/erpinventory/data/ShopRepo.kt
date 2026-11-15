@@ -59,7 +59,7 @@ sealed interface PurchaseResult {
 }
 
 sealed interface SaleResult {
-    data class Saved(val number: String, val totalPaisa: Long) : SaleResult
+    data class Saved(val id: Long, val number: String, val totalPaisa: Long) : SaleResult
     data class NotEnoughStock(val productName: String) : SaleResult
     data object DueNeedsCustomer : SaleResult
 }
@@ -117,7 +117,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                         unitCostPaisa = it.product.costPaisa,
                     )
                 })
-                SaleResult.Saved(number, total)
+                SaleResult.Saved(saleId, number, total)
             }
         } catch (e: NotEnough) {
             SaleResult.NotEnoughStock(e.productName)
