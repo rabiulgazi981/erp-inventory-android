@@ -26,11 +26,12 @@ class MainActivity : AppCompatActivity() {
         takeSharedSms(intent)
         com.bongshaltech.erpinventory.ads.Ads.start(this)
         enableEdgeToEdge()
-        val themeFlow = (application as ErpApp).settings.settings.map { it.theme }
+        val themeFlow = (application as ErpApp).settings.settings.map { it.theme to it.accent }
         setContent {
-            val mode by themeFlow.collectAsStateWithLifecycle(ThemeMode.SYSTEM)
+            val (mode, accentName) = themeFlow.collectAsStateWithLifecycle(ThemeMode.SYSTEM to "BLUE").value
+            val accent = runCatching { com.bongshaltech.erpinventory.ui.theme.Accent.valueOf(accentName) }.getOrDefault(com.bongshaltech.erpinventory.ui.theme.Accent.BLUE)
             // Edge-to-edge ignores adjustResize, so lift every screen above the keyboard here.
-            ErpTheme(mode) { Box(Modifier.fillMaxSize().imePadding()) { ErpNavHost() } }
+            ErpTheme(mode, accent) { Box(Modifier.fillMaxSize().imePadding()) { ErpNavHost() } }
         }
     }
 

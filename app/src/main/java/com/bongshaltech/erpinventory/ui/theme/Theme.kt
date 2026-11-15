@@ -8,6 +8,10 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -24,8 +28,10 @@ import com.bongshaltech.erpinventory.R
 
 /** Brand colours from the design canvas. Gradients run left to right like the design's 90deg ones. */
 object Brand {
-    val Blue = Color(0xFF2F55D4)
-    val Sky = Color(0xFF4AA3E3)
+    /** The signed-in person's accent. Blue and Sky (and every gradient built from them) follow it. */
+    var accent by mutableStateOf(Accent.BLUE)
+    val Blue get() = accent.main
+    val Sky get() = accent.light
     val Green = Color(0xFF2F8F4E)
     val Lime = Color(0xFF9BCF3F)
     val Orange = Color(0xFFE05A2A)
@@ -38,12 +44,23 @@ object Brand {
     val Purple = Color(0xFF7E22CE)
     val Pink = Color(0xFFC0397E)
 
-    val BlueGrad = Brush.horizontalGradient(listOf(Blue, Sky))
+    val BlueGrad get() = Brush.horizontalGradient(listOf(Blue, Sky))
     val GreenGrad = Brush.horizontalGradient(listOf(Green, Lime))
     val OrangeGrad = Brush.horizontalGradient(listOf(Orange, Yellow))
     val PurpleGrad = Brush.horizontalGradient(listOf(Purple, Pink))
-    val TotalGrad = Brush.linearGradient(listOf(Blue, Mint), start = Offset.Zero, end = Offset(900f, 500f))
-    val SplashGrad = Brush.linearGradient(listOf(Blue, Sky, Mint), start = Offset(0f, 0f), end = Offset(700f, 2000f))
+    val TotalGrad get() = Brush.linearGradient(listOf(Blue, Mint), start = Offset.Zero, end = Offset(900f, 500f))
+    val SplashGrad get() = Brush.linearGradient(listOf(Blue, Sky, Mint), start = Offset(0f, 0f), end = Offset(700f, 2000f))
+}
+
+/** Accent colours a person can pick in More › My colour & photo. */
+enum class Accent(val main: Color, val light: Color) {
+    BLUE(Color(0xFF2F55D4), Color(0xFF4AA3E3)),
+    GREEN(Color(0xFF15803D), Color(0xFF4CB86B)),
+    PURPLE(Color(0xFF7E22CE), Color(0xFFB065E8)),
+    ORANGE(Color(0xFFD9480F), Color(0xFFF59F3A)),
+    TEAL(Color(0xFF0F766E), Color(0xFF2DB3A6)),
+    PINK(Color(0xFFBE185D), Color(0xFFEC6AA8)),
+    SLATE(Color(0xFF334155), Color(0xFF64748B)),
 }
 
 /** Soft tinted icon backgrounds (light gradient + strong foreground), as used on Home and More. */
@@ -135,7 +152,8 @@ private fun typography(f: FontFamily) = Typography(
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 @Composable
-fun ErpTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> Unit) {
+fun ErpTheme(mode: ThemeMode = ThemeMode.SYSTEM, accent: Accent = Accent.BLUE, content: @Composable () -> Unit) {
+    SideEffect { Brand.accent = accent }
     val dark = when (mode) {
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.LIGHT -> false

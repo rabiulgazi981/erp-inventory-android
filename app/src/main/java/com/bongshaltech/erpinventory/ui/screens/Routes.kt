@@ -81,6 +81,8 @@ object Routes {
     const val PHARMA_REPORT = "pharma_report"
     const val REPORT_LIST = "reports_all"
     const val REPORT = "report/{k}"
+    const val LOOK = "look"
+    const val GUIDE = "guide"
     const val TABLE = "table/{id}"
 
     fun productEdit(id: Long) = "product/$id"
@@ -208,6 +210,8 @@ fun ErpNavHost() {
         composable(Routes.KITCHEN) { KitchenScreen(back) }
         composable(Routes.REST_REPORT) { RestaurantReportScreen(back) }
         composable(Routes.PHARMA_REPORT) { PharmacyReportScreen(back) }
+        composable(Routes.LOOK) { ProfileLookScreen(back) }
+        composable(Routes.GUIDE) { GuideScreen(back) }
         composable(Routes.REPORT_LIST) { ReportListScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.REPORT) { e -> ReportViewScreen(e.arguments?.getString("k").orEmpty(), back) }
         composable(Routes.DELETED_SALES) { DeletedSalesScreen(go = { nav.navigate(it) }, onBack = back) }
