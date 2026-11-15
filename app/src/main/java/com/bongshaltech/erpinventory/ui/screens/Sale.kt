@@ -155,7 +155,9 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
     }.collectAsStateWithLifecycle(emptyList())
     val subtotal = cart.sumOf { it.totalPaisa }
     // Offers running today come off by themselves; one coupon or gift voucher can be typed in on top.
-    val offers by remember { app.repo.promos.liveOffers(System.currentTimeMillis()) }.collectAsStateWithLifecycle(emptyList())
+    val promosOn = app.settings.settings.collectAsStateWithLifecycle(null).value?.on(com.bongshaltech.erpinventory.data.Feature.PROMOS) == true
+    val liveOffers by remember { app.repo.promos.liveOffers(System.currentTimeMillis()) }.collectAsStateWithLifecycle(emptyList())
+    val offers = if (promosOn) liveOffers else emptyList()
     val offerOff = PromoMath.offers(
         cart.map { PromoLine(it.product.id, it.product.category, it.qtyMilli, it.totalPaisa) },
         offers.map { PromoRule(it.id, it.percentBp, it.fixedPaisa, it.productId, it.category) },
@@ -318,7 +320,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                         }.padding(horizontal = 14.dp),
                         contentAlignment = Alignment.Center,
                     ) { T(stringResource(R.string.promo_apply), 13.sp, FontWeight.SemiBold, Color.White) }
-                } else T(stringResource(R.string.promo_add_code), 13.sp, FontWeight.SemiBold, Brand.Link, modifier = Modifier.clickable { codeOpen = true }.padding(vertical = 2.dp))
+                } else if (promosOn) T(stringResource(R.string.promo_add_code), 13.sp, FontWeight.SemiBold, Brand.Link, modifier = Modifier.clickable { codeOpen = true }.padding(vertical = 2.dp))
                 Column(
                     Modifier.fillMaxWidth().shadow(8.dp, RoundedCornerShape(12.dp), ambientColor = Brand.Blue, spotColor = Brand.Blue)
                         .clip(RoundedCornerShape(12.dp)).background(Brand.TotalGrad).padding(horizontal = 14.dp, vertical = 10.dp),

@@ -695,4 +695,17 @@
     <string name="audit_promo_new">New offer / coupon</string>
     <string name="audit_promo_on">Offer turned on</string>
     <string name="audit_promo_off">Offer turned off</string>
+    <string name="features">Features</string>
+    <string name="features_row_sub">Turn extra modules on or off</string>
+    <string name="features_note">Extra modules stay off until you turn them on. Turning one off only hides it; nothing is deleted.</string>
+    <string name="feat_promos_sub">Offers run on their own at the counter; coupon and gift voucher codes</string>
+    <string name="feat_orders_sub">Quotations, sales orders and purchase orders</string>
+    <string name="feat_cash_day_sub">Opening cash, closing count and the day\'s summary</string>
+    <string name="feat_loans_sub">Money you lend or borrow, with repayments</string>
+    <string name="feat_hr_sub">Employees, daily attendance and salary payments</string>
+    <string name="feat_batches_sub">Batch number and expiry on purchases; nearest expiry sells first</string>
+    <string name="feat_serials_sub">Track each item by serial or IMEI number</string>
+    <string name="feat_repack_sub">Make small packs from bulk stock, or one product from others</string>
+    <string name="feat_warehouses_sub">Keep stock in a godown and move it to the shop</string>
+    <string name="feat_tables_sub">Restaurant tables, kitchen slip (KOT) and bill</string>
 </resources>

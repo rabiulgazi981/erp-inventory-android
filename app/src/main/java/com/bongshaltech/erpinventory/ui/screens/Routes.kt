@@ -65,6 +65,7 @@ object Routes {
     const val WAREHOUSES = "warehouses"
     const val WAREHOUSE = "warehouse/{id}"
     const val TABLES = "tables"
+    const val FEATURES = "features"
     const val TABLE = "table/{id}"
 
     fun productEdit(id: Long) = "product/$id"
@@ -178,6 +179,7 @@ fun ErpNavHost() {
         composable(Routes.IMPORT) { ImportScreen(back) }
         composable(Routes.LABELS) { LabelsScreen(back) }
         composable(Routes.AUDIT) { AuditScreen(back) }
+        composable(Routes.FEATURES) { FeaturesScreen(back) }
         composable(Routes.SERIALS) { SerialsScreen(back) }
         composable(Routes.WAREHOUSES) { WarehousesScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.WAREHOUSE, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e -> WarehouseScreen(e.arguments?.getLong("id") ?: 0L, back) }

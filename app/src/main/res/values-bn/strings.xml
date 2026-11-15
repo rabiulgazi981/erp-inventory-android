@@ -694,4 +694,17 @@
     <string name="audit_promo_new">নতুন অফার / কুপন</string>
     <string name="audit_promo_on">অফার চালু</string>
     <string name="audit_promo_off">অফার বন্ধ</string>
+    <string name="features">ফিচার</string>
+    <string name="features_row_sub">বাড়তি মডিউল চালু বা বন্ধ করুন</string>
+    <string name="features_note">বাড়তি মডিউলগুলো আপনি চালু না করা পর্যন্ত বন্ধ থাকে। বন্ধ করলে শুধু লুকানো হয়, কোনো ডাটা মোছে না।</string>
+    <string name="feat_promos_sub">কাউন্টারে অফার নিজে থেকে কাটে; কুপন ও গিফট ভাউচার কোড</string>
+    <string name="feat_orders_sub">কোটেশন, সেলস অর্ডার আর পারচেজ অর্ডার</string>
+    <string name="feat_cash_day_sub">শুরুর ক্যাশ, শেষে গোনা ক্যাশ আর দিনের হিসাব</string>
+    <string name="feat_loans_sub">ধার দেওয়া বা নেওয়া টাকা আর তার পরিশোধ</string>
+    <string name="feat_hr_sub">কর্মচারী, দৈনিক হাজিরা আর বেতন</string>
+    <string name="feat_batches_sub">ক্রয়ে ব্যাচ নম্বর ও মেয়াদ; আগে মেয়াদ শেষ হওয়াটা আগে বিক্রি</string>
+    <string name="feat_serials_sub">প্রতিটা পণ্য সিরিয়াল বা IMEI নম্বরে হিসাব</string>
+    <string name="feat_repack_sub">বড় স্টক থেকে ছোট প্যাক, বা কয়েকটা পণ্য থেকে একটা তৈরি</string>
+    <string name="feat_warehouses_sub">গুদামে স্টক রেখে দোকানে আনা</string>
+    <string name="feat_tables_sub">রেস্টুরেন্টের টেবিল, কিচেন স্লিপ (KOT) আর বিল</string>
 </resources>

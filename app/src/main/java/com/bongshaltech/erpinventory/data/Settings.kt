@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -14,6 +15,18 @@ import kotlinx.coroutines.flow.map
 import com.bongshaltech.erpinventory.ui.theme.ThemeMode
 
 enum class ShopType { GENERAL, GROCERY, SUPER_SHOP, PHARMACY, RESTAURANT }
+
+/**
+ * Optional modules, like the web dashboard's Settings > Features. Each is off until the owner turns it on,
+ * except the module that belongs to the shop's own business type. Turning one off only hides it; no data is removed.
+ */
+enum class Feature { CASH_DAY, LOANS, PROMOS, HR, ORDERS, TABLES, BATCHES, REPACK, SERIALS, WAREHOUSES, MOBILE_BANKING }
+
+fun defaultFeatures(type: ShopType): Set<Feature> = when (type) {
+    ShopType.RESTAURANT -> setOf(Feature.TABLES)
+    ShopType.PHARMACY -> setOf(Feature.BATCHES)
+    else -> emptySet()
+}
 
 /** Menus the owner can allow for a staff member. */
 enum class StaffMenu { SALE, CUSTOMERS, PRODUCTS, COST_PROFIT, PURCHASE, EXPENSE, REPORTS, DISCOUNT, MOBILE_BANKING }
@@ -57,7 +70,11 @@ data class AppSettings(
     val paperMm: Int,
     /** Ad-free subscription active, as last confirmed by Google Play. */
     val adFree: Boolean,
-)
+    /** Optional modules that are on. Mobile banking keeps its own older switch and is merged in here. */
+    val features: Set<Feature>,
+) {
+    fun on(f: Feature) = f in features
+}
 
 private val Context.store by preferencesDataStore("settings")
 
@@ -85,15 +102,24 @@ class SettingsRepo(private val context: Context) {
         val printerName = stringPreferencesKey("printer_name")
         val paperMm = intPreferencesKey("paper_mm")
         val adFree = booleanPreferencesKey("ad_free")
+        val features = stringSetPreferencesKey("features_on")
     }
 
     val settings: Flow<AppSettings> = context.store.data.map(::read)
 
     suspend fun current(): AppSettings = settings.first()
 
-    private fun read(p: Preferences) = AppSettings(
+    private fun read(p: Preferences): AppSettings {
+        val type = p[K.shopType]?.let { runCatching { ShopType.valueOf(it) }.getOrNull() } ?: ShopType.GENERAL
+        val mfs = p[K.mfs] ?: false
+        val chosen = p[K.features]?.mapNotNull { runCatching { Feature.valueOf(it) }.getOrNull() }?.toSet() ?: defaultFeatures(type)
+        val features = (chosen - Feature.MOBILE_BANKING) + (if (mfs) setOf(Feature.MOBILE_BANKING) else emptySet())
+        return readWith(p, type, mfs, features)
+    }
+
+    private fun readWith(p: Preferences, type: ShopType, mfs: Boolean, features: Set<Feature>) = AppSettings(
         onboarded = p[K.onboarded] ?: false,
-        shopType = p[K.shopType]?.let { runCatching { ShopType.valueOf(it) }.getOrNull() } ?: ShopType.GENERAL,
+        shopType = type,
         shopCode = p[K.shopCode] ?: "ERP",
         profile = BusinessProfile(
             name = p[K.name] ?: "", slogan = p[K.slogan] ?: "", address = p[K.address] ?: "",
@@ -107,14 +133,25 @@ class SettingsRepo(private val context: Context) {
         },
         installedAt = p[K.installedAt] ?: 0L,
         smsDefaultOn = p[K.smsDefault] ?: false,
-        mobileBankingOn = p[K.mfs] ?: false,
+        mobileBankingOn = mfs,
         theme = p[K.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
         lastBackupAt = p[K.lastBackup] ?: 0L,
         printerAddress = p[K.printerAddress] ?: "",
         printerName = p[K.printerName] ?: "",
         paperMm = p[K.paperMm] ?: 58,
         adFree = p[K.adFree] ?: false,
+        features = features,
     )
+
+    /** Turns one optional module on or off. The first change saves the shop type's defaults plus this change. */
+    suspend fun setFeature(f: Feature, on: Boolean) {
+        if (f == Feature.MOBILE_BANKING) { setMobileBanking(on); return }
+        context.store.edit {
+            val type = it[K.shopType]?.let { t -> runCatching { ShopType.valueOf(t) }.getOrNull() } ?: ShopType.GENERAL
+            val now = it[K.features] ?: defaultFeatures(type).map { d -> d.name }.toSet()
+            it[K.features] = if (on) now + f.name else now - f.name
+        }
+    }
 
     suspend fun setPrinter(address: String, name: String) = context.store.edit {
         it[K.printerAddress] = address; it[K.printerName] = name
