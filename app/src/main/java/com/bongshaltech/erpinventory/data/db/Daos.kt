@@ -849,7 +849,7 @@ interface AuditDao {
     suspend fun insert(a: AuditLogEntity)
 
     @Query(
-        "SELECT a.id AS id, a.at AS at, s.name AS staffName, a.action AS action, a.detail AS detail FROM audit_log a " +
+        "SELECT a.id AS id, a.at AS at, s.name AS staffName, a.`action` AS `action`, a.detail AS detail FROM audit_log a " +
             "LEFT JOIN staff s ON s.id = a.staffId WHERE (:staff < 0 OR COALESCE(a.staffId, 0) = :staff) " +
             "AND (:q = '' OR a.detail LIKE '%' || :q || '%') ORDER BY a.at DESC LIMIT 300"
     )
