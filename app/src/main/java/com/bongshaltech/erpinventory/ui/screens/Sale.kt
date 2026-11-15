@@ -95,8 +95,7 @@ private fun SquareAction(icon: ImageVector, grad: Brush, label: String, onClick:
 }
 
 @Composable
-fun SaleScreen(onBack: () -> Unit, startScan: Boolean = false) {
-fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit) {
+fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = false) {
     val app = app()
     val ctx = LocalContext.current
     val who = rememberWho()

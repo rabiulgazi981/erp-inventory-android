@@ -80,9 +80,8 @@ fun ErpNavHost() {
         composable(Routes.PRODUCT_EDIT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
             ProductEditScreen(e.arguments?.getLong("id") ?: 0L, back)
         }
-        composable(Routes.SALE) { SaleScreen(back) }
-        composable(Routes.SALE_SCAN) { SaleScreen(back, startScan = true) }
         composable(Routes.SALE) { SaleScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.SALE_SCAN) { SaleScreen(go = { nav.navigate(it) }, onBack = back, startScan = true) }
         composable(Routes.RECEIPT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
             ReceiptScreen(e.arguments?.getLong("id") ?: 0L, back)
         }
