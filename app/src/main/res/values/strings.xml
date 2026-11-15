@@ -692,4 +692,7 @@
     <string name="audit_price">Price changed</string>
     <string name="audit_cost">Cost changed</string>
     <string name="audit_stock">Stock changed by hand</string>
+    <string name="audit_promo_new">New offer / coupon</string>
+    <string name="audit_promo_on">Offer turned on</string>
+    <string name="audit_promo_off">Offer turned off</string>
 </resources>
