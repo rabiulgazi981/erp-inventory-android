@@ -24,6 +24,10 @@ data class ProductEntity(
     val lowStockMilli: Long = 0,
     val active: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),
+    /** Bought in packs: how many units one pack holds (× 1000), 0 when not. */
+    @ColumnInfo(defaultValue = "0") val packMilli: Long = 0,
+    /** What the pack is called: box, carton, strip. */
+    @ColumnInfo(defaultValue = "") val packName: String = "",
 )
 
 @Entity(tableName = "customer", indices = [Index(value = ["phone"], unique = true)])
@@ -36,6 +40,12 @@ data class CustomerEntity(
     /** [CustomerType] name. */
     @ColumnInfo(defaultValue = "RETAIL") val type: String = CustomerType.RETAIL.name,
     @ColumnInfo(defaultValue = "") val address: String = "",
+    /** Most this customer may owe; 0 means no limit. */
+    @ColumnInfo(defaultValue = "0") val creditLimitPaisa: Long = 0,
+    /** Area or route, for grouping dues. */
+    @ColumnInfo(defaultValue = "") val area: String = "",
+    /** Loyalty points to spend. */
+    @ColumnInfo(defaultValue = "0") val points: Long = 0,
 )
 
 enum class CustomerType { RETAIL, WHOLESALE }
@@ -141,6 +151,9 @@ data class SaleEntity(
     /** Staff who made the sale; null means the owner. */
     val staffId: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
+    /** Loyalty points this sale gave and spent; kept so a delete can undo them. */
+    @ColumnInfo(defaultValue = "0") val pointsEarned: Long = 0,
+    @ColumnInfo(defaultValue = "0") val pointsUsed: Long = 0,
 )
 
 @Entity(
@@ -334,7 +347,7 @@ data class OrderDocItemEntity(
 )
 
 /** Money moved without a sale or purchase: transfers between cash / bank / wallets, owner's money in or out, loans, opening balances. */
-enum class MoveKind { OPENING, TRANSFER, CAPITAL_IN, DRAWING, LOAN_TAKEN, LOAN_REPAID, LOAN_GIVEN, LOAN_RECEIVED, VOUCHER_SOLD }
+enum class MoveKind { OPENING, TRANSFER, CAPITAL_IN, DRAWING, LOAN_TAKEN, LOAN_REPAID, LOAN_GIVEN, LOAN_RECEIVED, VOUCHER_SOLD, INVEST_IN, INVEST_OUT }
 
 @Entity(tableName = "money_move", indices = [Index("createdAt"), Index("loanId")])
 data class MoneyMoveEntity(
@@ -351,6 +364,8 @@ data class MoneyMoveEntity(
     val note: String = "",
     val staffId: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
+    /** Investor whose money this is (INVEST_IN / INVEST_OUT), or null. */
+    val investorId: Long? = null,
 )
 
 /** Money the shop borrowed ([given] false) or lent ([given] true). [outstandingPaisa] is what is still to be paid back. */
@@ -433,6 +448,11 @@ data class EmployeeEntity(
     val salaryPaisa: Long = 0,
     val active: Boolean = true,
     val joinedAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "") val department: String = "",
+    /** Working hours or shift name, for example "Morning" or "9-5". */
+    @ColumnInfo(defaultValue = "") val shift: String = "",
+    /** Paid leave days allowed in a year; 0 means not tracked. */
+    @ColumnInfo(defaultValue = "0") val leaveDays: Int = 0,
 )
 
 enum class AttendanceStatus { PRESENT, ABSENT, LEAVE, HALF }
@@ -455,6 +475,15 @@ data class SalaryPaymentEntity(
     val amountPaisa: Long,
     val expenseId: Long,
     val createdAt: Long = System.currentTimeMillis(),
+    /** SALARY, ADVANCE (paid early, money out now) or ADVANCE_CUT (taken off a salary; no money moves). */
+    @ColumnInfo(defaultValue = "SALARY") val kind: String = "SALARY",
+)
+
+/** A month whose attendance can't be changed any more (yyyyMM). */
+@Entity(tableName = "hr_lock")
+data class HrLockEntity(
+    @PrimaryKey val month: Int,
+    val lockedAt: Long = System.currentTimeMillis(),
 )
 
 /** Part of a product's stock that came in together: a batch number and its expiry. Stock outside batches has none. */
@@ -567,4 +596,121 @@ data class AuditLogEntity(
     val staffId: Long?,
     val action: String,
     val detail: String,
+)
+
+/** A sale the owner deleted. The sale itself is gone from every total; this keeps what it was and why. */
+@Entity(tableName = "deleted_sale", indices = [Index("deletedAt")])
+data class DeletedSaleEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val saleId: Long,
+    val number: String,
+    val customerId: Long?,
+    val totalPaisa: Long,
+    val paidPaisa: Long,
+    val method: PayMethod,
+    val saleAt: Long,
+    /** One line per item: name, quantity and line total, as it was on the memo. */
+    val itemsText: String,
+    val reason: String,
+    /** Staff who asked for the delete; null when the owner deleted it directly. */
+    val requestedBy: Long?,
+    val deletedAt: Long = System.currentTimeMillis(),
+)
+
+/** A staff member asks the owner to delete a sale. Nothing changes until the owner approves. */
+@Entity(tableName = "sale_delete_request", indices = [Index(value = ["saleId"], unique = true)])
+data class SaleDeleteRequestEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val saleId: Long,
+    val number: String,
+    val reason: String,
+    val staffId: Long?,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** One planned payment of a sale sold on instalments. Due payments from the customer fill the oldest first. */
+@Entity(tableName = "installment", indices = [Index("customerId"), Index("saleNumber"), Index("dueDay")])
+data class InstallmentEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val customerId: Long,
+    val saleNumber: String,
+    /** 1 for the first payment, 2 for the second, and so on. */
+    val seq: Int,
+    /** Day the payment is due, as days since 1970-01-01. */
+    val dueDay: Long,
+    val amountPaisa: Long,
+    val paidPaisa: Long = 0,
+)
+
+/** A stock correction with a reason: damaged, lost, found, counted. [qtyMilli] is + or −. */
+@Entity(tableName = "stock_adjust", indices = [Index("productId"), Index("createdAt")])
+data class StockAdjustEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val productId: Long,
+    val qtyMilli: Long,
+    val reason: String,
+    val note: String,
+    /** Cost of the change at the product's buying price, + or −. */
+    val costPaisa: Long,
+    val staffId: Long?,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** Someone who put money into the business. Their money moves are money_move rows with [MoneyMoveEntity.investorId]. */
+@Entity(tableName = "investor")
+data class InvestorEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val phone: String = "",
+    /** Share of profit in basis points (2500 = 25%), for information. */
+    val shareBp: Int = 0,
+    val note: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** Chart of accounts for the manual journal. [type] is an AccountType name. */
+@Entity(tableName = "ledger_account")
+data class LedgerAccountEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val type: String,
+    val active: Boolean = true,
+)
+
+@Entity(tableName = "journal_entry", indices = [Index("day")])
+data class JournalEntryEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val number: String,
+    /** Days since 1970-01-01. */
+    val day: Long,
+    val note: String,
+    val staffId: Long?,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+@Entity(
+    tableName = "journal_line",
+    foreignKeys = [ForeignKey(entity = JournalEntryEntity::class, parentColumns = ["id"], childColumns = ["entryId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("entryId"), Index("accountId")],
+)
+data class JournalLineEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val entryId: Long,
+    val accountId: Long,
+    val debitPaisa: Long,
+    val creditPaisa: Long,
+)
+
+/** A monthly expense the shop pays again and again (rent, bills). Posting it makes a normal expense. */
+@Entity(tableName = "recurring_expense")
+data class RecurringExpenseEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val category: String,
+    val amountPaisa: Long,
+    val method: PayMethod,
+    val dayOfMonth: Int,
+    val note: String = "",
+    /** yyyyMM it was last posted for, 0 if never. */
+    val lastMonth: Int = 0,
+    val active: Boolean = true,
 )

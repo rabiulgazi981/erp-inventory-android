@@ -4,6 +4,9 @@ import androidx.room.withTransaction
 import com.bongshaltech.erpinventory.core.DocNumber
 import com.bongshaltech.erpinventory.core.DocType
 import com.bongshaltech.erpinventory.core.Money
+import com.bongshaltech.erpinventory.data.db.DeletedSaleEntity
+import com.bongshaltech.erpinventory.data.db.InstallmentEntity
+import com.bongshaltech.erpinventory.data.db.SaleDeleteRequestEntity
 import com.bongshaltech.erpinventory.data.db.AuditLogEntity
 import com.bongshaltech.erpinventory.data.db.AppDatabase
 import com.bongshaltech.erpinventory.data.db.CustomerEntity
@@ -46,7 +49,15 @@ import com.bongshaltech.erpinventory.data.db.OrderStatus
 import com.bongshaltech.erpinventory.data.db.SaleReturnEntity
 import com.bongshaltech.erpinventory.data.db.SaleReturnItemEntity
 import com.bongshaltech.erpinventory.security.PinHasher
+import com.bongshaltech.erpinventory.data.db.InvestorEntity
+import com.bongshaltech.erpinventory.data.db.LedgerAccountEntity
+import com.bongshaltech.erpinventory.data.db.JournalEntryEntity
+import com.bongshaltech.erpinventory.data.db.JournalLineEntity
+import com.bongshaltech.erpinventory.data.db.RecurringExpenseEntity
 import java.time.LocalDate
+import com.bongshaltech.erpinventory.core.books.AccountType
+import com.bongshaltech.erpinventory.core.books.Books
+import com.bongshaltech.erpinventory.core.books.JournalLine
 import kotlinx.coroutines.flow.map
 
 data class CartLine(val product: ProductEntity, val qtyMilli: Long, val serials: List<String> = emptyList()) {
@@ -65,7 +76,22 @@ data class NewSale(
     val staffId: Long?,
     /** Offers, coupon and voucher already counted inside [discountPaisa]. */
     val promos: List<AppliedPromo> = emptyList(),
+    /** Split the due into this many monthly payments; 0 for a plain due. */
+    val installments: Int = 0,
+    /** Stop the sale when the customer's due would go over their credit limit. */
+    val checkCreditLimit: Boolean = false,
+    /** Loyalty: points spent on this sale (their value is already inside [discountPaisa]); earn one per [pointEveryPaisa] paid, 0 = off. */
+    val pointsUsed: Long = 0,
+    val pointEveryPaisa: Long = 0,
 )
+
+sealed interface DeleteResult {
+    /** Done. [manualRefundPaisa] is due the customer already paid back, which the shop hands back by hand. */
+    data class Deleted(val number: String, val manualRefundPaisa: Long) : DeleteResult
+    data object Requested : DeleteResult
+    data object HasReturns : DeleteResult
+    data object Gone : DeleteResult
+}
 
 data class AppliedPromo(val promoId: Long?, val kind: PromoKind, val code: String, val amountPaisa: Long)
 
@@ -96,6 +122,8 @@ sealed interface SaleResult {
     data object DueNeedsCustomer : SaleResult
     /** A coupon ran out of uses or a voucher's balance dropped while the sale was open. */
     data class PromoUsedUp(val code: String) : SaleResult
+    data class OverCreditLimit(val limitPaisa: Long, val nowDuePaisa: Long) : SaleResult
+    data object NotEnoughPoints : SaleResult
 }
 
 data class OrderLine(val product: ProductEntity, val qtyMilli: Long, val unitPricePaisa: Long) {
@@ -302,6 +330,13 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                     db.customers().byPhone(it)?.id
                         ?: db.customers().insert(CustomerEntity(name = s.customerName?.ifBlank { null } ?: it, phone = it))
                 }
+                if (due > 0 && customerId != null && s.checkCreditLimit) {
+                    val c = db.customers().get(customerId)
+                    if (c != null && c.creditLimitPaisa > 0 && c.duePaisa + due > c.creditLimitPaisa) throw OverLimit(c.creditLimitPaisa, c.duePaisa)
+                }
+                if (s.pointsUsed > 0 && (customerId == null || db.customers().spendPoints(customerId, s.pointsUsed) == 0)) throw NoPoints()
+                val earned = if (s.pointEveryPaisa > 0 && customerId != null) minOf(s.paidPaisa, total) / s.pointEveryPaisa else 0
+                if (earned > 0 && customerId != null) db.customers().addPoints(customerId, earned)
                 if (due > 0 && customerId != null) db.customers().addDue(customerId, due)
 
                 val year = LocalDate.now().year
@@ -314,6 +349,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                         number = number, customerId = customerId, subtotalPaisa = subtotal, discountPaisa = s.discountPaisa,
                         totalPaisa = total, paidPaisa = minOf(s.paidPaisa, total), method = s.method,
                         smsRequested = s.smsRequested && phone != null, staffId = s.staffId,
+                        pointsEarned = earned, pointsUsed = if (customerId != null) s.pointsUsed else 0,
                     )
                 )
                 db.sales().insertItems(s.lines.map {
@@ -341,6 +377,12 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                         SalePromoEntity(saleId = saleId, promoId = it.promoId, kind = it.kind, code = it.code, amountPaisa = it.amountPaisa)
                     })
                 }
+                if (s.installments > 1 && due > 0 && customerId != null) {
+                    val plan = com.bongshaltech.erpinventory.core.sale.Installments.plan(due, s.installments, LocalDate.now().plusMonths(1))
+                    db.saleFix().insertInstallments(plan.map {
+                        InstallmentEntity(customerId = customerId, saleNumber = number, seq = it.seq, dueDay = it.dueDay, amountPaisa = it.amountPaisa)
+                    })
+                }
                 audit("SALE", "$number · ${tk(total)}" + if (s.discountPaisa > 0) " · −${tk(s.discountPaisa)}" else "")
                 SaleResult.Saved(saleId, number, total)
             }
@@ -348,6 +390,10 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             SaleResult.NotEnoughStock(e.productName)
         } catch (e: PromoGone) {
             SaleResult.PromoUsedUp(e.code)
+        } catch (e: OverLimit) {
+            SaleResult.OverCreditLimit(e.limit, e.now)
+        } catch (e: NoPoints) {
+            SaleResult.NotEnoughPoints
         }
     }
 
@@ -376,8 +422,78 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                 DuePaymentEntity(number = number, customerId = customerId, amountPaisa = amount, method = method, note = note.trim(), staffId = staffId)
             )
             db.customers().addDue(customerId, -amount)
+            fillInstallments(customerId, amount)
             number
         }
+    }
+
+    private suspend fun fillInstallments(customerId: Long, amountPaisa: Long) {
+        val open = db.saleFix().unpaid(customerId).map { com.bongshaltech.erpinventory.core.sale.Instalment(it.id, it.amountPaisa, it.paidPaisa) }
+        for ((id, paid) in com.bongshaltech.erpinventory.core.sale.Installments.fill(open, amountPaisa)) db.saleFix().setPaid(id, paid)
+    }
+
+    val saleFix get() = db.saleFix()
+
+    /**
+     * Deletes a sale, or for staff, asks the owner to. Deleting puts the stock back, takes the sale's due off the customer,
+     * gives coupon uses and voucher money back, and removes the sale from every total. A copy stays in Deleted sales.
+     * A sale with a return can't be deleted: the return already changed stock and money.
+     */
+    suspend fun deleteSale(saleId: Long, reason: String, staffId: Long?): DeleteResult {
+        if (staffId != null) {
+            val sale = db.sales().get(saleId) ?: return DeleteResult.Gone
+            if (db.saleFix().returnCount(saleId) > 0) return DeleteResult.HasReturns
+            db.saleFix().request(SaleDeleteRequestEntity(saleId = saleId, number = sale.number, reason = reason.trim(), staffId = staffId))
+            audit("SALE_DELETE_ASK", "${sale.number} · ${reason.trim()}")
+            return DeleteResult.Requested
+        }
+        return db.withTransaction {
+            val sale = db.sales().get(saleId) ?: return@withTransaction DeleteResult.Gone
+            if (db.saleFix().returnCount(saleId) > 0) return@withTransaction DeleteResult.HasReturns
+            val items = db.sales().items(saleId)
+            for (i in items) db.products().addStock(i.productId, i.qtyMilli)
+            db.saleFix().unsellSerials(saleId)
+            for (p in db.promos().forSale(saleId)) {
+                val id = p.promoId ?: continue
+                when (p.kind) {
+                    PromoKind.OFFER -> Unit
+                    PromoKind.COUPON -> db.saleFix().unusePromo(id)
+                    PromoKind.VOUCHER -> db.saleFix().refundVoucher(id, p.amountPaisa)
+                }
+            }
+            val saleDue = (sale.totalPaisa - sale.paidPaisa).coerceAtLeast(0)
+            var manual = 0L
+            if (saleDue > 0 && sale.customerId != null) {
+                val owes = db.customers().get(sale.customerId)?.duePaisa ?: 0
+                val cut = minOf(saleDue, owes.coerceAtLeast(0))
+                if (cut > 0) db.customers().addDue(sale.customerId, -cut)
+                manual = saleDue - cut
+            }
+            if (sale.customerId != null && (sale.pointsEarned > 0 || sale.pointsUsed > 0)) {
+                db.customers().addPoints(sale.customerId, sale.pointsUsed - sale.pointsEarned)
+            }
+            db.saleFix().dropPlan(sale.number)
+            val request = db.saleFix().requestFor(saleId)
+            db.saleFix().insertDeleted(
+                DeletedSaleEntity(
+                    saleId = sale.id, number = sale.number, customerId = sale.customerId, totalPaisa = sale.totalPaisa,
+                    paidPaisa = sale.paidPaisa, method = sale.method, saleAt = sale.createdAt,
+                    itemsText = items.joinToString("\n") { "${it.name} × ${Qty.text(it.qtyMilli)} = ${tk(it.lineTotalPaisa)}" },
+                    reason = reason.trim().ifBlank { request?.reason.orEmpty() }, requestedBy = request?.staffId,
+                )
+            )
+            db.saleFix().dropRequest(saleId)
+            db.saleFix().deleteSale(saleId)
+            audit("SALE_DELETE", "${sale.number} · ${tk(sale.totalPaisa)} · ${reason.trim().ifBlank { request?.reason.orEmpty() }}")
+            DeleteResult.Deleted(sale.number, manual)
+        }
+    }
+
+    /** Owner says no to a staff member's delete request. The sale stays as it is. */
+    suspend fun rejectDelete(saleId: Long) {
+        val r = db.saleFix().requestFor(saleId) ?: return
+        db.saleFix().dropRequest(saleId)
+        audit("SALE_DELETE_NO", r.number)
     }
 
     suspend fun saveSupplier(s: SupplierEntity) {
@@ -508,6 +624,45 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             true
         }
     }
+    /** Moves stock from one warehouse to another; the shop's own stock doesn't change. */
+    suspend fun transferStock(fromId: Long, toId: Long, productId: Long, qtyMilli: Long): Boolean {
+        if (qtyMilli <= 0 || fromId == toId) return false
+        return db.withTransaction {
+            val p = db.products().get(productId) ?: return@withTransaction false
+            val from = db.stockTools().heldIn(fromId, productId)
+            if (from < qtyMilli) return@withTransaction false
+            db.stockTools().setHeld(WarehouseStockEntity(fromId, productId, from - qtyMilli))
+            db.stockTools().setHeld(WarehouseStockEntity(toId, productId, db.stockTools().heldIn(toId, productId) + qtyMilli))
+            audit("STOCK_MOVE", "${p.name} · ${Qty.text(qtyMilli)} #$fromId → #$toId")
+            true
+        }
+    }
+
+    val stockMore get() = db.stockMore()
+
+    /**
+     * Corrects the shop's stock with a reason. [deltaMilli] is + (found, counted more) or − (damaged, lost, counted less).
+     * Returns false when the shop doesn't hold enough to take away.
+     */
+    suspend fun adjustStock(productId: Long, deltaMilli: Long, reason: String, note: String, staffId: Long?): Boolean {
+        if (deltaMilli == 0L) return false
+        return db.withTransaction {
+            val p = db.products().get(productId) ?: return@withTransaction false
+            if (deltaMilli < 0) {
+                if (db.products().takeStock(productId, -deltaMilli) == 0) return@withTransaction false
+                takeFromBatches(productId, -deltaMilli)
+            } else db.products().addStock(productId, deltaMilli)
+            val cost = (p.costPaisa * deltaMilli + if (deltaMilli > 0) 500 else -500) / 1000
+            db.stockMore().insertAdjust(
+                com.bongshaltech.erpinventory.data.db.StockAdjustEntity(
+                    productId = productId, qtyMilli = deltaMilli, reason = reason, note = note.trim(), costPaisa = cost, staffId = staffId,
+                )
+            )
+            audit("STOCK_ADJUST", "${p.name} · ${if (deltaMilli > 0) "+" else "−"}${Qty.text(kotlin.math.abs(deltaMilli))} · $reason")
+            true
+        }
+    }
+
     val tables get() = db.tables()
 
     /** Sells from the batch that expires first. Stock outside batches covers the rest. */
@@ -570,18 +725,46 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     val hr get() = db.hr()
 
     /** Pays salary (or an advance) for [month] (yyyyMM). It is also saved as an expense, so cash and profit include it. */
-    suspend fun paySalary(employeeId: Long, month: Int, amountPaisa: Long, method: PayMethod, category: String, note: String, staffId: Long?): String? {
-        if (amountPaisa <= 0) return null
+    /**
+     * Pays a salary (or an [advance]) as an expense. [cutAdvancePaisa] is advance taken off this salary:
+     * it counts as paid for the month without new money going out.
+     */
+    suspend fun paySalary(
+        employeeId: Long, month: Int, amountPaisa: Long, method: PayMethod, category: String, note: String, staffId: Long?,
+        advance: Boolean = false, cutAdvancePaisa: Long = 0,
+    ): String? {
+        if (amountPaisa <= 0 && cutAdvancePaisa <= 0) return null
         val code = settings.current().shopCode
         return db.withTransaction {
-            val number = nextNumber(code, DocType.EXPENSE)
-            val expenseId = db.expenses().insert(
-                ExpenseEntity(number = number, category = category.trim(), amountPaisa = amountPaisa, method = method, note = note.trim(), staffId = staffId)
-            )
-            db.hr().insertPayment(SalaryPaymentEntity(employeeId = employeeId, month = month, amountPaisa = amountPaisa, expenseId = expenseId))
-            audit("SALARY", "$number · ${note.trim()} · ${tk(amountPaisa)}")
-            number
+            var number = ""
+            if (amountPaisa > 0) {
+                number = nextNumber(code, DocType.EXPENSE)
+                val expenseId = db.expenses().insert(
+                    ExpenseEntity(number = number, category = category.trim(), amountPaisa = amountPaisa, method = method, note = note.trim(), staffId = staffId)
+                )
+                db.hr().insertPayment(
+                    SalaryPaymentEntity(employeeId = employeeId, month = month, amountPaisa = amountPaisa, expenseId = expenseId, kind = if (advance) "ADVANCE" else "SALARY")
+                )
+            }
+            if (cutAdvancePaisa > 0 && !advance) {
+                db.hr().insertPayment(SalaryPaymentEntity(employeeId = employeeId, month = month, amountPaisa = cutAdvancePaisa, expenseId = 0, kind = "ADVANCE_CUT"))
+            }
+            audit(if (advance) "SALARY_ADVANCE" else "SALARY", "$number · ${note.trim()} · ${tk(amountPaisa)}" + if (cutAdvancePaisa > 0) " · −${tk(cutAdvancePaisa)}" else "")
+            number.ifEmpty { "—" }
         }
+    }
+
+    /** Marks or clears a day's attendance. Returns false when that month is locked. */
+    suspend fun markAttendance(employeeId: Long, day: Int, status: com.bongshaltech.erpinventory.data.db.AttendanceStatus?): Boolean {
+        if (db.hr().isLocked(day / 100) > 0) return false
+        if (status == null) db.hr().unmark(employeeId, day)
+        else db.hr().mark(com.bongshaltech.erpinventory.data.db.AttendanceEntity(employeeId = employeeId, day = day, status = status))
+        return true
+    }
+
+    suspend fun setMonthLocked(month: Int, locked: Boolean) {
+        if (locked) db.hr().lock(com.bongshaltech.erpinventory.data.db.HrLockEntity(month)) else db.hr().unlock(month)
+        audit(if (locked) "HR_LOCK" else "HR_UNLOCK", "$month")
     }
 
     /** Saves an offer, coupon or voucher. Returns false when the code is empty or already used by another one. */
@@ -613,18 +796,73 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     }
 
     /** Records a money movement that isn't a sale or purchase. Returns its number. */
-    suspend fun moveMoney(kind: MoveKind, from: PayMethod?, to: PayMethod?, amountPaisa: Long, note: String, staffId: Long?, loanId: Long? = null): String? {
+    suspend fun moveMoney(kind: MoveKind, from: PayMethod?, to: PayMethod?, amountPaisa: Long, note: String, staffId: Long?, loanId: Long? = null, investorId: Long? = null): String? {
         if (amountPaisa <= 0 || (from == null && to == null) || from == to) return null
         val code = settings.current().shopCode
         return db.withTransaction {
             val number = nextNumber(code, DocType.MONEY)
             db.money().insertMove(
                 MoneyMoveEntity(number = number, kind = kind.name, fromMethod = from?.name, toMethod = to?.name,
-                    amountPaisa = amountPaisa, loanId = loanId, note = note.trim(), staffId = staffId)
+                    amountPaisa = amountPaisa, loanId = loanId, note = note.trim(), staffId = staffId, investorId = investorId)
             )
             audit("MONEY", "$number · ${kind.name} · ${tk(amountPaisa)}")
             number
         }
+    }
+
+    val books get() = db.books()
+
+    suspend fun addInvestor(name: String, phone: String, shareBp: Int, note: String): Long? {
+        if (name.isBlank()) return null
+        val id = db.books().insertInvestor(InvestorEntity(name = name.trim(), phone = phone.filter(Char::isDigit), shareBp = shareBp.coerceIn(0, 10_000), note = note.trim()))
+        audit("INVESTOR_ADD", name.trim())
+        return id
+    }
+
+    /** Investor money in (adds to [method]) or paid back / profit share out (takes from [method]). */
+    suspend fun investorMoney(investorId: Long, incoming: Boolean, method: PayMethod, amountPaisa: Long, note: String, staffId: Long?): String? =
+        if (incoming) moveMoney(MoveKind.INVEST_IN, null, method, amountPaisa, note, staffId, investorId = investorId)
+        else moveMoney(MoveKind.INVEST_OUT, method, null, amountPaisa, note, staffId, investorId = investorId)
+
+    /** Adds the starter chart of accounts once, when the shop has none. */
+    suspend fun seedAccounts(starter: List<Pair<String, AccountType>>) = db.withTransaction {
+        if (db.books().accountCount() == 0) starter.forEach { (n, t) -> db.books().insertAccount(LedgerAccountEntity(name = n, type = t.name)) }
+    }
+
+    suspend fun addAccount(name: String, type: AccountType): Long? {
+        if (name.isBlank()) return null
+        return db.books().insertAccount(LedgerAccountEntity(name = name.trim(), type = type.name))
+    }
+
+    /** Saves a balanced journal entry. Returns its number, or null when debits and credits don't match. */
+    suspend fun postJournal(day: Long, note: String, lines: List<JournalLine>, staffId: Long?): String? {
+        if (!Books.isValid(lines)) return null
+        val used = lines.filter { it.debitPaisa > 0 || it.creditPaisa > 0 }
+        val code = settings.current().shopCode
+        return db.withTransaction {
+            val number = nextNumber(code, DocType.JOURNAL)
+            val id = db.books().insertEntry(JournalEntryEntity(number = number, day = day, note = note.trim(), staffId = staffId))
+            db.books().insertLines(used.map { JournalLineEntity(entryId = id, accountId = it.accountId, debitPaisa = it.debitPaisa, creditPaisa = it.creditPaisa) })
+            audit("JOURNAL", "$number · ${tk(used.sumOf { it.debitPaisa })}")
+            number
+        }
+    }
+
+    suspend fun addRecurring(category: String, amountPaisa: Long, method: PayMethod, dayOfMonth: Int, note: String): Long? {
+        if (category.isBlank() || amountPaisa <= 0) return null
+        return db.books().insertRecurring(RecurringExpenseEntity(category = category.trim(), amountPaisa = amountPaisa, method = method,
+            dayOfMonth = dayOfMonth.coerceIn(1, 31), note = note.trim()))
+    }
+
+    /** Posts a monthly expense as a normal expense for this month. Returns the expense number, or null if already posted. */
+    suspend fun postRecurring(id: Long, staffId: Long?): String? = db.withTransaction {
+        val r = db.books().recurringById(id) ?: return@withTransaction null
+        val today = LocalDate.now()
+        val month = today.year * 100 + today.monthValue
+        if (r.lastMonth >= month) return@withTransaction null
+        val number = addExpense(r.category, r.amountPaisa, r.method, r.note, staffId)
+        db.books().setPosted(id, month)
+        number
     }
 
     /** A new loan: borrowed money comes in through [method], lent money goes out through it. */
@@ -728,7 +966,10 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             val due = sale.customerId?.let { db.customers().get(it)?.duePaisa } ?: 0
             val split = Returns.split(total, due)
             for (p in fresh) db.products().addStock(p.line.productId, p.qtyMilli)
-            if (split.dueCutPaisa > 0 && sale.customerId != null) db.customers().addDue(sale.customerId, -split.dueCutPaisa)
+            if (split.dueCutPaisa > 0 && sale.customerId != null) {
+                db.customers().addDue(sale.customerId, -split.dueCutPaisa)
+                fillInstallments(sale.customerId, split.dueCutPaisa)
+            }
             val number = nextNumber(code, DocType.RETURN)
             val id = db.returns().insertSaleReturn(
                 SaleReturnEntity(
@@ -814,6 +1055,8 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
 
     private class NotEnough(val productName: String) : RuntimeException()
     private class PromoGone(val code: String) : RuntimeException()
+    private class OverLimit(val limit: Long, val now: Long) : RuntimeException()
+    private class NoPoints : RuntimeException()
 }
 
 fun StaffEntity.menuSet(): Set<StaffMenu> =

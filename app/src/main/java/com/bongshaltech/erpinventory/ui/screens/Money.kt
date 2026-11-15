@@ -67,10 +67,11 @@ private val kindLabel = mapOf(
     MoveKind.LOAN_TAKEN.name to R.string.mv_loan_taken, MoveKind.LOAN_REPAID.name to R.string.mv_loan_repaid,
     MoveKind.LOAN_GIVEN.name to R.string.mv_loan_given, MoveKind.LOAN_RECEIVED.name to R.string.mv_loan_received,
     MoveKind.VOUCHER_SOLD.name to R.string.mv_voucher_sold,
+    MoveKind.INVEST_IN.name to R.string.mv_invest_in, MoveKind.INVEST_OUT.name to R.string.mv_invest_out,
 )
 
 @Composable
-private fun MethodChips(selected: PayMethod?, onPick: (PayMethod) -> Unit) {
+internal fun MethodChips(selected: PayMethod?, onPick: (PayMethod) -> Unit) {
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         methods.forEach { (m, label) -> Chip(stringResource(label), selected == m, { onPick(m) }) }
     }

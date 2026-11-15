@@ -23,6 +23,16 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.EventRepeat
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import com.bongshaltech.erpinventory.core.books.Recurring
+import java.time.LocalDate
+import kotlinx.coroutines.flow.map
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.ShoppingCartCheckout
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.ToggleOn
 import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material.icons.outlined.Warehouse
@@ -78,6 +88,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bongshaltech.erpinventory.R
 import com.bongshaltech.erpinventory.data.BusinessProfile
+import com.bongshaltech.erpinventory.data.Feature
 import com.bongshaltech.erpinventory.data.Session
 import com.bongshaltech.erpinventory.data.StaffMenu
 import com.bongshaltech.erpinventory.data.menuSet
@@ -136,6 +147,8 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
     val who = rememberWho()
     val settings by app.settings.settings.collectAsStateWithLifecycle(null)
     val staff by remember { app.repo.staff.all() }.collectAsStateWithLifecycle(emptyList())
+    val delAsks by remember { app.repo.saleFix.requestCount() }.collectAsStateWithLifecycle(0)
+    val dueRecurring by remember { app.repo.books.recurring().map { l -> l.count { it.active && Recurring.isDue(it.dayOfMonth, it.lastMonth, LocalDate.now()) } } }.collectAsStateWithLifecycle(0)
     val s = settings
     val appId = ctx.packageName.removeSuffix(".debug")
     fun open(url: String) = runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
@@ -175,6 +188,7 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                 if (who.owner) {
                     ListRow(stringResource(R.string.more_business_long), Icons.Outlined.Storefront, Tints.Blue, trailing = { Chevron() }) { go(Routes.BIZ) }
                     ListRow(stringResource(R.string.staff_manage), Icons.Outlined.Badge, Tints.Blue, trailing = { Side(stringResource(R.string.n_staff, staff.size)) }) { go(Routes.STAFF_MANAGE) }
+                    ListRow(stringResource(R.string.features), Icons.Outlined.ToggleOn, Tints.Teal, sub = stringResource(R.string.features_row_sub), trailing = { Chevron() }) { go(Routes.FEATURES) }
                     ListRow(stringResource(R.string.remove_ads), Icons.Outlined.WorkspacePremium, Tints.Amber, trailing = {
                         Tag(stringResource(if (s?.adFree == true) R.string.adfree_on_short else R.string.go_ad_free), Color(0xFF92400E), Tints.Amber.brush)
                     }) { go(Routes.AD_FREE) }
@@ -182,20 +196,30 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                         Toggle(s?.smsDefaultOn == true, { on -> scope.launch { app.settings.setSmsDefault(on) } })
                     }, sub = stringResource(R.string.sms_default_note))
                     ListRow(stringResource(R.string.cash_bank), Icons.Outlined.AccountBalance, Tints.Green, trailing = { Chevron() }) { go(Routes.CASH_BANK) }
-                    ListRow(stringResource(R.string.cash_day), Icons.Outlined.PointOfSale, Tints.Amber, trailing = { Chevron() }) { go(Routes.CASH_DAY) }
-                    ListRow(stringResource(R.string.loans), Icons.Outlined.Handshake, Tints.Orange, trailing = { Chevron() }) { go(Routes.LOANS) }
-                    ListRow(stringResource(R.string.promos), Icons.Outlined.LocalOffer, Tints.Pink, trailing = { Chevron() }) { go(Routes.PROMOS) }
-                    ListRow(stringResource(R.string.hr), Icons.Outlined.Badge, Tints.Indigo, trailing = { Chevron() }) { go(Routes.HR) }
-                    if (s?.shopType == com.bongshaltech.erpinventory.data.ShopType.RESTAURANT)
+                    if (s?.on(Feature.CASH_DAY) == true) ListRow(stringResource(R.string.cash_day), Icons.Outlined.PointOfSale, Tints.Amber, trailing = { Chevron() }) { go(Routes.CASH_DAY) }
+                    if (s?.on(Feature.LOANS) == true) ListRow(stringResource(R.string.loans), Icons.Outlined.Handshake, Tints.Orange, trailing = { Chevron() }) { go(Routes.LOANS) }
+                    if (s?.on(Feature.INVESTORS) == true) ListRow(stringResource(R.string.investors), Icons.Outlined.Groups, Tints.Teal, trailing = { Chevron() }) { go(Routes.INVESTORS) }
+                    if (s?.on(Feature.RECURRING) == true) ListRow(stringResource(R.string.recurring), Icons.Outlined.EventRepeat, Tints.Purple, trailing = {
+                        if (dueRecurring > 0) Tag(stringResource(R.string.rec_due_n, dueRecurring), Color(0xFF92400E), Tints.Amber.brush) else Chevron()
+                    }) { go(Routes.RECURRING) }
+                    if (s?.on(Feature.ACCOUNTING) == true) ListRow(stringResource(R.string.accounts), Icons.AutoMirrored.Outlined.MenuBook, Tints.Indigo, trailing = { Chevron() }) { go(Routes.ACCOUNTS) }
+                    if (s?.on(Feature.PROMOS) == true) ListRow(stringResource(R.string.promos), Icons.Outlined.LocalOffer, Tints.Pink, trailing = { Chevron() }) { go(Routes.PROMOS) }
+                    if (s?.on(Feature.HR) == true) ListRow(stringResource(R.string.hr), Icons.Outlined.Badge, Tints.Indigo, trailing = { Chevron() }) { go(Routes.HR) }
+                    if (s?.on(Feature.TABLES) == true)
                         ListRow(stringResource(R.string.tables), Icons.Outlined.TableRestaurant, Tints.Orange, trailing = { Chevron() }) { go(Routes.TABLES) }
-                    ListRow(stringResource(R.string.batches), Icons.Outlined.EventBusy, Tints.Amber, trailing = { Chevron() }) { go(Routes.BATCHES) }
-                    ListRow(stringResource(R.string.repack), Icons.Outlined.Inventory2, Tints.Teal, trailing = { Chevron() }) { go(Routes.REPACK) }
-                    ListRow(stringResource(R.string.serials), Icons.Outlined.QrCode2, Tints.Purple, trailing = { Chevron() }) { go(Routes.SERIALS) }
-                    ListRow(stringResource(R.string.warehouses), Icons.Outlined.Warehouse, Tints.Grey, trailing = { Chevron() }) { go(Routes.WAREHOUSES) }
+                    ListRow(stringResource(R.string.adj_title), Icons.Outlined.Tune, Tints.Orange, trailing = { Chevron() }) { go(Routes.STOCK_ADJUST) }
+                    ListRow(stringResource(R.string.reorder), Icons.Outlined.ShoppingCartCheckout, Tints.Green, trailing = { Chevron() }) { go(Routes.REORDER) }
+                    if (s?.on(Feature.BATCHES) == true) ListRow(stringResource(R.string.batches), Icons.Outlined.EventBusy, Tints.Amber, trailing = { Chevron() }) { go(Routes.BATCHES) }
+                    if (s?.on(Feature.REPACK) == true) ListRow(stringResource(R.string.repack), Icons.Outlined.Inventory2, Tints.Teal, trailing = { Chevron() }) { go(Routes.REPACK) }
+                    if (s?.on(Feature.SERIALS) == true) ListRow(stringResource(R.string.serials), Icons.Outlined.QrCode2, Tints.Purple, trailing = { Chevron() }) { go(Routes.SERIALS) }
+                    if (s?.on(Feature.WAREHOUSES) == true) ListRow(stringResource(R.string.warehouses), Icons.Outlined.Warehouse, Tints.Grey, trailing = { Chevron() }) { go(Routes.WAREHOUSES) }
                     ListRow(stringResource(R.string.import_products), Icons.Outlined.UploadFile, Tints.Green, trailing = { Chevron() }) { go(Routes.IMPORT) }
                     ListRow(stringResource(R.string.labels), Icons.Outlined.QrCode, Tints.Blue, trailing = { Chevron() }) { go(Routes.LABELS) }
                     ListRow(stringResource(R.string.audit), Icons.Outlined.History, Tints.Grey, trailing = { Chevron() }) { go(Routes.AUDIT) }
-                    ListRow(stringResource(R.string.orders), Icons.Outlined.Description, Tints.Blue, trailing = { Chevron() }) { go(Routes.ORDERS) }
+                    ListRow(stringResource(R.string.del_sales), Icons.Outlined.DeleteOutline, Tints.Amber, trailing = {
+                        if (delAsks > 0) Tag(stringResource(R.string.del_requests_n, delAsks), Color(0xFF92400E), Tints.Amber.brush) else Chevron()
+                    }) { go(Routes.DELETED_SALES) }
+                    if (s?.on(Feature.ORDERS) == true) ListRow(stringResource(R.string.orders), Icons.Outlined.Description, Tints.Blue, trailing = { Chevron() }) { go(Routes.ORDERS) }
                     ListRow(stringResource(R.string.returns), Icons.Outlined.Replay, Tints.Purple, trailing = { Chevron() }) { go(Routes.RETURNS) }
                     ListRow(stringResource(R.string.backup), Icons.Outlined.CloudUpload, Tints.Blue, trailing = { Chevron() }) { go(Routes.BACKUP) }
                     ListRow(stringResource(R.string.sms_pack), Icons.Outlined.ChatBubbleOutline, Tints.Teal, trailing = { Chevron() },
@@ -214,16 +238,9 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                 })
             }
 
-            if (who.owner) Group(stringResource(R.string.group_business)) {
-                ListRow(
-                    stringResource(R.string.mfs_toggle), Icons.Outlined.AccountBalanceWallet, Tints.Pink,
-                    sub = stringResource(R.string.mfs_toggle_sub), last = s?.mobileBankingOn != true,
-                    trailing = { Toggle(s?.mobileBankingOn == true, { on -> scope.launch { app.settings.setMobileBanking(on) } }) },
-                )
-                if (s?.mobileBankingOn == true) {
-                    ListRow(stringResource(R.string.mfs_open), trailing = { Chevron() }) { go(Routes.MFS) }
-                    ListRow(stringResource(R.string.mfs_rates), last = true, trailing = { Chevron() }) { go(Routes.MFS_WALLETS) }
-                }
+            if (who.owner && s?.mobileBankingOn == true) Group(stringResource(R.string.group_business)) {
+                ListRow(stringResource(R.string.mfs_open), Icons.Outlined.AccountBalanceWallet, Tints.Pink, trailing = { Chevron() }) { go(Routes.MFS) }
+                ListRow(stringResource(R.string.mfs_rates), last = true, trailing = { Chevron() }) { go(Routes.MFS_WALLETS) }
             }
 
             Group(stringResource(R.string.group_support)) {

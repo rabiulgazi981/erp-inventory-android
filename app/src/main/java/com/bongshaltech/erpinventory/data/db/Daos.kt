@@ -75,6 +75,8 @@ interface ProductDao {
     suspend fun addStock(id: Long, qtyMilli: Long)
 }
 
+data class AreaTotal(val area: String, val count: Int, val duePaisa: Long)
+
 @Dao
 interface CustomerDao {
     @Query("SELECT * FROM customer WHERE phone = :phone")
@@ -96,10 +98,20 @@ interface CustomerDao {
     @Query(
         """SELECT * FROM customer
            WHERE (:q = '' OR name LIKE '%' || :q || '%' OR phone LIKE '%' || :q || '%')
-             AND (:type = '' OR type = :type) AND (:dueOnly = 0 OR duePaisa > 0)
+             AND (:type = '' OR type = :type) AND (:dueOnly = 0 OR duePaisa > 0) AND (:area = '' OR area = :area)
            ORDER BY duePaisa > 0 DESC, name COLLATE NOCASE"""
     )
-    fun search(q: String, type: String, dueOnly: Boolean): Flow<List<CustomerEntity>>
+    fun search(q: String, type: String, dueOnly: Boolean, area: String): Flow<List<CustomerEntity>>
+
+    @Query("SELECT area, COUNT(*) AS count, COALESCE(SUM(duePaisa), 0) AS duePaisa FROM customer WHERE area != '' GROUP BY area ORDER BY area COLLATE NOCASE")
+    fun areas(): Flow<List<AreaTotal>>
+
+    @Query("UPDATE customer SET points = MAX(points + :delta, 0) WHERE id = :id")
+    suspend fun addPoints(id: Long, delta: Long)
+
+    /** Spends points; 0 rows when the customer doesn't have enough. */
+    @Query("UPDATE customer SET points = points - :n WHERE id = :id AND points >= :n")
+    suspend fun spendPoints(id: Long, n: Long): Int
 
     @Query("SELECT COUNT(*) FROM customer")
     fun count(): Flow<Int>
@@ -674,9 +686,34 @@ interface HrDao {
     // Joined to the expense, so a salary expense deleted from Expenses no longer counts as paid.
     @Query(
         "SELECT sp.employeeId AS employeeId, SUM(sp.amountPaisa) AS paidPaisa FROM salary_payment sp " +
-            "JOIN expense e ON e.id = sp.expenseId WHERE sp.month = :month GROUP BY sp.employeeId"
+            "LEFT JOIN expense e ON e.id = sp.expenseId WHERE sp.month = :month " +
+            "AND ((sp.kind = 'SALARY' AND e.id IS NOT NULL) OR sp.kind = 'ADVANCE_CUT') GROUP BY sp.employeeId"
     )
     fun paid(month: Int): Flow<List<MonthPaid>>
+
+    /** Advance still to be taken off future salaries, per employee. */
+    @Query(
+        "SELECT sp.employeeId AS employeeId, SUM(CASE WHEN sp.kind = 'ADVANCE' THEN sp.amountPaisa ELSE -sp.amountPaisa END) AS paidPaisa " +
+            "FROM salary_payment sp LEFT JOIN expense e ON e.id = sp.expenseId " +
+            "WHERE (sp.kind = 'ADVANCE' AND e.id IS NOT NULL) OR sp.kind = 'ADVANCE_CUT' GROUP BY sp.employeeId"
+    )
+    fun advances(): Flow<List<MonthPaid>>
+
+    /** Leave days marked per employee between two yyyyMMdd days. */
+    @Query("SELECT employeeId, COUNT(*) AS paidPaisa FROM attendance WHERE status = 'LEAVE' AND day BETWEEN :from AND :to GROUP BY employeeId")
+    fun leaveTaken(from: Int, to: Int): Flow<List<MonthPaid>>
+
+    @Query("SELECT COUNT(*) FROM hr_lock WHERE month = :month")
+    fun watchLocked(month: Int): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM hr_lock WHERE month = :month")
+    suspend fun isLocked(month: Int): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun lock(l: HrLockEntity)
+
+    @Query("DELETE FROM hr_lock WHERE month = :month")
+    suspend fun unlock(month: Int)
 
     @Insert
     suspend fun insertPayment(p: SalaryPaymentEntity): Long
@@ -858,4 +895,173 @@ interface AuditDao {
     /** Keeps the log from growing without end: about a year. */
     @Query("DELETE FROM audit_log WHERE at < :before")
     suspend fun trim(before: Long)
+}
+
+data class DeleteRequestRow(val id: Long, val saleId: Long, val number: String, val reason: String, val staffName: String?, val createdAt: Long, val totalPaisa: Long)
+data class DeletedSaleRow(val id: Long, val number: String, val totalPaisa: Long, val saleAt: Long, val deletedAt: Long, val reason: String, val itemsText: String, val requestedByName: String?)
+data class InstallmentRow(val id: Long, val saleNumber: String, val seq: Int, val dueDay: Long, val amountPaisa: Long, val paidPaisa: Long)
+
+/** Sale corrections: delete requests, deleted sales and instalment plans. */
+@Dao
+interface SaleFixDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun request(r: SaleDeleteRequestEntity)
+
+    @Query("SELECT * FROM sale_delete_request WHERE saleId = :saleId")
+    suspend fun requestFor(saleId: Long): SaleDeleteRequestEntity?
+
+    @Query("SELECT * FROM sale_delete_request WHERE saleId = :saleId")
+    fun watchRequest(saleId: Long): Flow<SaleDeleteRequestEntity?>
+
+    @Query("DELETE FROM sale_delete_request WHERE saleId = :saleId")
+    suspend fun dropRequest(saleId: Long)
+
+    @Query(
+        "SELECT r.id AS id, r.saleId AS saleId, r.number AS number, r.reason AS reason, st.name AS staffName, r.createdAt AS createdAt, " +
+            "COALESCE(s.totalPaisa, 0) AS totalPaisa FROM sale_delete_request r LEFT JOIN staff st ON st.id = r.staffId " +
+            "LEFT JOIN sale s ON s.id = r.saleId ORDER BY r.createdAt DESC"
+    )
+    fun requests(): Flow<List<DeleteRequestRow>>
+
+    @Query("SELECT COUNT(*) FROM sale_delete_request")
+    fun requestCount(): Flow<Int>
+
+    @Insert
+    suspend fun insertDeleted(d: DeletedSaleEntity)
+
+    @Query(
+        "SELECT d.id AS id, d.number AS number, d.totalPaisa AS totalPaisa, d.saleAt AS saleAt, d.deletedAt AS deletedAt, d.reason AS reason, " +
+            "d.itemsText AS itemsText, st.name AS requestedByName FROM deleted_sale d LEFT JOIN staff st ON st.id = d.requestedBy " +
+            "ORDER BY d.deletedAt DESC LIMIT 300"
+    )
+    fun deleted(): Flow<List<DeletedSaleRow>>
+
+    @Query("DELETE FROM sale WHERE id = :id")
+    suspend fun deleteSale(id: Long)
+
+    @Query("SELECT COUNT(*) FROM sale_return WHERE saleId = :saleId")
+    suspend fun returnCount(saleId: Long): Int
+
+    @Query("UPDATE product_serial SET saleId = NULL, soldAt = NULL WHERE saleId = :saleId")
+    suspend fun unsellSerials(saleId: Long)
+
+    @Query("UPDATE promo SET uses = MAX(uses - 1, 0) WHERE id = :id")
+    suspend fun unusePromo(id: Long)
+
+    @Query("UPDATE promo SET balancePaisa = balancePaisa + :amount, uses = MAX(uses - 1, 0) WHERE id = :id")
+    suspend fun refundVoucher(id: Long, amount: Long)
+
+    @Insert
+    suspend fun insertInstallments(rows: List<InstallmentEntity>)
+
+    @Query("SELECT * FROM installment WHERE customerId = :customerId AND paidPaisa < amountPaisa ORDER BY dueDay, seq, id")
+    suspend fun unpaid(customerId: Long): List<InstallmentEntity>
+
+    @Query("UPDATE installment SET paidPaisa = :paid WHERE id = :id")
+    suspend fun setPaid(id: Long, paid: Long)
+
+    @Query("DELETE FROM installment WHERE saleNumber = :saleNumber")
+    suspend fun dropPlan(saleNumber: String)
+
+    @Query("SELECT id, saleNumber, seq, dueDay, amountPaisa, paidPaisa FROM installment WHERE customerId = :customerId ORDER BY dueDay, seq, id")
+    fun forCustomer(customerId: Long): Flow<List<InstallmentRow>>
+
+    @Query("SELECT id, saleNumber, seq, dueDay, amountPaisa, paidPaisa FROM installment WHERE saleNumber = :saleNumber ORDER BY seq")
+    fun forSale(saleNumber: String): Flow<List<InstallmentRow>>
+
+    /** Instalments due on or before [day] and not fully paid, across all customers. */
+    @Query("SELECT COUNT(*) FROM installment WHERE dueDay <= :day AND paidPaisa < amountPaisa")
+    fun lateCount(day: Long): Flow<Int>
+}
+
+data class AdjustRow(val id: Long, val productName: String, val unit: String, val qtyMilli: Long, val reason: String, val note: String, val costPaisa: Long, val createdAt: Long)
+
+@Dao
+interface StockMoreDao {
+    @Insert
+    suspend fun insertAdjust(a: StockAdjustEntity)
+
+    @Query(
+        "SELECT a.id AS id, p.name AS productName, p.unit AS unit, a.qtyMilli AS qtyMilli, a.reason AS reason, a.note AS note, " +
+            "a.costPaisa AS costPaisa, a.createdAt AS createdAt FROM stock_adjust a JOIN product p ON p.id = a.productId ORDER BY a.createdAt DESC LIMIT 200"
+    )
+    fun adjustments(): Flow<List<AdjustRow>>
+
+    /** Products at or under their low-stock mark, lowest first. */
+    @Query("SELECT * FROM product WHERE active = 1 AND lowStockMilli > 0 AND stockMilli <= lowStockMilli ORDER BY stockMilli * 1.0 / lowStockMilli, name COLLATE NOCASE")
+    fun reorder(): Flow<List<ProductEntity>>
+}
+
+data class AccountTotal(val id: Long, val name: String, val type: String, val active: Boolean, val debitPaisa: Long, val creditPaisa: Long)
+
+data class InvestorTotal(val id: Long, val name: String, val phone: String, val shareBp: Int, val inPaisa: Long, val outPaisa: Long)
+
+data class JournalRow(val id: Long, val number: String, val day: Long, val note: String, val totalPaisa: Long)
+
+@Dao
+interface BooksDao {
+    @Query(
+        "SELECT a.id, a.name, a.type, a.active, COALESCE(SUM(l.debitPaisa), 0) AS debitPaisa, COALESCE(SUM(l.creditPaisa), 0) AS creditPaisa " +
+            "FROM ledger_account a LEFT JOIN journal_line l ON l.accountId = a.id GROUP BY a.id ORDER BY a.type, a.name"
+    )
+    fun accountTotals(): Flow<List<AccountTotal>>
+
+    @Query("SELECT * FROM ledger_account WHERE active = 1 ORDER BY type, name")
+    fun activeAccounts(): Flow<List<LedgerAccountEntity>>
+
+    @Query("SELECT COUNT(*) FROM ledger_account")
+    suspend fun accountCount(): Int
+
+    @Insert
+    suspend fun insertAccount(a: LedgerAccountEntity): Long
+
+    @Query("UPDATE ledger_account SET active = :active WHERE id = :id")
+    suspend fun setAccountActive(id: Long, active: Boolean)
+
+    @Insert
+    suspend fun insertEntry(e: JournalEntryEntity): Long
+
+    @Insert
+    suspend fun insertLines(l: List<JournalLineEntity>)
+
+    @Query(
+        "SELECT e.id, e.number, e.day, e.note, COALESCE((SELECT SUM(debitPaisa) FROM journal_line WHERE entryId = e.id), 0) AS totalPaisa " +
+            "FROM journal_entry e ORDER BY e.day DESC, e.id DESC LIMIT 300"
+    )
+    fun entries(): Flow<List<JournalRow>>
+
+    @Query("SELECT * FROM journal_line WHERE entryId = :entryId ORDER BY creditPaisa, id")
+    suspend fun lines(entryId: Long): List<JournalLineEntity>
+
+    @Query("SELECT * FROM recurring_expense ORDER BY active DESC, dayOfMonth")
+    fun recurring(): Flow<List<RecurringExpenseEntity>>
+
+    @Query("SELECT * FROM recurring_expense WHERE id = :id")
+    suspend fun recurringById(id: Long): RecurringExpenseEntity?
+
+    @Insert
+    suspend fun insertRecurring(r: RecurringExpenseEntity): Long
+
+    @Query("UPDATE recurring_expense SET lastMonth = :month WHERE id = :id")
+    suspend fun setPosted(id: Long, month: Int)
+
+    @Query("UPDATE recurring_expense SET active = :active WHERE id = :id")
+    suspend fun setRecurringActive(id: Long, active: Boolean)
+
+    @Query("DELETE FROM recurring_expense WHERE id = :id")
+    suspend fun deleteRecurring(id: Long)
+
+    @Query(
+        "SELECT i.id, i.name, i.phone, i.shareBp, " +
+            "COALESCE((SELECT SUM(amountPaisa) FROM money_move WHERE investorId = i.id AND kind = 'INVEST_IN'), 0) AS inPaisa, " +
+            "COALESCE((SELECT SUM(amountPaisa) FROM money_move WHERE investorId = i.id AND kind = 'INVEST_OUT'), 0) AS outPaisa " +
+            "FROM investor i ORDER BY i.name"
+    )
+    fun investors(): Flow<List<InvestorTotal>>
+
+    @Insert
+    suspend fun insertInvestor(i: InvestorEntity): Long
+
+    @Query("SELECT * FROM money_move WHERE investorId = :id ORDER BY createdAt DESC")
+    fun investorMoves(id: Long): Flow<List<MoneyMoveEntity>>
 }

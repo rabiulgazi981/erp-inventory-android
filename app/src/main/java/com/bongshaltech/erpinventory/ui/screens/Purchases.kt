@@ -168,7 +168,7 @@ private fun PurchaseRowCard(p: PurchaseRow, onClick: () -> Unit) {
 }
 
 /** A line being typed on the purchase screen: quantity and buying price stay as text until saved. */
-private data class PLine(val product: ProductEntity, val qty: String, val cost: String, val batch: String = "", val expiry: String = "", val showBatch: Boolean = false)
+private data class PLine(val product: ProductEntity, val qty: String, val cost: String, val batch: String = "", val expiry: String = "", val showBatch: Boolean = false, val packs: Boolean = false)
 
 @Composable
 fun PurchaseNewScreen(go: (String) -> Unit, onBack: () -> Unit) {
@@ -192,9 +192,15 @@ fun PurchaseNewScreen(go: (String) -> Unit, onBack: () -> Unit) {
     var message by remember { mutableStateOf<String?>(null) }
     var saved by remember { mutableStateOf<PurchaseResult.Saved?>(null) }
 
-    val pharmacy = app.settings.settings.collectAsStateWithLifecycle(null).value?.shopType == com.bongshaltech.erpinventory.data.ShopType.PHARMACY
+    val st = app.settings.settings.collectAsStateWithLifecycle(null).value
+    val pharmacy = st?.shopType == com.bongshaltech.erpinventory.data.ShopType.PHARMACY
+    val batchesOn = st?.on(com.bongshaltech.erpinventory.data.Feature.BATCHES) == true
+    val packsOn = st?.on(com.bongshaltech.erpinventory.data.Feature.PACKS) == true
     val ready = lines.map {
-        PurchaseLine(it.product, it.qty.toMilli() ?: 0, it.cost.toPaisa() ?: 0, it.batch, com.bongshaltech.erpinventory.core.stock.Expiry.parse(it.expiry)?.toEpochDay())
+        val pack = if (it.packs && packsOn) it.product.packMilli else 0L
+        val qtyMilli = (it.qty.toMilli() ?: 0).let { q -> if (pack > 0) q * pack / 1000 else q }
+        val unitCost = (it.cost.toPaisa() ?: 0).let { c -> if (pack > 0) (c * 1000 + pack / 2) / pack else c }
+        PurchaseLine(it.product, qtyMilli, unitCost, it.batch, com.bongshaltech.erpinventory.core.stock.Expiry.parse(it.expiry)?.toEpochDay())
     }
     val subtotal = ready.sumOf { it.totalPaisa }
     val discountPaisa = (discount.toPaisa() ?: 0).coerceIn(0, subtotal)
@@ -295,20 +301,27 @@ fun PurchaseNewScreen(go: (String) -> Unit, onBack: () -> Unit) {
                             Icon(Icons.Outlined.Close, stringResource(R.string.pur_remove), tint = Ui.c.muted,
                                 modifier = Modifier.size(20.dp).clickable { lines.removeAt(i) })
                         }
+                        if (packsOn && l.product.packMilli > 0) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            com.bongshaltech.erpinventory.ui.components.Chip(stringResource(R.string.pack_by_unit, l.product.unit), !l.packs, { lines[i] = l.copy(packs = false) })
+                            com.bongshaltech.erpinventory.ui.components.Chip(
+                                stringResource(R.string.pack_by_pack, l.product.packName.ifBlank { stringResource(R.string.pack_default) }, l.product.packMilli.qty()),
+                                l.packs, { lines[i] = l.copy(packs = true) },
+                            )
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-                            Input(l.qty, { lines[i] = l.copy(qty = it) }, Modifier.weight(1f), label = stringResource(R.string.pur_qty, l.product.unit),
+                            Input(l.qty, { lines[i] = l.copy(qty = it) }, Modifier.weight(1f), label = stringResource(R.string.pur_qty, if (l.packs && packsOn && l.product.packMilli > 0) l.product.packName.ifBlank { stringResource(R.string.pack_default) } else l.product.unit),
                                 keyboard = KeyboardType.Decimal, height = 40.dp)
-                            Input(l.cost, { lines[i] = l.copy(cost = it) }, Modifier.weight(1f), label = stringResource(R.string.pur_unit_cost),
+                            Input(l.cost, { lines[i] = l.copy(cost = it) }, Modifier.weight(1f), label = stringResource(if (l.packs && packsOn && l.product.packMilli > 0) R.string.pack_cost else R.string.pur_unit_cost),
                                 keyboard = KeyboardType.Decimal, height = 40.dp)
                             T(ready[i].totalPaisa.taka0(), 14.sp, FontWeight.Bold, modifier = Modifier.width(78.dp).padding(bottom = 10.dp),
                                 align = androidx.compose.ui.text.style.TextAlign.End)
                         }
-                        if (pharmacy || l.showBatch) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (batchesOn && (pharmacy || l.showBatch)) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Input(l.batch, { lines[i] = l.copy(batch = it) }, Modifier.weight(1f), label = stringResource(R.string.batch_no), height = 40.dp)
                             Input(l.expiry, { lines[i] = l.copy(expiry = it) }, Modifier.weight(1f), label = stringResource(R.string.batch_expiry),
                                 placeholder = "12/27", height = 40.dp,
                                 error = stringResource(R.string.batch_expiry_bad).takeIf { l.expiry.isNotBlank() && com.bongshaltech.erpinventory.core.stock.Expiry.parse(l.expiry) == null })
-                        } else T(stringResource(R.string.batch_add_link), 12.sp, FontWeight.SemiBold, Brand.Link,
+                        } else if (batchesOn) T(stringResource(R.string.batch_add_link), 12.sp, FontWeight.SemiBold, Brand.Link,
                             modifier = Modifier.clickable { lines[i] = l.copy(showBatch = true) })
                     }
                 }

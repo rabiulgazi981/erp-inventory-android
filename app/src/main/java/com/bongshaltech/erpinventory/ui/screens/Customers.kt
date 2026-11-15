@@ -86,8 +86,10 @@ fun CustomersScreen(dueOnly: Boolean, go: (String) -> Unit, onBack: () -> Unit) 
     if (who.ready && !who.can(StaffMenu.CUSTOMERS)) return NotAllowed(onBack)
     var q by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(if (dueOnly) CustFilter.DUE else CustFilter.ALL) }
+    var area by rememberSaveable { mutableStateOf("") }
+    val areas by remember { app.repo.customers.areas() }.collectAsStateWithLifecycle(emptyList())
     val type = when (filter) { CustFilter.RETAIL -> CustomerType.RETAIL.name; CustFilter.WHOLESALE -> CustomerType.WHOLESALE.name; else -> "" }
-    val list by remember(q, filter) { app.repo.customers.search(q.trim(), type, filter == CustFilter.DUE) }
+    val list by remember(q, filter, area) { app.repo.customers.search(q.trim(), type, filter == CustFilter.DUE, area) }
         .collectAsStateWithLifecycle(emptyList())
     val all by remember { app.repo.customers.count() }.collectAsStateWithLifecycle(0)
     val totalDue by remember { app.repo.customers.totalDue() }.collectAsStateWithLifecycle(0L)
@@ -119,6 +121,13 @@ fun CustomersScreen(dueOnly: Boolean, go: (String) -> Unit, onBack: () -> Unit) 
                         Chip(stringResource(R.string.cust_retail), filter == CustFilter.RETAIL, { filter = CustFilter.RETAIL })
                         Chip(stringResource(R.string.cust_wholesale), filter == CustFilter.WHOLESALE, { filter = CustFilter.WHOLESALE })
                         Chip(stringResource(R.string.cust_due_only, dueCount), filter == CustFilter.DUE, { filter = CustFilter.DUE })
+                    }
+                }
+                if (areas.isNotEmpty()) item {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        areas.forEach { a ->
+                            Chip("${a.area} · ${a.duePaisa.taka0()}", area == a.area, { area = if (area == a.area) "" else a.area }, soft = true)
+                        }
                     }
                 }
                 if (list.isEmpty()) item { Muted(stringResource(if (all == 0) R.string.cust_empty else R.string.cust_no_match), 14.sp) }
@@ -177,6 +186,7 @@ fun CustomerDetailScreen(id: Long, go: (String) -> Unit, onBack: () -> Unit) {
     var note by rememberSaveable { mutableStateOf("") }
     var tried by remember { mutableStateOf(false) }
     val savedMsg = stringResource(R.string.cust_payment_saved)
+    val plan by remember(id) { app.repo.saleFix.forCustomer(id) }.collectAsStateWithLifecycle(emptyList())
     val tooMuch = stringResource(R.string.cust_amount_too_much)
     val required = stringResource(R.string.required)
     if (who.ready && !who.can(StaffMenu.CUSTOMERS)) return NotAllowed(onBack)
@@ -210,6 +220,9 @@ fun CustomerDetailScreen(id: Long, go: (String) -> Unit, onBack: () -> Unit) {
                     Muted(stringResource(R.string.cust_current_due), 14.sp, Modifier.weight(1f))
                     T(cust.duePaisa.taka0(), 22.sp, FontWeight.Bold, if (cust.duePaisa > 0) Brand.Red else Brand.DarkGreen)
                 }
+                if (cust.creditLimitPaisa > 0) Muted(stringResource(R.string.cust_limit_left, cust.creditLimitPaisa.taka0(), (cust.creditLimitPaisa - cust.duePaisa).coerceAtLeast(0).taka0()))
+                if (cust.points > 0) Muted(stringResource(R.string.cust_points, cust.points))
+                if (cust.area.isNotBlank()) Muted(stringResource(R.string.cust_area) + ": " + cust.area)
             }
             if (cust.duePaisa > 0) Panel(stringResource(R.string.home_collect_due), Brand.GreenGrad, PanelColors.Green) {
                 val amountP = amount.toPaisa()
@@ -238,6 +251,7 @@ fun CustomerDetailScreen(id: Long, go: (String) -> Unit, onBack: () -> Unit) {
                     }
                 }
             }
+            InstallmentList(plan)
             T(stringResource(R.string.cust_history), 15.sp, FontWeight.Bold)
             if (history.isEmpty()) Muted(stringResource(R.string.cust_history_empty))
             history.forEach { HistoryRow(it) }
@@ -272,13 +286,19 @@ fun CustomerEditScreen(id: Long, onDone: () -> Unit) {
     var phone by rememberSaveable { mutableStateOf("") }
     var address by rememberSaveable { mutableStateOf("") }
     var type by rememberSaveable { mutableStateOf(CustomerType.RETAIL) }
+    var area by rememberSaveable { mutableStateOf("") }
+    var limit by rememberSaveable { mutableStateOf("") }
+    val st = app.settings.settings.collectAsStateWithLifecycle(null).value
+    val areasOn = st?.on(com.bongshaltech.erpinventory.data.Feature.AREAS) == true
+    val limitOn = st?.on(com.bongshaltech.erpinventory.data.Feature.CREDIT_LIMIT) == true
     var tried by remember { mutableStateOf(false) }
     val required = stringResource(R.string.required)
     val taken = stringResource(R.string.cust_phone_taken)
 
     LaunchedEffect(id) {
         if (id != 0L) app.repo.customers.get(id)?.let { c ->
-            loaded = c; name = c.name; phone = c.phone; address = c.address
+            loaded = c; name = c.name; phone = c.phone; address = c.address; area = c.area
+            limit = if (c.creditLimitPaisa > 0) (c.creditLimitPaisa / 100).toString() else ""
             type = runCatching { CustomerType.valueOf(c.type) }.getOrDefault(CustomerType.RETAIL)
         }
     }
@@ -296,6 +316,9 @@ fun CustomerEditScreen(id: Long, onDone: () -> Unit) {
                     error = required.takeIf { tried && phone.length < 6 },
                 )
                 Input(address, { address = it }, label = stringResource(R.string.cust_address))
+                if (areasOn || area.isNotBlank()) Input(area, { area = it }, label = stringResource(R.string.cust_area))
+                if (limitOn || limit.isNotBlank()) Input(limit, { limit = it.filter(Char::isDigit).take(9) }, label = stringResource(R.string.cust_credit_limit),
+                    keyboard = KeyboardType.Number, placeholder = stringResource(R.string.cust_no_limit))
                 T(stringResource(R.string.cust_type), 13.sp, FontWeight.SemiBold, Ui.c.label)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Chip(stringResource(R.string.cust_retail), type == CustomerType.RETAIL, { type = CustomerType.RETAIL }, soft = true)
@@ -309,7 +332,7 @@ fun CustomerEditScreen(id: Long, onDone: () -> Unit) {
                 if (name.isBlank() || phone.length < 6) return@GradButton
                 val base = loaded ?: CustomerEntity(name = "", phone = "")
                 scope.launch {
-                    if (app.repo.saveCustomer(base.copy(name = name, phone = phone, address = address, type = type.name))) onDone()
+                    if (app.repo.saveCustomer(base.copy(name = name, phone = phone, address = address, type = type.name, area = area.trim(), creditLimitPaisa = (limit.toLongOrNull() ?: 0) * 100))) onDone()
                     else Toast.makeText(ctx, taken, Toast.LENGTH_SHORT).show()
                 }
             }

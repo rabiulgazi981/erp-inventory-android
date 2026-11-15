@@ -124,6 +124,8 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
     var sms by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var codeOpen by remember { mutableStateOf(false) }
+    var parts by remember { mutableStateOf(0) }
+    var usePoints by remember { mutableStateOf("") }
     var codeText by remember { mutableStateOf("") }
     var codePromo by remember { mutableStateOf<com.bongshaltech.erpinventory.data.db.PromoEntity?>(null) }
     var saved by remember { mutableStateOf<SaleResult.Saved?>(null) }
@@ -151,11 +153,15 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
     // Typing a name (or part of a number) suggests saved customers.
     val nameQ = phone.trim().takeIf { customer == null && it.length >= 2 && digits.length < 11 }.orEmpty()
     val custMatches by remember(nameQ) {
-        if (nameQ.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList()) else app.repo.customers.search(nameQ, "", false)
+        if (nameQ.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList()) else app.repo.customers.search(nameQ, "", false, "")
     }.collectAsStateWithLifecycle(emptyList())
     val subtotal = cart.sumOf { it.totalPaisa }
     // Offers running today come off by themselves; one coupon or gift voucher can be typed in on top.
-    val offers by remember { app.repo.promos.liveOffers(System.currentTimeMillis()) }.collectAsStateWithLifecycle(emptyList())
+    val saleSettings = app.settings.settings.collectAsStateWithLifecycle(null).value
+    val promosOn = saleSettings?.on(com.bongshaltech.erpinventory.data.Feature.PROMOS) == true
+    val instalmentsOn = saleSettings?.on(com.bongshaltech.erpinventory.data.Feature.INSTALLMENTS) == true
+    val liveOffers by remember { app.repo.promos.liveOffers(System.currentTimeMillis()) }.collectAsStateWithLifecycle(emptyList())
+    val offers = if (promosOn) liveOffers else emptyList()
     val offerOff = PromoMath.offers(
         cart.map { PromoLine(it.product.id, it.product.category, it.qtyMilli, it.totalPaisa) },
         offers.map { PromoRule(it.id, it.percentBp, it.fixedPaisa, it.productId, it.category) },
@@ -167,7 +173,13 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
         else -> if (c.kind == PromoKind.VOUCHER) PromoMath.voucher(beforeCode, c.balancePaisa)
         else PromoMath.coupon(beforeCode, PromoRule(c.id, c.percentBp, c.fixedPaisa, minPaisa = c.minPaisa))
     }
-    val discountPaisa = offerOff + manualOff + codeOff
+    val loyaltyOn = saleSettings?.on(com.bongshaltech.erpinventory.data.Feature.LOYALTY) == true
+    val pointValue = saleSettings?.pointValuePaisa ?: 100
+    val havePoints = if (loyaltyOn) customer?.points ?: 0 else 0
+    val maxPoints = if (pointValue > 0) minOf(havePoints, (beforeCode - codeOff).coerceAtLeast(0) / pointValue) else 0
+    val pointsUse = (usePoints.toLongOrNull() ?: 0).coerceIn(0, maxPoints)
+    val pointsOff = pointsUse * pointValue
+    val discountPaisa = offerOff + manualOff + codeOff + pointsOff
     val total = subtotal - discountPaisa
     fun promos() = buildList {
         if (offerOff > 0) add(AppliedPromo(null, PromoKind.OFFER, "", offerOff))
@@ -184,8 +196,16 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
     fun scan() = scanBarcode(ctx) { code ->
         scope.launch {
             val p = app.repo.products.byBarcode(code)
-            val bySerial = if (p == null) app.repo.productForSerial(code) else null
+            val scale = if (p == null && saleSettings?.on(com.bongshaltech.erpinventory.data.Feature.SCALE_BARCODE) == true)
+                com.bongshaltech.erpinventory.core.stock.ScaleBarcode.read(code) else null
+            val scaled = scale?.let { r -> app.repo.products.byBarcode(r.plu) ?: app.repo.products.byBarcode(r.plu.trimStart('0')) }
+            val bySerial = if (p == null && scaled == null) app.repo.productForSerial(code) else null
             if (p != null) addProduct(p)
+            else if (scale != null && scaled != null) {
+                // A weighing-scale label: its own line with the weighed quantity.
+                val qty = com.bongshaltech.erpinventory.core.stock.ScaleBarcode.qtyMilli(scale, saleSettings?.scaleByPrice == true, scaled.pricePaisa)
+                if (qty > 0) cart.add(CartLine(scaled, qty))
+            }
             else if (bySerial != null) {
                 // A serial / IMEI: one unit of its product, remembered on the line.
                 val i = cart.indexOfFirst { it.product.id == bySerial.id }
@@ -203,7 +223,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
         if (next <= 0) cart.removeAt(i) else cart[i] = cart[i].copy(qtyMilli = next, serials = cart[i].serials.take((next / 1000).toInt()))
     }
     fun reset() {
-        codeOpen = false; codeText = ""; codePromo = null
+        codeOpen = false; codeText = ""; codePromo = null; parts = 0; usePoints = ""
         cart.clear(); discount = ""; paid = ""; phone = ""; custName = ""; showName = false; method = PayMethod.CASH; message = null
     }
 
@@ -318,7 +338,15 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                         }.padding(horizontal = 14.dp),
                         contentAlignment = Alignment.Center,
                     ) { T(stringResource(R.string.promo_apply), 13.sp, FontWeight.SemiBold, Color.White) }
-                } else T(stringResource(R.string.promo_add_code), 13.sp, FontWeight.SemiBold, Brand.Link, modifier = Modifier.clickable { codeOpen = true }.padding(vertical = 2.dp))
+                } else if (promosOn) T(stringResource(R.string.promo_add_code), 13.sp, FontWeight.SemiBold, Brand.Link, modifier = Modifier.clickable { codeOpen = true }.padding(vertical = 2.dp))
+                if (havePoints > 0) Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        T(stringResource(R.string.points_use), 14.sp, color = Ui.c.muted)
+                        Muted(stringResource(R.string.points_have, havePoints, (havePoints * pointValue).taka0()))
+                    }
+                    Input(usePoints, { usePoints = it.filter(Char::isDigit).take(7) }, Modifier.width(90.dp), keyboard = KeyboardType.Number, height = 34.dp, alignEnd = true, placeholder = "0")
+                }
+                if (pointsOff > 0) SumRow(stringResource(R.string.points_off), "− " + pointsOff.taka0(), color = Brand.DarkGreen)
                 Column(
                     Modifier.fillMaxWidth().shadow(8.dp, RoundedCornerShape(12.dp), ambientColor = Brand.Blue, spotColor = Brand.Blue)
                         .clip(RoundedCornerShape(12.dp)).background(Brand.TotalGrad).padding(horizontal = 14.dp, vertical = 10.dp),
@@ -343,10 +371,19 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                     T(stringResource(R.string.sale_paid), 14.sp, color = Ui.c.muted, modifier = Modifier.weight(1f))
                     Input(paid, { paid = it }, Modifier.width(110.dp), keyboard = KeyboardType.Decimal, height = 34.dp, alignEnd = true, placeholder = total.taka0().removePrefix("৳ "))
                 }
-                when {
-                    paidPaisa < total -> SumRow(stringResource(R.string.sale_due), (total - paidPaisa).taka0(), strong = true, color = Brand.Amber)
-                    paidPaisa > total -> SumRow(stringResource(R.string.sale_change), (paidPaisa - total).taka0(), strong = true, color = Brand.DarkGreen)
+                if (paidPaisa < total) SumRow(stringResource(R.string.sale_due), (total - paidPaisa).taka0(), strong = true, color = Brand.Amber)
+                if (instalmentsOn && paidPaisa < total) Row(verticalAlignment = Alignment.CenterVertically) {
+                    T(stringResource(R.string.inst_split), 14.sp, color = Ui.c.muted, modifier = Modifier.weight(1f))
+                    val opts = listOf(0, 2, 3, 6, 12)
+                    com.bongshaltech.erpinventory.ui.components.Segmented(
+                        opts.map { if (it == 0) "—" else it.toString() }, opts.indexOf(parts).coerceAtLeast(0),
+                    ) { parts = opts[it] }
                 }
+                if (instalmentsOn && paidPaisa < total && parts > 1) {
+                    val first = com.bongshaltech.erpinventory.core.sale.Installments.plan(total - paidPaisa, parts, java.time.LocalDate.now().plusMonths(1))
+                    Muted(stringResource(R.string.inst_each, parts, (first.firstOrNull()?.amountPaisa ?: 0).taka0()))
+                }
+                if (paidPaisa > total) SumRow(stringResource(R.string.sale_change), (paidPaisa - total).taka0(), strong = true, color = Brand.DarkGreen)
                 val shape = RoundedCornerShape(12.dp)
                 Row(
                     Modifier.fillMaxWidth().clip(shape)
@@ -393,7 +430,9 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                         NewSale(
                             lines = cart.toList(), discountPaisa = discountPaisa, paidPaisa = paidPaisa, method = method,
                             customerPhone = phone, customerName = custName, smsRequested = sms && hasPhone, staffId = who.staffId,
-                            promos = promos(),
+                            promos = promos(), installments = if (instalmentsOn && paidPaisa < total) parts else 0,
+                            checkCreditLimit = saleSettings?.on(com.bongshaltech.erpinventory.data.Feature.CREDIT_LIMIT) == true,
+                            pointsUsed = pointsUse, pointEveryPaisa = if (loyaltyOn) saleSettings?.pointEveryPaisa ?: 0 else 0,
                         )
                     )
                     when (r) {
@@ -409,6 +448,8 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                         is SaleResult.NotEnoughStock -> message = notEnough.replace("%s", r.productName)
                         SaleResult.DueNeedsCustomer -> message = dueNeeds
                         is SaleResult.PromoUsedUp -> { message = codeGone; codePromo = null }
+                        is SaleResult.OverCreditLimit -> message = ctx.getString(R.string.credit_over, r.limitPaisa.taka0(), r.nowDuePaisa.taka0())
+                        SaleResult.NotEnoughPoints -> { message = ctx.getString(R.string.points_short); usePoints = "" }
                     }
                 }
             }

@@ -56,6 +56,7 @@ import com.bongshaltech.erpinventory.ui.components.Muted
 import com.bongshaltech.erpinventory.ui.components.Panel
 import com.bongshaltech.erpinventory.ui.components.PanelColors
 import com.bongshaltech.erpinventory.ui.components.SumRow
+import com.bongshaltech.erpinventory.ui.components.Segmented
 import com.bongshaltech.erpinventory.ui.components.T
 import com.bongshaltech.erpinventory.ui.components.WhiteButton
 import com.bongshaltech.erpinventory.ui.taka
@@ -159,6 +160,7 @@ fun LabelsScreen(onBack: () -> Unit) {
     val picks = remember { mutableStateListOf<LabelPick>() }
     var q by remember { mutableStateOf("") }
     var showShop by remember { mutableStateOf(true) }
+    var style by remember { mutableStateOf(com.bongshaltech.erpinventory.print.LabelStyle.BARCODE) }
     var busy by remember { mutableStateOf(false) }
     val matches by remember(q) { app.repo.products.search(q.trim()) }.collectAsStateWithLifecycle(emptyList())
     val total = picks.sumOf { it.copies.toIntOrNull()?.coerceIn(0, 200) ?: 0 }
@@ -166,19 +168,26 @@ fun LabelsScreen(onBack: () -> Unit) {
     suspend fun build(): android.graphics.Bitmap? {
         val items = picks.flatMap { pk ->
             val fresh = app.repo.products.get(pk.product.id) ?: pk.product
-            val code = app.repo.ensureBarcode(fresh)
+            val code = if (style == com.bongshaltech.erpinventory.print.LabelStyle.SHELF) fresh.barcode.orEmpty() else app.repo.ensureBarcode(fresh)
             List(pk.copies.toIntOrNull()?.coerceIn(0, 200) ?: 0) { LabelItem(fresh.name, fresh.pricePaisa.taka(), code) }
         }
         if (items.isEmpty()) return null
         val s = settings
         return withContext(Dispatchers.Default) {
-            LabelRenderer.render(items, ReceiptRenderer.widthFor(s?.paperMm ?: 58), if (showShop) s?.profile?.name.orEmpty() else "")
+            LabelRenderer.render(items, ReceiptRenderer.widthFor(s?.paperMm ?: 58), if (showShop) s?.profile?.name.orEmpty() else "", style)
         }
     }
 
     Column(Modifier.fillMaxSize().background(Ui.c.bg)) {
         Header(stringResource(R.string.labels), onBack)
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                val styles = com.bongshaltech.erpinventory.print.LabelStyle.entries
+                Segmented(
+                    listOf(stringResource(R.string.labels_barcode), stringResource(R.string.labels_qr), stringResource(R.string.labels_shelf)),
+                    styles.indexOf(style),
+                ) { style = styles[it] }
+            }
             item {
                 Input(q, { q = it }, placeholder = stringResource(R.string.search_product))
                 if (q.isNotBlank()) matches.take(6).forEach { p ->
@@ -239,6 +248,9 @@ private val actionLabel = mapOf(
     "REPACK" to R.string.repack, "STOCK_MOVE" to R.string.warehouse_move, "IMPORT" to R.string.import_products,
     "DAY_CLOSE" to R.string.cash_day_close, "DAY_OPEN" to R.string.cash_day_open,
     "PROMO_NEW" to R.string.audit_promo_new, "PROMO_ON" to R.string.audit_promo_on, "PROMO_OFF" to R.string.audit_promo_off,
+    "SALE_DELETE" to R.string.audit_sale_delete, "SALE_DELETE_ASK" to R.string.audit_sale_delete_ask, "SALE_DELETE_NO" to R.string.audit_sale_delete_no,
+    "STOCK_ADJUST" to R.string.adj_title, "SALARY_ADVANCE" to R.string.hr_advance, "INVESTOR_ADD" to R.string.audit_investor_add, "JOURNAL" to R.string.audit_journal,
+    "HR_LOCK" to R.string.hr_lock, "HR_UNLOCK" to R.string.hr_unlocked,
 )
 
 /** More › Activity log: who did what. Owner only. */

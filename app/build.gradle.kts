@@ -106,6 +106,7 @@ dependencies {
     implementation(libs.ump)
     implementation(libs.play.billing)
     implementation(libs.play.services.code.scanner)
+    implementation(libs.zxing.core)
 
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
