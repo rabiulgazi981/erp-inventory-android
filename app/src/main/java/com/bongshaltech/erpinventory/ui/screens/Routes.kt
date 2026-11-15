@@ -46,6 +46,7 @@ object Routes {
     const val RETURNS = "returns"
     const val SALE_RETURN = "sale_return/{id}"
     const val PURCHASE_RETURN = "purchase_return/{id}"
+    const val AD_FREE = "ad_free"
 
     fun productEdit(id: Long) = "product/$id"
     fun saleReturn(saleId: Long) = "sale_return/$saleId"
@@ -135,6 +136,7 @@ fun ErpNavHost() {
         composable(Routes.PURCHASE_RETURN, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
             ReturnScreen(purchase = true, docId = e.arguments?.getLong("id") ?: 0L, onBack = back)
         }
+        composable(Routes.AD_FREE) { AdFreeScreen(back) }
         composable(Routes.REPORTS) { ReportsScreen(tab = { nav.goTab(it) }) }
     }
 }

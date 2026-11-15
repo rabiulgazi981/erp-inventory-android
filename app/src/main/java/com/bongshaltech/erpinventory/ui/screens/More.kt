@@ -164,8 +164,8 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     ListRow(stringResource(R.string.more_business_long), Icons.Outlined.Storefront, Tints.Blue, trailing = { Chevron() }) { go(Routes.BIZ) }
                     ListRow(stringResource(R.string.staff_manage), Icons.Outlined.Badge, Tints.Blue, trailing = { Side(stringResource(R.string.n_staff, staff.size)) }) { go(Routes.STAFF_MANAGE) }
                     ListRow(stringResource(R.string.remove_ads), Icons.Outlined.WorkspacePremium, Tints.Amber, trailing = {
-                        Tag(stringResource(R.string.go_ad_free), Color(0xFF92400E), Tints.Amber.brush)
-                    }) { go(Routes.SOON) }
+                        Tag(stringResource(if (s?.adFree == true) R.string.adfree_on_short else R.string.go_ad_free), Color(0xFF92400E), Tints.Amber.brush)
+                    }) { go(Routes.AD_FREE) }
                     ListRow(stringResource(R.string.sms_customers), Icons.Outlined.ChatBubbleOutline, Tints.Orange, trailing = {
                         Toggle(s?.smsDefaultOn == true, { on -> scope.launch { app.settings.setSmsDefault(on) } })
                     }, sub = stringResource(R.string.sms_default_note))
@@ -225,6 +225,7 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
             }
             DevFooter()
         }
+        com.bongshaltech.erpinventory.ads.AdBanner()
         BottomNav(Tab.MORE, tab)
     }
 }

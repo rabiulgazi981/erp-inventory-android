@@ -204,6 +204,7 @@ fun HomeScreen(go: (String) -> Unit, tab: (Tab) -> Unit) {
             }
             DevFooter()
         }
+        com.bongshaltech.erpinventory.ads.AdBanner()
         BottomNav(Tab.HOME, tab)
     }
 }
