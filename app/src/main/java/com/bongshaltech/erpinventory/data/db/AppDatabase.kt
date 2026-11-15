@@ -25,6 +25,7 @@ class Converters {
         SaleReturnEntity::class, SaleReturnItemEntity::class, PurchaseReturnEntity::class, PurchaseReturnItemEntity::class,
         OrderDocEntity::class, OrderDocItemEntity::class,
         MoneyMoveEntity::class, LoanEntity::class, CashSessionEntity::class,
+        PromoEntity::class, SalePromoEntity::class,
     ],
     version = 11,
     exportSchema = true,
