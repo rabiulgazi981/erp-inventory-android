@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bongshaltech.erpinventory.R
+import com.bongshaltech.erpinventory.ui.scanBarcode
 import com.bongshaltech.erpinventory.data.StaffMenu
 import com.bongshaltech.erpinventory.data.db.ProductEntity
 import com.bongshaltech.erpinventory.ui.components.BottomBar
@@ -91,6 +92,7 @@ fun SearchBox(value: String, onChange: (String) -> Unit, placeholder: String, mo
 fun ProductsScreen(lowOnly: Boolean, go: (String) -> Unit, tab: (Tab) -> Unit) {
     val app = app()
     val who = rememberWho()
+    val ctx = LocalContext.current
     var q by rememberSaveable { mutableStateOf("") }
     var low by rememberSaveable { mutableStateOf(lowOnly) }
     val list by remember(q, low) { if (low) app.repo.products.searchLow(q.trim()) else app.repo.products.search(q.trim()) }
@@ -101,7 +103,7 @@ fun ProductsScreen(lowOnly: Boolean, go: (String) -> Unit, tab: (Tab) -> Unit) {
 
     Column(Modifier.fillMaxSize().background(Ui.c.bg)) {
         Header(stringResource(R.string.products_title)) {
-            HeaderIcon(Icons.Outlined.QrCodeScanner, stringResource(R.string.scan)) { go(Routes.SOON) }
+            HeaderIcon(Icons.Outlined.QrCodeScanner, stringResource(R.string.scan)) { scanBarcode(ctx) { q = it } }
         }
         Box(Modifier.weight(1f)) {
             LazyColumn(
@@ -242,7 +244,7 @@ fun ProductEditScreen(id: Long, onDone: () -> Unit) {
                         Input(barcode, { barcode = it }, Modifier.weight(1f), label = stringResource(R.string.product_barcode))
                         Box(
                             Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)).background(Brand.GreenGrad)
-                                .clickable { Toast.makeText(ctx, soon, Toast.LENGTH_SHORT).show() },
+                                .clickable { scanBarcode(ctx) { barcode = it } },
                             contentAlignment = Alignment.Center,
                         ) { Icon(Icons.Outlined.QrCodeScanner, stringResource(R.string.scan), tint = Color.White, modifier = Modifier.size(20.dp)) }
                     }

@@ -320,6 +320,8 @@
     <string name="rep_customers_owe">Customers owe (now)</string>
     <string name="rep_top_products">Top products</string>
     <string name="rep_by_day">Sales by day</string>
+    <string name="scan_failed">Could not open the scanner. Update Google Play services and try again.</string>
+    <string name="scan_not_found">No product with barcode %1$s. Add it in Products.</string>
     <string name="receipt_title">Receipt</string>
     <string name="receipt_print">Print</string>
     <string name="receipt_share">Share</string>
