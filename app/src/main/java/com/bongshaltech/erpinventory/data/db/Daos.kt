@@ -1065,3 +1065,61 @@ interface BooksDao {
     @Query("SELECT * FROM money_move WHERE investorId = :id ORDER BY createdAt DESC")
     fun investorMoves(id: Long): Flow<List<MoneyMoveEntity>>
 }
+
+data class RecipeRow(val id: Long, val productId: Long, val name: String, val outMilli: Long, val note: String, val inputs: String?)
+
+data class WorkRow(
+    val id: Long, val number: String, val kind: String, val supplierId: Long, val supplierName: String?, val status: String,
+    val note: String, val chargePaisa: Long, val createdAt: Long,
+)
+
+@Dao
+interface MakingDao {
+    @Query(
+        "SELECT r.id, r.productId, r.name, r.outMilli, r.note, (SELECT GROUP_CONCAT(name, ', ') FROM recipe_item WHERE recipeId = r.id) AS inputs " +
+            "FROM recipe r WHERE r.active = 1 ORDER BY r.name"
+    )
+    fun recipes(): Flow<List<RecipeRow>>
+
+    @Query("SELECT * FROM recipe_item WHERE recipeId = :id")
+    suspend fun recipeItems(id: Long): List<RecipeItemEntity>
+
+    @Query("SELECT * FROM recipe WHERE id = :id")
+    suspend fun recipe(id: Long): RecipeEntity?
+
+    @Insert
+    suspend fun insertRecipe(r: RecipeEntity): Long
+
+    @Insert
+    suspend fun insertRecipeItems(l: List<RecipeItemEntity>)
+
+    @Query("UPDATE recipe SET active = 0 WHERE id = :id")
+    suspend fun hideRecipe(id: Long)
+
+    @Query(
+        "SELECT w.id, w.number, w.kind, w.supplierId, s.name AS supplierName, w.status, w.note, w.chargePaisa, w.createdAt " +
+            "FROM work_order w LEFT JOIN supplier s ON s.id = w.supplierId WHERE w.kind = :kind ORDER BY w.status = 'OPEN' DESC, w.createdAt DESC LIMIT 200"
+    )
+    fun orders(kind: String): Flow<List<WorkRow>>
+
+    @Query("SELECT * FROM work_order WHERE id = :id")
+    suspend fun order(id: Long): WorkOrderEntity?
+
+    @Query("SELECT * FROM work_line WHERE orderId = :id ORDER BY id")
+    fun watchLines(id: Long): Flow<List<WorkLineEntity>>
+
+    @Query("SELECT * FROM work_line WHERE orderId = :id ORDER BY id")
+    suspend fun lines(id: Long): List<WorkLineEntity>
+
+    @Insert
+    suspend fun insertOrder(o: WorkOrderEntity): Long
+
+    @Insert
+    suspend fun insertLines(l: List<WorkLineEntity>)
+
+    @Query("UPDATE work_line SET doneMilli = doneMilli + :done, scrapMilli = scrapMilli + :scrap WHERE id = :id")
+    suspend fun addDone(id: Long, done: Long, scrap: Long)
+
+    @Query("UPDATE work_order SET status = :status, chargePaisa = chargePaisa + :charge WHERE id = :id")
+    suspend fun update(id: Long, status: String, charge: Long)
+}
