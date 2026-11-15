@@ -790,4 +790,16 @@
     <string name="points_use">Use points</string>
     <string name="points_have">Has %1$d points (%2$s)</string>
     <string name="points_off">Points discount</string>
+    <string name="hr_locked_note">This month is locked. Unlock it under Salary to change attendance.</string>
+    <string name="hr_lock">Lock this month</string>
+    <string name="hr_lock_sub">Attendance for the month can\'t be changed while locked</string>
+    <string name="hr_unlocked">Month unlocked</string>
+    <string name="hr_advance">Advance</string>
+    <string name="hr_advance_left">Advance still to take back</string>
+    <string name="hr_cut_advance">Take off advance</string>
+    <string name="hr_department">Department</string>
+    <string name="hr_shift">Shift / hours</string>
+    <string name="hr_leave_days">Paid leave days a year</string>
+    <string name="hr_leave_year">Leave this year: %1$d of %2$d</string>
+    <string name="hr_all_depts">All</string>
 </resources>

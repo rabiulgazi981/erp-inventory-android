@@ -446,6 +446,11 @@ data class EmployeeEntity(
     val salaryPaisa: Long = 0,
     val active: Boolean = true,
     val joinedAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "") val department: String = "",
+    /** Working hours or shift name, for example "Morning" or "9-5". */
+    @ColumnInfo(defaultValue = "") val shift: String = "",
+    /** Paid leave days allowed in a year; 0 means not tracked. */
+    @ColumnInfo(defaultValue = "0") val leaveDays: Int = 0,
 )
 
 enum class AttendanceStatus { PRESENT, ABSENT, LEAVE, HALF }
@@ -468,6 +473,15 @@ data class SalaryPaymentEntity(
     val amountPaisa: Long,
     val expenseId: Long,
     val createdAt: Long = System.currentTimeMillis(),
+    /** SALARY, ADVANCE (paid early, money out now) or ADVANCE_CUT (taken off a salary; no money moves). */
+    @ColumnInfo(defaultValue = "SALARY") val kind: String = "SALARY",
+)
+
+/** A month whose attendance can't be changed any more (yyyyMM). */
+@Entity(tableName = "hr_lock")
+data class HrLockEntity(
+    @PrimaryKey val month: Int,
+    val lockedAt: Long = System.currentTimeMillis(),
 )
 
 /** Part of a product's stock that came in together: a batch number and its expiry. Stock outside batches has none. */

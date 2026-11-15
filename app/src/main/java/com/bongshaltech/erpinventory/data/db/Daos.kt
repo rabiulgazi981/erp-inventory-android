@@ -686,9 +686,34 @@ interface HrDao {
     // Joined to the expense, so a salary expense deleted from Expenses no longer counts as paid.
     @Query(
         "SELECT sp.employeeId AS employeeId, SUM(sp.amountPaisa) AS paidPaisa FROM salary_payment sp " +
-            "JOIN expense e ON e.id = sp.expenseId WHERE sp.month = :month GROUP BY sp.employeeId"
+            "LEFT JOIN expense e ON e.id = sp.expenseId WHERE sp.month = :month " +
+            "AND ((sp.kind = 'SALARY' AND e.id IS NOT NULL) OR sp.kind = 'ADVANCE_CUT') GROUP BY sp.employeeId"
     )
     fun paid(month: Int): Flow<List<MonthPaid>>
+
+    /** Advance still to be taken off future salaries, per employee. */
+    @Query(
+        "SELECT sp.employeeId AS employeeId, SUM(CASE WHEN sp.kind = 'ADVANCE' THEN sp.amountPaisa ELSE -sp.amountPaisa END) AS paidPaisa " +
+            "FROM salary_payment sp LEFT JOIN expense e ON e.id = sp.expenseId " +
+            "WHERE (sp.kind = 'ADVANCE' AND e.id IS NOT NULL) OR sp.kind = 'ADVANCE_CUT' GROUP BY sp.employeeId"
+    )
+    fun advances(): Flow<List<MonthPaid>>
+
+    /** Leave days marked per employee between two yyyyMMdd days. */
+    @Query("SELECT employeeId, COUNT(*) AS paidPaisa FROM attendance WHERE status = 'LEAVE' AND day BETWEEN :from AND :to GROUP BY employeeId")
+    fun leaveTaken(from: Int, to: Int): Flow<List<MonthPaid>>
+
+    @Query("SELECT COUNT(*) FROM hr_lock WHERE month = :month")
+    fun watchLocked(month: Int): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM hr_lock WHERE month = :month")
+    suspend fun isLocked(month: Int): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun lock(l: HrLockEntity)
+
+    @Query("DELETE FROM hr_lock WHERE month = :month")
+    suspend fun unlock(month: Int)
 
     @Insert
     suspend fun insertPayment(p: SalaryPaymentEntity): Long

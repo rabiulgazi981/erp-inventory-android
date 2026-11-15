@@ -789,4 +789,16 @@
     <string name="points_use">পয়েন্ট ব্যবহার</string>
     <string name="points_have">%1$d পয়েন্ট আছে (%2$s)</string>
     <string name="points_off">পয়েন্ট ছাড়</string>
+    <string name="hr_locked_note">এই মাস লক করা। হাজিরা বদলাতে বেতন পাতা থেকে আনলক করুন।</string>
+    <string name="hr_lock">এই মাস লক করুন</string>
+    <string name="hr_lock_sub">লক থাকলে এই মাসের হাজিরা বদলানো যাবে না</string>
+    <string name="hr_unlocked">মাস আনলক</string>
+    <string name="hr_advance">অগ্রিম</string>
+    <string name="hr_advance_left">অগ্রিম ফেরত বাকি</string>
+    <string name="hr_cut_advance">অগ্রিম থেকে কাটা</string>
+    <string name="hr_department">ডিপার্টমেন্ট</string>
+    <string name="hr_shift">শিফট / সময়</string>
+    <string name="hr_leave_days">বছরে বেতনসহ ছুটি (দিন)</string>
+    <string name="hr_leave_year">এ বছর ছুটি: %2$d-এর মধ্যে %1$d</string>
+    <string name="hr_all_depts">সব</string>
 </resources>

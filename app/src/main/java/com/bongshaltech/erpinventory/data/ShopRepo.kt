@@ -717,18 +717,46 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     val hr get() = db.hr()
 
     /** Pays salary (or an advance) for [month] (yyyyMM). It is also saved as an expense, so cash and profit include it. */
-    suspend fun paySalary(employeeId: Long, month: Int, amountPaisa: Long, method: PayMethod, category: String, note: String, staffId: Long?): String? {
-        if (amountPaisa <= 0) return null
+    /**
+     * Pays a salary (or an [advance]) as an expense. [cutAdvancePaisa] is advance taken off this salary:
+     * it counts as paid for the month without new money going out.
+     */
+    suspend fun paySalary(
+        employeeId: Long, month: Int, amountPaisa: Long, method: PayMethod, category: String, note: String, staffId: Long?,
+        advance: Boolean = false, cutAdvancePaisa: Long = 0,
+    ): String? {
+        if (amountPaisa <= 0 && cutAdvancePaisa <= 0) return null
         val code = settings.current().shopCode
         return db.withTransaction {
-            val number = nextNumber(code, DocType.EXPENSE)
-            val expenseId = db.expenses().insert(
-                ExpenseEntity(number = number, category = category.trim(), amountPaisa = amountPaisa, method = method, note = note.trim(), staffId = staffId)
-            )
-            db.hr().insertPayment(SalaryPaymentEntity(employeeId = employeeId, month = month, amountPaisa = amountPaisa, expenseId = expenseId))
-            audit("SALARY", "$number · ${note.trim()} · ${tk(amountPaisa)}")
-            number
+            var number = ""
+            if (amountPaisa > 0) {
+                number = nextNumber(code, DocType.EXPENSE)
+                val expenseId = db.expenses().insert(
+                    ExpenseEntity(number = number, category = category.trim(), amountPaisa = amountPaisa, method = method, note = note.trim(), staffId = staffId)
+                )
+                db.hr().insertPayment(
+                    SalaryPaymentEntity(employeeId = employeeId, month = month, amountPaisa = amountPaisa, expenseId = expenseId, kind = if (advance) "ADVANCE" else "SALARY")
+                )
+            }
+            if (cutAdvancePaisa > 0 && !advance) {
+                db.hr().insertPayment(SalaryPaymentEntity(employeeId = employeeId, month = month, amountPaisa = cutAdvancePaisa, expenseId = 0, kind = "ADVANCE_CUT"))
+            }
+            audit(if (advance) "SALARY_ADVANCE" else "SALARY", "$number · ${note.trim()} · ${tk(amountPaisa)}" + if (cutAdvancePaisa > 0) " · −${tk(cutAdvancePaisa)}" else "")
+            number.ifEmpty { "—" }
         }
+    }
+
+    /** Marks or clears a day's attendance. Returns false when that month is locked. */
+    suspend fun markAttendance(employeeId: Long, day: Int, status: com.bongshaltech.erpinventory.data.db.AttendanceStatus?): Boolean {
+        if (db.hr().isLocked(day / 100) > 0) return false
+        if (status == null) db.hr().unmark(employeeId, day)
+        else db.hr().mark(com.bongshaltech.erpinventory.data.db.AttendanceEntity(employeeId = employeeId, day = day, status = status))
+        return true
+    }
+
+    suspend fun setMonthLocked(month: Int, locked: Boolean) {
+        if (locked) db.hr().lock(com.bongshaltech.erpinventory.data.db.HrLockEntity(month)) else db.hr().unlock(month)
+        audit(if (locked) "HR_LOCK" else "HR_UNLOCK", "$month")
     }
 
     /** Saves an offer, coupon or voucher. Returns false when the code is empty or already used by another one. */

@@ -105,26 +105,28 @@ private fun Attendance() {
     val people by remember { app.repo.hr.employees() }.collectAsStateWithLifecycle(emptyList())
     val marks by remember(day) { app.repo.hr.day(day.key()) }.collectAsStateWithLifecycle(emptyList())
     val fmt = remember { DateTimeFormatter.ofPattern("EEE, d MMM yyyy", Locale.getDefault()) }
-    val active = people.filter { it.active }
+    var dept by remember { mutableStateOf("") }
+    val depts = people.filter { it.active }.map { it.department }.filter { it.isNotBlank() }.distinct().sorted()
+    val active = people.filter { it.active && (dept.isEmpty() || it.department == dept) }
+    val locked by remember(day) { app.repo.hr.watchLocked(day.year * 100 + day.monthValue) }.collectAsStateWithLifecycle(0)
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Stepper(day.format(fmt), { day = day.minusDays(1) }, if (day < today) ({ day = day.plusDays(1) }) else null) }
+        if (depts.isNotEmpty()) item { DeptChips(depts, dept) { dept = it } }
+        if (locked > 0) item { T(stringResource(R.string.hr_locked_note), 13.sp, FontWeight.SemiBold, Brand.Amber) }
         if (active.isEmpty()) item { Muted(stringResource(R.string.hr_no_people), 14.sp) }
-        else item {
+        else if (locked == 0) item {
             T(stringResource(R.string.hr_all_present), 13.sp, FontWeight.SemiBold, Brand.Link, modifier = Modifier.clickable {
-                scope.launch { active.filter { e -> marks.none { it.employeeId == e.id } }.forEach { app.repo.hr.mark(AttendanceEntity(employeeId = it.id, day = day.key(), status = AttendanceStatus.PRESENT)) } }
+                scope.launch { active.filter { e -> marks.none { it.employeeId == e.id } }.forEach { app.repo.markAttendance(it.id, day.key(), AttendanceStatus.PRESENT) } }
             }.padding(vertical = 4.dp))
         }
         items(active, key = { it.id }) { e ->
             val mark = marks.firstOrNull { it.employeeId == e.id }?.status
             Card(Modifier.fillMaxWidth(), padding = 10.dp) {
-                T(e.name, 14.sp, FontWeight.SemiBold)
+                T(e.name + if (e.shift.isNotBlank()) " · " + e.shift else "", 14.sp, FontWeight.SemiBold)
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     statusLabel.forEach { (st, label) ->
                         Chip(stringResource(label), mark == st, {
-                            scope.launch {
-                                if (mark == st) app.repo.hr.unmark(e.id, day.key())
-                                else app.repo.hr.mark(AttendanceEntity(employeeId = e.id, day = day.key(), status = st))
-                            }
+                            if (locked == 0) scope.launch { app.repo.markAttendance(e.id, day.key(), if (mark == st) null else st) }
                         })
                     }
                 }
@@ -150,6 +152,10 @@ private fun Salaries(staffId: Long?) {
     val fmt = remember { DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault()) }
     val category = stringResource(R.string.hr_salary)
     val list = people.filter { it.active || paid.any { p -> p.employeeId == it.id } }
+    val advances by remember { app.repo.hr.advances() }.collectAsStateWithLifecycle(emptyList())
+    val locked by remember(month) { app.repo.hr.watchLocked(month.key()) }.collectAsStateWithLifecycle(0)
+    var advanceMode by remember { mutableStateOf(false) }
+    var cut by remember { mutableStateOf("") }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Stepper(month.format(fmt), { month = month.minusMonths(1); paying = null }, if (month < now) ({ month = month.plusMonths(1); paying = null }) else null) }
@@ -161,12 +167,21 @@ private fun Salaries(staffId: Long?) {
             }
             if (list.isNotEmpty()) SumRow(stringResource(R.string.hr_total_left), totalLeft.taka(), strong = true)
         }
+        if (list.isNotEmpty()) item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    T(stringResource(R.string.hr_lock), 14.sp, FontWeight.SemiBold)
+                    Muted(stringResource(R.string.hr_lock_sub))
+                }
+                Toggle(locked > 0, { on -> scope.launch { app.repo.setMonthLocked(month.key(), on) } })
+            }
+        }
         items(list, key = { it.id }) { e ->
             val m = marks.firstOrNull { it.employeeId == e.id }
             val earned = Payroll.earned(e.salaryPaisa, month.lengthOfMonth(), m?.absent ?: 0, m?.half ?: 0)
             val given = paid.firstOrNull { it.employeeId == e.id }?.paidPaisa ?: 0
             val left = earned - given
-            Card(Modifier.fillMaxWidth(), padding = 12.dp, onClick = { paying = if (paying == e.id) null else e.id; amount = ""; message = null }) {
+            Card(Modifier.fillMaxWidth(), padding = 12.dp, onClick = { paying = if (paying == e.id) null else e.id; amount = ""; cut = ""; advanceMode = false; message = null }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     T(e.name, 15.sp, FontWeight.SemiBold, modifier = Modifier.weight(1f))
                     T(left.coerceAtLeast(0).taka(), 15.sp, FontWeight.Bold, if (left > 0) Brand.Red else Brand.DarkGreen)
@@ -175,16 +190,27 @@ private fun Salaries(staffId: Long?) {
                 SumRow(stringResource(R.string.hr_monthly), e.salaryPaisa.taka())
                 SumRow(stringResource(R.string.hr_earned), earned.taka())
                 SumRow(stringResource(R.string.hr_paid), given.taka())
+                val owesAdvance = (advances.firstOrNull { it.employeeId == e.id }?.paidPaisa ?: 0).coerceAtLeast(0)
+                if (owesAdvance > 0) SumRow(stringResource(R.string.hr_advance_left), owesAdvance.taka(), color = Brand.Amber)
                 if (paying == e.id) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Chip(stringResource(R.string.hr_salary), !advanceMode, { advanceMode = false })
+                        Chip(stringResource(R.string.hr_advance), advanceMode, { advanceMode = true })
+                    }
+                    if (!advanceMode && owesAdvance > 0) Input(cut, { cut = it }, label = stringResource(R.string.hr_cut_advance), keyboard = KeyboardType.Decimal,
+                        placeholder = minOf(owesAdvance, left.coerceAtLeast(0)).taka())
                     Input(amount, { amount = it }, label = stringResource(R.string.cust_amount), keyboard = KeyboardType.Decimal,
                         placeholder = left.coerceAtLeast(0).taka())
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         methods.forEach { (pm, label) -> Chip(stringResource(label), method == pm, { method = pm }) }
                     }
                     GradButton(stringResource(R.string.hr_pay), Brand.BlueGrad, Modifier.fillMaxWidth()) {
-                        val a = if (amount.isBlank()) left.coerceAtLeast(0) else amount.toPaisa() ?: 0
+                        val cutP = if (advanceMode) 0L else (if (cut.isBlank()) minOf(owesAdvance, left.coerceAtLeast(0)) else cut.toPaisa() ?: 0).coerceIn(0, owesAdvance)
+                        val a = if (amount.isBlank()) (if (advanceMode) 0L else (left - cutP).coerceAtLeast(0)) else amount.toPaisa() ?: 0
                         scope.launch {
-                            val n = app.repo.paySalary(e.id, month.key(), a, method, category, e.name + " · " + month.format(fmt), staffId)
+                            val n = app.repo.paySalary(e.id, month.key(), a, method, category, e.name + " · " + month.format(fmt), staffId,
+                                advance = advanceMode, cutAdvancePaisa = cutP)
+                            cut = ""; advanceMode = false
                             message = if (n == null) ctx.getString(R.string.cash_bank_bad) else { paying = null; ctx.getString(R.string.hr_paid_saved, n) }
                         }
                     }
@@ -206,8 +232,14 @@ private fun People() {
     var phone by remember { mutableStateOf("") }
     var role by remember { mutableStateOf("") }
     var salary by remember { mutableStateOf("") }
+    var department by remember { mutableStateOf("") }
+    var shift by remember { mutableStateOf("") }
+    var leave by remember { mutableStateOf("") }
+    val year = remember { LocalDate.now().year }
+    val taken by remember { app.repo.hr.leaveTaken(year * 10000 + 101, year * 10000 + 1231) }.collectAsStateWithLifecycle(emptyList())
     fun load(e: EmployeeEntity?) {
         editing = e; name = e?.name.orEmpty(); phone = e?.phone.orEmpty(); role = e?.role.orEmpty()
+        department = e?.department.orEmpty(); shift = e?.shift.orEmpty(); leave = e?.leaveDays?.takeIf { it > 0 }?.toString().orEmpty()
         salary = e?.salaryPaisa?.takeIf { it > 0 }?.let { (it / 100.0).toBigDecimal().stripTrailingZeros().toPlainString() }.orEmpty()
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -216,7 +248,10 @@ private fun People() {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         T(e.name, 14.sp, FontWeight.SemiBold)
-                        Muted(listOf(e.role, e.phone, e.salaryPaisa.taka()).filter { it.isNotBlank() }.joinToString(" · "))
+                        Muted(listOf(e.department, e.role, e.shift, e.phone, e.salaryPaisa.taka()).filter { it.isNotBlank() }.joinToString(" · "))
+                        val used = taken.firstOrNull { it.employeeId == e.id }?.paidPaisa ?: 0
+                        if (e.leaveDays > 0 || used > 0) T(stringResource(R.string.hr_leave_year, used.toInt(), e.leaveDays), 12.sp,
+                            color = if (e.leaveDays > 0 && used > e.leaveDays) Brand.Red else Ui.c.muted)
                     }
                     Toggle(e.active, { on -> scope.launch { app.repo.hr.saveEmployee(e.copy(active = on)) } })
                 }
@@ -227,12 +262,18 @@ private fun People() {
                 Input(name, { name = it }, label = stringResource(R.string.promo_name))
                 Input(phone, { phone = it }, label = stringResource(R.string.onb_phone), keyboard = KeyboardType.Phone)
                 Input(role, { role = it }, label = stringResource(R.string.hr_role))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Input(department, { department = it }, Modifier.weight(1f), label = stringResource(R.string.hr_department))
+                    Input(shift, { shift = it }, Modifier.weight(1f), label = stringResource(R.string.hr_shift), placeholder = "9-5")
+                }
+                Input(leave, { leave = it.filter(Char::isDigit).take(3) }, label = stringResource(R.string.hr_leave_days), keyboard = KeyboardType.Number)
                 Input(salary, { salary = it }, label = stringResource(R.string.hr_monthly), keyboard = KeyboardType.Decimal)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     GradButton(stringResource(R.string.ord_save), Brand.GreenGrad, Modifier.weight(1f), enabled = name.isNotBlank()) {
                         val base = editing ?: EmployeeEntity(name = "")
                         scope.launch {
-                            app.repo.hr.saveEmployee(base.copy(name = name.trim(), phone = phone.filter(Char::isDigit), role = role.trim(), salaryPaisa = salary.toPaisa() ?: 0))
+                            app.repo.hr.saveEmployee(base.copy(name = name.trim(), phone = phone.filter(Char::isDigit), role = role.trim(), salaryPaisa = salary.toPaisa() ?: 0,
+                                department = department.trim(), shift = shift.trim(), leaveDays = leave.toIntOrNull() ?: 0))
                             load(null)
                         }
                     }
@@ -240,5 +281,13 @@ private fun People() {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DeptChips(depts: List<String>, picked: String, pick: (String) -> Unit) {
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Chip(stringResource(R.string.hr_all_depts), picked.isEmpty(), { pick("") })
+        depts.forEach { d -> Chip(d, picked == d, { pick(d) }) }
     }
 }
