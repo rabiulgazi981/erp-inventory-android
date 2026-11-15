@@ -79,11 +79,14 @@ object Routes {
     const val KITCHEN = "kitchen"
     const val REST_REPORT = "rest_report"
     const val PHARMA_REPORT = "pharma_report"
+    const val REPORT_LIST = "reports_all"
+    const val REPORT = "report/{k}"
     const val TABLE = "table/{id}"
 
     fun productEdit(id: Long) = "product/$id"
     fun ledger(m: com.bongshaltech.erpinventory.data.db.PayMethod) = "ledger/${m.name}"
     fun loan(id: Long) = "loan/$id"
+    fun report(kind: String) = "report/$kind"
     fun table(id: Long) = "table/$id"
     fun warehouse(id: Long) = "warehouse/$id"
     fun saleReturn(saleId: Long) = "sale_return/$saleId"
@@ -205,6 +208,8 @@ fun ErpNavHost() {
         composable(Routes.KITCHEN) { KitchenScreen(back) }
         composable(Routes.REST_REPORT) { RestaurantReportScreen(back) }
         composable(Routes.PHARMA_REPORT) { PharmacyReportScreen(back) }
+        composable(Routes.REPORT_LIST) { ReportListScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.REPORT) { e -> ReportViewScreen(e.arguments?.getString("k").orEmpty(), back) }
         composable(Routes.DELETED_SALES) { DeletedSalesScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.SERIALS) { SerialsScreen(back) }
         composable(Routes.WAREHOUSES) { WarehousesScreen(go = { nav.navigate(it) }, onBack = back) }
@@ -221,6 +226,6 @@ fun ErpNavHost() {
             ReturnScreen(purchase = true, docId = e.arguments?.getLong("id") ?: 0L, onBack = back)
         }
         composable(Routes.AD_FREE) { AdFreeScreen(back) }
-        composable(Routes.REPORTS) { ReportsScreen(tab = { nav.goTab(it) }) }
+        composable(Routes.REPORTS) { ReportsScreen(tab = { nav.goTab(it) }, go = { nav.navigate(it) }) }
     }
 }

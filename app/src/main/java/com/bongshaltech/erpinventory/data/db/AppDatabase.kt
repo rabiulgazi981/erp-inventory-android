@@ -64,6 +64,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun books(): BooksDao
     abstract fun making(): MakingDao
     abstract fun kitchen(): KitchenDao
+    abstract fun reportSet(): ReportSetDao
 
     companion object {
         // Schema changes must be additive migrations: shop data on the phone is never wiped.
