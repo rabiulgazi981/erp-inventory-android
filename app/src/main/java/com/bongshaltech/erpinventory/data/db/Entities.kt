@@ -154,6 +154,10 @@ data class SaleEntity(
     /** Loyalty points this sale gave and spent; kept so a delete can undo them. */
     @ColumnInfo(defaultValue = "0") val pointsEarned: Long = 0,
     @ColumnInfo(defaultValue = "0") val pointsUsed: Long = 0,
+    /** Pharmacy prescription details, blank when not given. */
+    @ColumnInfo(defaultValue = "") val patientName: String = "",
+    @ColumnInfo(defaultValue = "") val doctorName: String = "",
+    @ColumnInfo(defaultValue = "") val prescriptionNo: String = "",
 )
 
 @Entity(
@@ -713,4 +717,74 @@ data class RecurringExpenseEntity(
     /** yyyyMM it was last posted for, 0 if never. */
     val lastMonth: Int = 0,
     val active: Boolean = true,
+)
+
+/** A saved recipe (bill of materials): [inputs] make [outMilli] of [productId]. */
+@Entity(tableName = "recipe", indices = [Index("productId")])
+data class RecipeEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val productId: Long,
+    val name: String,
+    val outMilli: Long,
+    val note: String = "",
+    val active: Boolean = true,
+)
+
+@Entity(
+    tableName = "recipe_item",
+    foreignKeys = [ForeignKey(entity = RecipeEntity::class, parentColumns = ["id"], childColumns = ["recipeId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("recipeId")],
+)
+data class RecipeItemEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val recipeId: Long,
+    val productId: Long,
+    val name: String,
+    val qtyMilli: Long,
+)
+
+/** Work sent to a supplier: FACTORY (they make goods for us at a rate) or REPAIR (our goods go out and come back). */
+@Entity(tableName = "work_order", indices = [Index("supplierId")])
+data class WorkOrderEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val number: String,
+    val kind: String,
+    val supplierId: Long,
+    /** OPEN, DONE or CANCELLED. */
+    val status: String = "OPEN",
+    val note: String = "",
+    /** Charges added to the supplier's due so far. */
+    val chargePaisa: Long = 0,
+    val staffId: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+@Entity(
+    tableName = "work_line",
+    foreignKeys = [ForeignKey(entity = WorkOrderEntity::class, parentColumns = ["id"], childColumns = ["orderId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("orderId")],
+)
+data class WorkLineEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val orderId: Long,
+    val productId: Long,
+    val name: String,
+    val qtyMilli: Long,
+    /** FACTORY: price per unit. REPAIR: 0. */
+    val ratePaisa: Long = 0,
+    val doneMilli: Long = 0,
+    val scrapMilli: Long = 0,
+)
+
+/** A kitchen ticket (KOT) for the kitchen screen. [itemsText] is one "qtyMilli<TAB>name" per line. */
+@Entity(tableName = "kot", indices = [Index("status")])
+data class KotEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val number: String,
+    val tableName: String,
+    val itemsText: String,
+    /** NEW, COOKING, READY or SERVED. */
+    val status: String = "NEW",
+    val createdAt: Long = System.currentTimeMillis(),
+    val readyAt: Long? = null,
 )

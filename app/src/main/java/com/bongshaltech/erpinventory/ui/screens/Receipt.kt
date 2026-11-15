@@ -103,6 +103,11 @@ private suspend fun loadReceipt(ctx: Context, saleId: Long, profile: BusinessPro
         paid = s.paidPaisa.taka(),
         due = due.takeIf { it > 0 }?.taka(),
         method = methodName(ctx, s.method),
+        extra = listOfNotNull(
+            s.patientName.takeIf { it.isNotBlank() }?.let { ctx.getString(R.string.rx_patient) + ": " + it },
+            s.doctorName.takeIf { it.isNotBlank() }?.let { ctx.getString(R.string.rx_doctor) + ": " + it },
+            s.prescriptionNo.takeIf { it.isNotBlank() }?.let { ctx.getString(R.string.rx_no) + ": " + it },
+        ),
     )
 }
 

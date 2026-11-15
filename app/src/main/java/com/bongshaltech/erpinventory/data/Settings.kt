@@ -14,17 +14,20 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import com.bongshaltech.erpinventory.ui.theme.ThemeMode
 
-enum class ShopType { GENERAL, GROCERY, SUPER_SHOP, PHARMACY, RESTAURANT }
+enum class ShopType { GENERAL, GROCERY, SUPER_SHOP, PHARMACY, RESTAURANT, PET_SHOP, FASHION, MOBILE, FACTORY }
 
 /**
  * Optional modules, like the web dashboard's Settings > Features. Each is off until the owner turns it on,
  * except the module that belongs to the shop's own business type. Turning one off only hides it; no data is removed.
  */
-enum class Feature { CASH_DAY, LOANS, PROMOS, HR, ORDERS, TABLES, BATCHES, REPACK, SERIALS, WAREHOUSES, MOBILE_BANKING, INSTALLMENTS, SCALE_BARCODE, PACKS, CREDIT_LIMIT, AREAS, LOYALTY, ACCOUNTING, RECURRING, INVESTORS }
+enum class Feature { CASH_DAY, LOANS, PROMOS, HR, ORDERS, TABLES, BATCHES, REPACK, SERIALS, WAREHOUSES, MOBILE_BANKING, INSTALLMENTS, SCALE_BARCODE, PACKS, CREDIT_LIMIT, AREAS, LOYALTY, ACCOUNTING, RECURRING, INVESTORS, MANUFACTURING, FACTORY, REPAIR, KITCHEN, PRESCRIPTION }
 
 fun defaultFeatures(type: ShopType): Set<Feature> = when (type) {
-    ShopType.RESTAURANT -> setOf(Feature.TABLES)
-    ShopType.PHARMACY -> setOf(Feature.BATCHES)
+    ShopType.RESTAURANT -> setOf(Feature.TABLES, Feature.KITCHEN)
+    ShopType.PHARMACY -> setOf(Feature.BATCHES, Feature.PRESCRIPTION)
+    ShopType.PET_SHOP -> setOf(Feature.REPACK, Feature.PACKS)
+    ShopType.MOBILE -> setOf(Feature.SERIALS)
+    ShopType.FACTORY -> setOf(Feature.MANUFACTURING, Feature.FACTORY)
     else -> emptySet()
 }
 

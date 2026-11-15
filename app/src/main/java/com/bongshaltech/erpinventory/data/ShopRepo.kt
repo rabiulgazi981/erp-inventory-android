@@ -55,6 +55,12 @@ import com.bongshaltech.erpinventory.data.db.JournalEntryEntity
 import com.bongshaltech.erpinventory.data.db.JournalLineEntity
 import com.bongshaltech.erpinventory.data.db.RecurringExpenseEntity
 import java.time.LocalDate
+import com.bongshaltech.erpinventory.core.stock.Recipe
+import com.bongshaltech.erpinventory.data.db.RecipeEntity
+import com.bongshaltech.erpinventory.data.db.KotEntity
+import com.bongshaltech.erpinventory.data.db.RecipeItemEntity
+import com.bongshaltech.erpinventory.data.db.WorkOrderEntity
+import com.bongshaltech.erpinventory.data.db.WorkLineEntity
 import com.bongshaltech.erpinventory.core.books.AccountType
 import com.bongshaltech.erpinventory.core.books.Books
 import com.bongshaltech.erpinventory.core.books.JournalLine
@@ -83,6 +89,10 @@ data class NewSale(
     /** Loyalty: points spent on this sale (their value is already inside [discountPaisa]); earn one per [pointEveryPaisa] paid, 0 = off. */
     val pointsUsed: Long = 0,
     val pointEveryPaisa: Long = 0,
+    /** Pharmacy prescription details. */
+    val patientName: String = "",
+    val doctorName: String = "",
+    val prescriptionNo: String = "",
 )
 
 sealed interface DeleteResult {
@@ -350,6 +360,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                         totalPaisa = total, paidPaisa = minOf(s.paidPaisa, total), method = s.method,
                         smsRequested = s.smsRequested && phone != null, staffId = s.staffId,
                         pointsEarned = earned, pointsUsed = if (customerId != null) s.pointsUsed else 0,
+                        patientName = s.patientName.trim(), doctorName = s.doctorName.trim(), prescriptionNo = s.prescriptionNo.trim(),
                     )
                 )
                 db.sales().insertItems(s.lines.map {
@@ -567,9 +578,109 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     val promos get() = db.promos()
     val batches get() = db.batches()
     val stockTools get() = db.stockTools()
+    val making get() = db.making()
+    val kitchen get() = db.kitchen()
+
+    suspend fun saveRecipe(out: ProductEntity, outMilli: Long, inputs: List<Pair<ProductEntity, Long>>, note: String): Long? {
+        if (outMilli <= 0 || inputs.isEmpty() || inputs.any { it.second <= 0 || it.first.id == out.id }) return null
+        return db.withTransaction {
+            val id = db.making().insertRecipe(RecipeEntity(productId = out.id, name = out.name, outMilli = outMilli, note = note.trim()))
+            db.making().insertRecipeItems(inputs.map { (p, q) -> RecipeItemEntity(recipeId = id, productId = p.id, name = p.name, qtyMilli = q) })
+            audit("RECIPE", "${out.name} · ${inputs.size}")
+            id
+        }
+    }
+
+    /** One production run from a recipe. Same result codes as [repack]: null done, "" bad input, else the short product's name. */
+    suspend fun makeFromRecipe(recipeId: Long, makeMilli: Long, extraCostPaisa: Long, staffId: Long?): String? {
+        val r = db.making().recipe(recipeId) ?: return ""
+        val out = db.products().get(r.productId) ?: return ""
+        if (makeMilli <= 0) return ""
+        val inputs = db.making().recipeItems(recipeId).map { i ->
+            val p = db.products().get(i.productId) ?: return i.name
+            p to Recipe.need(i.qtyMilli, r.outMilli, makeMilli)
+        }
+        return repack(inputs, out, makeMilli, r.name, staffId, extraCostPaisa, DocType.PRODUCTION)
+    }
+
+    /**
+     * New factory or repair order to [supplierId]. Lines are product, quantity and (factory only) price per unit.
+     * Repair goods leave stock now. Returns null when saved, "" for bad input, or the name of a product without enough stock.
+     */
+    suspend fun newWorkOrder(repair: Boolean, supplierId: Long, lines: List<Triple<ProductEntity, Long, Long>>, note: String, staffId: Long?): String? {
+        if (lines.isEmpty() || lines.any { it.second <= 0 || it.third < 0 }) return ""
+        val code = settings.current().shopCode
+        return try {
+            db.withTransaction {
+                val number = nextNumber(code, if (repair) DocType.REPAIR else DocType.FACTORY)
+                val id = db.making().insertOrder(WorkOrderEntity(number = number, kind = if (repair) "REPAIR" else "FACTORY", supplierId = supplierId, note = note.trim(), staffId = staffId))
+                db.making().insertLines(lines.map { (p, q, rate) -> WorkLineEntity(orderId = id, productId = p.id, name = p.name, qtyMilli = q, ratePaisa = if (repair) 0 else rate) })
+                if (repair) lines.forEach { (p, q, _) ->
+                    if (db.products().takeStock(p.id, q) == 0) throw NotEnough(p.name)
+                    takeFromBatches(p.id, q)
+                }
+                audit(if (repair) "REPAIR_SEND" else "FACTORY_ORDER", "$number · ${lines.size}")
+                null
+            }
+        } catch (e: NotEnough) {
+            e.productName
+        }
+    }
+
+    /**
+     * Goods back from a work order. [got] maps line id to (received, scrapped).
+     * Factory: received goods enter stock at the line's rate and their charge goes on the supplier's due.
+     * Repair: received goods go back into stock; [chargePaisa] (the repair bill) goes on the supplier's due.
+     */
+    suspend fun receiveWork(orderId: Long, got: Map<Long, Pair<Long, Long>>, chargePaisa: Long, staffId: Long?): Boolean = db.withTransaction {
+        val o = db.making().order(orderId) ?: return@withTransaction false
+        if (o.status != "OPEN") return@withTransaction false
+        val repair = o.kind == "REPAIR"
+        var charge = if (repair) chargePaisa.coerceAtLeast(0) else 0L
+        var any = false
+        db.making().lines(orderId).forEach { l ->
+            val (d0, s0) = got[l.id] ?: return@forEach
+            val left = l.qtyMilli - l.doneMilli - l.scrapMilli
+            val done = d0.coerceIn(0, left)
+            val scrap = s0.coerceIn(0, left - done)
+            if (done == 0L && scrap == 0L) return@forEach
+            any = true
+            db.making().addDone(l.id, done, scrap)
+            if (done > 0) {
+                if (repair) db.products().addStock(l.productId, done)
+                else {
+                    db.stockTools().produce(l.productId, done, l.ratePaisa)
+                    charge += Recipe.cost(done, l.ratePaisa)
+                }
+            }
+        }
+        if (!any && charge == 0L) return@withTransaction false
+        val fresh = db.making().lines(orderId)
+        val finished = Recipe.finished(fresh.map { Triple(it.qtyMilli, it.doneMilli, it.scrapMilli) })
+        db.making().update(orderId, if (finished) "DONE" else "OPEN", charge)
+        if (charge > 0) db.suppliers().addDue(o.supplierId, charge)
+        audit(if (repair) "REPAIR_BACK" else "FACTORY_RECEIVE", "${o.number} · ${tk(charge)}")
+        true
+    }
+
+    /** Closes an open work order. Repair goods that never came back return to stock. */
+    suspend fun cancelWork(orderId: Long): Boolean = db.withTransaction {
+        val o = db.making().order(orderId) ?: return@withTransaction false
+        if (o.status != "OPEN") return@withTransaction false
+        if (o.kind == "REPAIR") db.making().lines(orderId).forEach { l ->
+            val left = l.qtyMilli - l.doneMilli - l.scrapMilli
+            if (left > 0) db.products().addStock(l.productId, left)
+        }
+        db.making().update(orderId, "CANCELLED", 0)
+        audit("WORK_CANCEL", o.number)
+        true
+    }
 
     /** Repack or make: [inputs] leave the shop's stock and [outQty] of [out] arrives carrying their cost. Null = saved; else the short product. */
-    suspend fun repack(inputs: List<Pair<ProductEntity, Long>>, out: ProductEntity, outQty: Long, note: String, staffId: Long?): String? {
+    suspend fun repack(
+        inputs: List<Pair<ProductEntity, Long>>, out: ProductEntity, outQty: Long, note: String, staffId: Long?,
+        extraCostPaisa: Long = 0, type: DocType = DocType.REPACK,
+    ): String? {
         if (outQty <= 0 || inputs.isEmpty() || inputs.any { it.second <= 0 || it.first.id == out.id }) return ""
         val code = settings.current().shopCode
         return try {
@@ -582,13 +693,14 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                     cost += (fresh.costPaisa * q + 500) / 1000
                     StockJobInputEntity(jobId = 0, productId = p.id, name = p.name, qtyMilli = q, unitCostPaisa = fresh.costPaisa)
                 }
+                cost += extraCostPaisa.coerceAtLeast(0)
                 db.stockTools().produce(out.id, outQty, cost * 1000 / outQty)
-                val number = nextNumber(code, DocType.REPACK)
+                val number = nextNumber(code, type)
                 val jobId = db.stockTools().insertJob(
                     StockJobEntity(number = number, outProductId = out.id, outName = out.name, outQtyMilli = outQty, costPaisa = cost, note = note.trim(), staffId = staffId)
                 )
                 db.stockTools().insertJobInputs(rows.map { it.copy(jobId = jobId) })
-                audit("REPACK", "$number · ${out.name} +${Qty.text(outQty)}")
+                audit(type.name, "$number · ${out.name} +${Qty.text(outQty)}")
                 null
             }
         } catch (e: NotEnough) {
@@ -708,6 +820,8 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             if (fresh.isEmpty()) return@withTransaction null
             val number = nextNumber(code, DocType.KOT)
             db.tables().markSent(orderId)
+            db.kitchen().insert(KotEntity(number = number, tableName = db.kitchen().tableNameFor(orderId).orEmpty(),
+                itemsText = fresh.joinToString("\n") { (n, q) -> "$q\t$n" }))
             number to fresh
         }
     }

@@ -37,6 +37,8 @@ data class ReceiptData(
     val paid: String,
     val due: String?,
     val method: String,
+    /** Extra lines under the customer, e.g. the prescription. */
+    val extra: List<String> = emptyList(),
 )
 
 /**
@@ -90,6 +92,7 @@ object ReceiptRenderer {
         row("${l.memo}: ${d.number}", "", bold)
         row("${l.date}: ${d.dateText}", "")
         d.customer?.let { row("${l.customer}: $it", "") }
+        d.extra.forEach { row(it, "") }
         rule()
         d.lines.forEach { line ->
             ops += TextOp(layout(line.name, normal, w))

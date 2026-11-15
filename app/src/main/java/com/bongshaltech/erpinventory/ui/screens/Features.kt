@@ -41,12 +41,17 @@ internal val featureRows: List<Triple<Feature, Int, Int>> = listOf(
     Triple(Feature.LOANS, R.string.loans, R.string.feat_loans_sub),
     Triple(Feature.HR, R.string.hr, R.string.feat_hr_sub),
     Triple(Feature.BATCHES, R.string.batches, R.string.feat_batches_sub),
+    Triple(Feature.PRESCRIPTION, R.string.rx_title, R.string.feat_rx_sub),
     Triple(Feature.SERIALS, R.string.serials, R.string.feat_serials_sub),
     Triple(Feature.REPACK, R.string.repack, R.string.feat_repack_sub),
+    Triple(Feature.MANUFACTURING, R.string.manufacturing, R.string.feat_mfg_sub),
+    Triple(Feature.FACTORY, R.string.factory, R.string.feat_factory_sub),
+    Triple(Feature.REPAIR, R.string.repair, R.string.feat_repair_sub),
     Triple(Feature.WAREHOUSES, R.string.warehouses, R.string.feat_warehouses_sub),
     Triple(Feature.PACKS, R.string.feat_packs, R.string.feat_packs_sub),
     Triple(Feature.SCALE_BARCODE, R.string.feat_scale, R.string.feat_scale_sub),
     Triple(Feature.TABLES, R.string.tables, R.string.feat_tables_sub),
+    Triple(Feature.KITCHEN, R.string.kitchen, R.string.feat_kitchen_sub),
     Triple(Feature.MOBILE_BANKING, R.string.mfs_toggle, R.string.mfs_toggle_sub),
 )
 

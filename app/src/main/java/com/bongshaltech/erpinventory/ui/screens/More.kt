@@ -24,6 +24,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.Blender
+import androidx.compose.material.icons.outlined.SoupKitchen
+import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.Medication
+import androidx.compose.material.icons.outlined.Factory
+import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.EventRepeat
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import com.bongshaltech.erpinventory.core.books.Recurring
@@ -210,7 +216,14 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     ListRow(stringResource(R.string.adj_title), Icons.Outlined.Tune, Tints.Orange, trailing = { Chevron() }) { go(Routes.STOCK_ADJUST) }
                     ListRow(stringResource(R.string.reorder), Icons.Outlined.ShoppingCartCheckout, Tints.Green, trailing = { Chevron() }) { go(Routes.REORDER) }
                     if (s?.on(Feature.BATCHES) == true) ListRow(stringResource(R.string.batches), Icons.Outlined.EventBusy, Tints.Amber, trailing = { Chevron() }) { go(Routes.BATCHES) }
+                    if (s?.on(Feature.KITCHEN) == true) ListRow(stringResource(R.string.kitchen), Icons.Outlined.SoupKitchen, Tints.Orange, trailing = { Chevron() }) { go(Routes.KITCHEN) }
+                    if (s?.on(Feature.TABLES) == true) ListRow(stringResource(R.string.rest_report), Icons.Outlined.Insights, Tints.Pink, trailing = { Chevron() }) { go(Routes.REST_REPORT) }
+                    if (s?.shopType == com.bongshaltech.erpinventory.data.ShopType.PHARMACY || s?.on(Feature.PRESCRIPTION) == true)
+                        ListRow(stringResource(R.string.pharma_report), Icons.Outlined.Medication, Tints.Teal, trailing = { Chevron() }) { go(Routes.PHARMA_REPORT) }
                     if (s?.on(Feature.REPACK) == true) ListRow(stringResource(R.string.repack), Icons.Outlined.Inventory2, Tints.Teal, trailing = { Chevron() }) { go(Routes.REPACK) }
+                    if (s?.on(Feature.MANUFACTURING) == true) ListRow(stringResource(R.string.manufacturing), Icons.Outlined.Blender, Tints.Purple, trailing = { Chevron() }) { go(Routes.RECIPES) }
+                    if (s?.on(Feature.FACTORY) == true) ListRow(stringResource(R.string.factory), Icons.Outlined.Factory, Tints.Blue, trailing = { Chevron() }) { go(Routes.FACTORY) }
+                    if (s?.on(Feature.REPAIR) == true) ListRow(stringResource(R.string.repair), Icons.Outlined.Build, Tints.Orange, trailing = { Chevron() }) { go(Routes.REPAIR) }
                     if (s?.on(Feature.SERIALS) == true) ListRow(stringResource(R.string.serials), Icons.Outlined.QrCode2, Tints.Purple, trailing = { Chevron() }) { go(Routes.SERIALS) }
                     if (s?.on(Feature.WAREHOUSES) == true) ListRow(stringResource(R.string.warehouses), Icons.Outlined.Warehouse, Tints.Grey, trailing = { Chevron() }) { go(Routes.WAREHOUSES) }
                     ListRow(stringResource(R.string.import_products), Icons.Outlined.UploadFile, Tints.Green, trailing = { Chevron() }) { go(Routes.IMPORT) }
