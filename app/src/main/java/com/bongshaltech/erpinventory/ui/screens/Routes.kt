@@ -36,6 +36,9 @@ object Routes {
     const val EXPENSES = "expenses"
     const val EXPENSE_NEW = "expense_new"
     const val REPORTS = "reports"
+    const val MFS = "mfs"
+    const val MFS_ENTRY = "mfs_entry/{id}"
+    const val MFS_WALLETS = "mfs_wallets"
     const val BACKUP = "backup"
     const val RECEIPT = "receipt/{id}"
     const val PRINTER = "printer"
@@ -46,6 +49,7 @@ object Routes {
     fun customerEdit(id: Long) = "customer_edit/$id"
     fun supplier(id: Long) = "supplier/$id"
     fun supplierEdit(id: Long) = "supplier_edit/$id"
+    fun mfsEntry(walletId: Long) = "mfs_entry/$walletId"
     fun receipt(id: Long) = "receipt/$id"
 }
 
@@ -112,6 +116,11 @@ fun ErpNavHost() {
         }
         composable(Routes.EXPENSES) { ExpensesScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.EXPENSE_NEW) { ExpenseNewScreen(back) }
+        composable(Routes.MFS) { MfsScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.MFS_ENTRY, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            MfsEntryScreen(e.arguments?.getLong("id") ?: 0L, back)
+        }
+        composable(Routes.MFS_WALLETS) { MfsWalletsScreen(back) }
         composable(Routes.BACKUP) { BackupScreen(back) }
         composable(Routes.SMS_ACCOUNT) { SmsAccountScreen(back) }
         composable(Routes.REPORTS) { ReportsScreen(tab = { nav.goTab(it) }) }

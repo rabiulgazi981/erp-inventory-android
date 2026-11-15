@@ -17,6 +17,8 @@ import com.bongshaltech.erpinventory.data.db.ProductEntity
 import com.bongshaltech.erpinventory.data.db.SaleEntity
 import com.bongshaltech.erpinventory.data.db.SaleItemEntity
 import com.bongshaltech.erpinventory.data.db.StaffEntity
+import com.bongshaltech.erpinventory.data.db.MfsTxnEntity
+import com.bongshaltech.erpinventory.data.db.MfsWalletEntity
 import com.bongshaltech.erpinventory.security.PinHasher
 import java.time.LocalDate
 import kotlinx.coroutines.flow.map
@@ -73,6 +75,35 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     val purchases get() = db.purchases()
     val expenses get() = db.expenses()
     val reports get() = db.reports()
+    val mfs get() = db.mfs()
+
+    /** Makes sure every provider has a row, so the owner only switches them on. */
+    suspend fun ensureWallets() = db.mfs().insertWallets(MfsProvider.entries.map { MfsWalletEntity(provider = it.name) })
+
+    suspend fun saveWallet(w: MfsWalletEntity) = db.mfs().updateWallet(w)
+
+    /** Saves one mobile banking / load entry and moves the wallet balance. E-money can never go below zero. */
+    suspend fun addMfs(n: NewMfs): MfsResult {
+        val code = settings.current().shopCode
+        return db.withTransaction {
+            val w = db.mfs().wallet(n.walletId) ?: return@withTransaction MfsResult.NoWallet
+            val e = mfsEffect(w, n)
+            if (w.balancePaisa + e.walletDelta.paisa < 0) return@withTransaction MfsResult.LowBalance(w.balancePaisa)
+            val number = nextNumber(code, DocType.MFS)
+            db.mfs().insertTxn(
+                MfsTxnEntity(
+                    number = number, walletId = w.id, type = n.type.name, customerPhone = n.customerPhone.filter(Char::isDigit),
+                    amountPaisa = n.amountPaisa,
+                    chargePaisa = if (n.type.isBalance) n.settledPaisa ?: n.amountPaisa else n.chargePaisa,
+                    feePaisa = n.feePaisa, walletDeltaPaisa = e.walletDelta.paisa, cashDeltaPaisa = e.cashDelta.paisa,
+                    earningPaisa = e.earning.paisa, via = if (n.type.isBalance) n.via.name else "",
+                    trxId = n.trxId.trim().uppercase(), note = n.note.trim(), staffId = n.staffId,
+                )
+            )
+            db.mfs().addBalance(w.id, e.walletDelta.paisa)
+            MfsResult.Saved(number)
+        }
+    }
 
     suspend fun saveProduct(p: ProductEntity) = db.products().upsert(p)
 
