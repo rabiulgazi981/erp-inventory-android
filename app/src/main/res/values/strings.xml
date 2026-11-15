@@ -825,7 +825,7 @@
     <string name="acc_s_dep">Depreciation</string>
     <string name="acc_trial">Trial balance</string>
     <string name="acc_balanced">Debits and credits match</string>
-    <string name="acc_not_balanced">Debits and credits don't match</string>
+    <string name="acc_not_balanced">Debits and credits don\'t match</string>
     <string name="acc_new">New account</string>
     <string name="acc_name">Account name</string>
     <string name="jv_title">Journal entries</string>
