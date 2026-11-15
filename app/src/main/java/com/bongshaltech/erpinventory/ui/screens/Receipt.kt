@@ -252,6 +252,8 @@ fun ReceiptScreen(saleId: Long, go: (String) -> Unit, onBack: () -> Unit) {
     var bmp by remember { mutableStateOf<Bitmap?>(null) }
     val paper = settings?.paperMm ?: 58
     val profile = settings?.profile
+    var askDelete by remember { mutableStateOf(false) }
+    val pendingDelete by remember { app.repo.saleFix.watchRequest(saleId) }.collectAsStateWithLifecycle(null)
 
     LaunchedEffect(paper, profile) {
         val p = profile ?: return@LaunchedEffect
@@ -265,7 +267,15 @@ fun ReceiptScreen(saleId: Long, go: (String) -> Unit, onBack: () -> Unit) {
             com.bongshaltech.erpinventory.ui.components.HeaderIcon(
                 androidx.compose.material.icons.Icons.Outlined.Replay, stringResource(R.string.ret_sale_title),
             ) { go(Routes.saleReturn(saleId)) }
+            com.bongshaltech.erpinventory.ui.components.HeaderIcon(
+                androidx.compose.material.icons.Icons.Outlined.DeleteOutline, stringResource(R.string.del_title),
+            ) { askDelete = true }
         }
+        if (pendingDelete != null) T(
+            stringResource(R.string.del_pending, pendingDelete?.reason.orEmpty()), 13.sp, FontWeight.SemiBold, Brand.Amber,
+            Modifier.fillMaxWidth().background(Ui.c.card).padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        if (askDelete) DeleteSaleDialog(saleId, onClose = { askDelete = false }, onDeleted = onBack)
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),

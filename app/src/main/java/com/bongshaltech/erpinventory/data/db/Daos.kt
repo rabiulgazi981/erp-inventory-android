@@ -859,3 +859,80 @@ interface AuditDao {
     @Query("DELETE FROM audit_log WHERE at < :before")
     suspend fun trim(before: Long)
 }
+
+data class DeleteRequestRow(val id: Long, val saleId: Long, val number: String, val reason: String, val staffName: String?, val createdAt: Long, val totalPaisa: Long)
+data class DeletedSaleRow(val id: Long, val number: String, val totalPaisa: Long, val saleAt: Long, val deletedAt: Long, val reason: String, val itemsText: String, val requestedByName: String?)
+data class InstallmentRow(val id: Long, val saleNumber: String, val seq: Int, val dueDay: Long, val amountPaisa: Long, val paidPaisa: Long)
+
+/** Sale corrections: delete requests, deleted sales and instalment plans. */
+@Dao
+interface SaleFixDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun request(r: SaleDeleteRequestEntity)
+
+    @Query("SELECT * FROM sale_delete_request WHERE saleId = :saleId")
+    suspend fun requestFor(saleId: Long): SaleDeleteRequestEntity?
+
+    @Query("SELECT * FROM sale_delete_request WHERE saleId = :saleId")
+    fun watchRequest(saleId: Long): Flow<SaleDeleteRequestEntity?>
+
+    @Query("DELETE FROM sale_delete_request WHERE saleId = :saleId")
+    suspend fun dropRequest(saleId: Long)
+
+    @Query(
+        "SELECT r.id AS id, r.saleId AS saleId, r.number AS number, r.reason AS reason, st.name AS staffName, r.createdAt AS createdAt, " +
+            "COALESCE(s.totalPaisa, 0) AS totalPaisa FROM sale_delete_request r LEFT JOIN staff st ON st.id = r.staffId " +
+            "LEFT JOIN sale s ON s.id = r.saleId ORDER BY r.createdAt DESC"
+    )
+    fun requests(): Flow<List<DeleteRequestRow>>
+
+    @Query("SELECT COUNT(*) FROM sale_delete_request")
+    fun requestCount(): Flow<Int>
+
+    @Insert
+    suspend fun insertDeleted(d: DeletedSaleEntity)
+
+    @Query(
+        "SELECT d.id AS id, d.number AS number, d.totalPaisa AS totalPaisa, d.saleAt AS saleAt, d.deletedAt AS deletedAt, d.reason AS reason, " +
+            "d.itemsText AS itemsText, st.name AS requestedByName FROM deleted_sale d LEFT JOIN staff st ON st.id = d.requestedBy " +
+            "ORDER BY d.deletedAt DESC LIMIT 300"
+    )
+    fun deleted(): Flow<List<DeletedSaleRow>>
+
+    @Query("DELETE FROM sale WHERE id = :id")
+    suspend fun deleteSale(id: Long)
+
+    @Query("SELECT COUNT(*) FROM sale_return WHERE saleId = :saleId")
+    suspend fun returnCount(saleId: Long): Int
+
+    @Query("UPDATE product_serial SET saleId = NULL, soldAt = NULL WHERE saleId = :saleId")
+    suspend fun unsellSerials(saleId: Long)
+
+    @Query("UPDATE promo SET uses = MAX(uses - 1, 0) WHERE id = :id")
+    suspend fun unusePromo(id: Long)
+
+    @Query("UPDATE promo SET balancePaisa = balancePaisa + :amount, uses = MAX(uses - 1, 0) WHERE id = :id")
+    suspend fun refundVoucher(id: Long, amount: Long)
+
+    @Insert
+    suspend fun insertInstallments(rows: List<InstallmentEntity>)
+
+    @Query("SELECT * FROM installment WHERE customerId = :customerId AND paidPaisa < amountPaisa ORDER BY dueDay, seq, id")
+    suspend fun unpaid(customerId: Long): List<InstallmentEntity>
+
+    @Query("UPDATE installment SET paidPaisa = :paid WHERE id = :id")
+    suspend fun setPaid(id: Long, paid: Long)
+
+    @Query("DELETE FROM installment WHERE saleNumber = :saleNumber")
+    suspend fun dropPlan(saleNumber: String)
+
+    @Query("SELECT id, saleNumber, seq, dueDay, amountPaisa, paidPaisa FROM installment WHERE customerId = :customerId ORDER BY dueDay, seq, id")
+    fun forCustomer(customerId: Long): Flow<List<InstallmentRow>>
+
+    @Query("SELECT id, saleNumber, seq, dueDay, amountPaisa, paidPaisa FROM installment WHERE saleNumber = :saleNumber ORDER BY seq")
+    fun forSale(saleNumber: String): Flow<List<InstallmentRow>>
+
+    /** Instalments due on or before [day] and not fully paid, across all customers. */
+    @Query("SELECT COUNT(*) FROM installment WHERE dueDay <= :day AND paidPaisa < amountPaisa")
+    fun lateCount(day: Long): Flow<Int>
+}

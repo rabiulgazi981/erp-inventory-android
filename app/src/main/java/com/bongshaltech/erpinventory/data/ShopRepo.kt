@@ -4,6 +4,9 @@ import androidx.room.withTransaction
 import com.bongshaltech.erpinventory.core.DocNumber
 import com.bongshaltech.erpinventory.core.DocType
 import com.bongshaltech.erpinventory.core.Money
+import com.bongshaltech.erpinventory.data.db.DeletedSaleEntity
+import com.bongshaltech.erpinventory.data.db.InstallmentEntity
+import com.bongshaltech.erpinventory.data.db.SaleDeleteRequestEntity
 import com.bongshaltech.erpinventory.data.db.AuditLogEntity
 import com.bongshaltech.erpinventory.data.db.AppDatabase
 import com.bongshaltech.erpinventory.data.db.CustomerEntity
@@ -65,7 +68,17 @@ data class NewSale(
     val staffId: Long?,
     /** Offers, coupon and voucher already counted inside [discountPaisa]. */
     val promos: List<AppliedPromo> = emptyList(),
+    /** Split the due into this many monthly payments; 0 for a plain due. */
+    val installments: Int = 0,
 )
+
+sealed interface DeleteResult {
+    /** Done. [manualRefundPaisa] is due the customer already paid back, which the shop hands back by hand. */
+    data class Deleted(val number: String, val manualRefundPaisa: Long) : DeleteResult
+    data object Requested : DeleteResult
+    data object HasReturns : DeleteResult
+    data object Gone : DeleteResult
+}
 
 data class AppliedPromo(val promoId: Long?, val kind: PromoKind, val code: String, val amountPaisa: Long)
 
@@ -341,6 +354,12 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                         SalePromoEntity(saleId = saleId, promoId = it.promoId, kind = it.kind, code = it.code, amountPaisa = it.amountPaisa)
                     })
                 }
+                if (s.installments > 1 && due > 0 && customerId != null) {
+                    val plan = com.bongshaltech.erpinventory.core.sale.Installments.plan(due, s.installments, LocalDate.now().plusMonths(1))
+                    db.saleFix().insertInstallments(plan.map {
+                        InstallmentEntity(customerId = customerId, saleNumber = number, seq = it.seq, dueDay = it.dueDay, amountPaisa = it.amountPaisa)
+                    })
+                }
                 audit("SALE", "$number · ${tk(total)}" + if (s.discountPaisa > 0) " · −${tk(s.discountPaisa)}" else "")
                 SaleResult.Saved(saleId, number, total)
             }
@@ -376,8 +395,75 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                 DuePaymentEntity(number = number, customerId = customerId, amountPaisa = amount, method = method, note = note.trim(), staffId = staffId)
             )
             db.customers().addDue(customerId, -amount)
+            fillInstallments(customerId, amount)
             number
         }
+    }
+
+    private suspend fun fillInstallments(customerId: Long, amountPaisa: Long) {
+        val open = db.saleFix().unpaid(customerId).map { com.bongshaltech.erpinventory.core.sale.Instalment(it.id, it.amountPaisa, it.paidPaisa) }
+        for ((id, paid) in com.bongshaltech.erpinventory.core.sale.Installments.fill(open, amountPaisa)) db.saleFix().setPaid(id, paid)
+    }
+
+    val saleFix get() = db.saleFix()
+
+    /**
+     * Deletes a sale, or for staff, asks the owner to. Deleting puts the stock back, takes the sale's due off the customer,
+     * gives coupon uses and voucher money back, and removes the sale from every total. A copy stays in Deleted sales.
+     * A sale with a return can't be deleted: the return already changed stock and money.
+     */
+    suspend fun deleteSale(saleId: Long, reason: String, staffId: Long?): DeleteResult {
+        if (staffId != null) {
+            val sale = db.sales().get(saleId) ?: return DeleteResult.Gone
+            if (db.saleFix().returnCount(saleId) > 0) return DeleteResult.HasReturns
+            db.saleFix().request(SaleDeleteRequestEntity(saleId = saleId, number = sale.number, reason = reason.trim(), staffId = staffId))
+            audit("SALE_DELETE_ASK", "${sale.number} · ${reason.trim()}")
+            return DeleteResult.Requested
+        }
+        return db.withTransaction {
+            val sale = db.sales().get(saleId) ?: return@withTransaction DeleteResult.Gone
+            if (db.saleFix().returnCount(saleId) > 0) return@withTransaction DeleteResult.HasReturns
+            val items = db.sales().items(saleId)
+            for (i in items) db.products().addStock(i.productId, i.qtyMilli)
+            db.saleFix().unsellSerials(saleId)
+            for (p in db.promos().forSale(saleId)) {
+                val id = p.promoId ?: continue
+                when (p.kind) {
+                    PromoKind.OFFER -> Unit
+                    PromoKind.COUPON -> db.saleFix().unusePromo(id)
+                    PromoKind.VOUCHER -> db.saleFix().refundVoucher(id, p.amountPaisa)
+                }
+            }
+            val saleDue = (sale.totalPaisa - sale.paidPaisa).coerceAtLeast(0)
+            var manual = 0L
+            if (saleDue > 0 && sale.customerId != null) {
+                val owes = db.customers().get(sale.customerId)?.duePaisa ?: 0
+                val cut = minOf(saleDue, owes.coerceAtLeast(0))
+                if (cut > 0) db.customers().addDue(sale.customerId, -cut)
+                manual = saleDue - cut
+            }
+            db.saleFix().dropPlan(sale.number)
+            val request = db.saleFix().requestFor(saleId)
+            db.saleFix().insertDeleted(
+                DeletedSaleEntity(
+                    saleId = sale.id, number = sale.number, customerId = sale.customerId, totalPaisa = sale.totalPaisa,
+                    paidPaisa = sale.paidPaisa, method = sale.method, saleAt = sale.createdAt,
+                    itemsText = items.joinToString("\n") { "${it.name} × ${Qty.text(it.qtyMilli)} = ${tk(it.lineTotalPaisa)}" },
+                    reason = reason.trim().ifBlank { request?.reason.orEmpty() }, requestedBy = request?.staffId,
+                )
+            )
+            db.saleFix().dropRequest(saleId)
+            db.saleFix().deleteSale(saleId)
+            audit("SALE_DELETE", "${sale.number} · ${tk(sale.totalPaisa)} · ${reason.trim().ifBlank { request?.reason.orEmpty() }}")
+            DeleteResult.Deleted(sale.number, manual)
+        }
+    }
+
+    /** Owner says no to a staff member's delete request. The sale stays as it is. */
+    suspend fun rejectDelete(saleId: Long) {
+        val r = db.saleFix().requestFor(saleId) ?: return
+        db.saleFix().dropRequest(saleId)
+        audit("SALE_DELETE_NO", r.number)
     }
 
     suspend fun saveSupplier(s: SupplierEntity) {
@@ -728,7 +814,10 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             val due = sale.customerId?.let { db.customers().get(it)?.duePaisa } ?: 0
             val split = Returns.split(total, due)
             for (p in fresh) db.products().addStock(p.line.productId, p.qtyMilli)
-            if (split.dueCutPaisa > 0 && sale.customerId != null) db.customers().addDue(sale.customerId, -split.dueCutPaisa)
+            if (split.dueCutPaisa > 0 && sale.customerId != null) {
+                db.customers().addDue(sale.customerId, -split.dueCutPaisa)
+                fillInstallments(sale.customerId, split.dueCutPaisa)
+            }
             val number = nextNumber(code, DocType.RETURN)
             val id = db.returns().insertSaleReturn(
                 SaleReturnEntity(

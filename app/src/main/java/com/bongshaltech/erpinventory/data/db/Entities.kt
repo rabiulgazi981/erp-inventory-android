@@ -568,3 +568,47 @@ data class AuditLogEntity(
     val action: String,
     val detail: String,
 )
+
+/** A sale the owner deleted. The sale itself is gone from every total; this keeps what it was and why. */
+@Entity(tableName = "deleted_sale", indices = [Index("deletedAt")])
+data class DeletedSaleEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val saleId: Long,
+    val number: String,
+    val customerId: Long?,
+    val totalPaisa: Long,
+    val paidPaisa: Long,
+    val method: PayMethod,
+    val saleAt: Long,
+    /** One line per item: name, quantity and line total, as it was on the memo. */
+    val itemsText: String,
+    val reason: String,
+    /** Staff who asked for the delete; null when the owner deleted it directly. */
+    val requestedBy: Long?,
+    val deletedAt: Long = System.currentTimeMillis(),
+)
+
+/** A staff member asks the owner to delete a sale. Nothing changes until the owner approves. */
+@Entity(tableName = "sale_delete_request", indices = [Index(value = ["saleId"], unique = true)])
+data class SaleDeleteRequestEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val saleId: Long,
+    val number: String,
+    val reason: String,
+    val staffId: Long?,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** One planned payment of a sale sold on instalments. Due payments from the customer fill the oldest first. */
+@Entity(tableName = "installment", indices = [Index("customerId"), Index("saleNumber"), Index("dueDay")])
+data class InstallmentEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val customerId: Long,
+    val saleNumber: String,
+    /** 1 for the first payment, 2 for the second, and so on. */
+    val seq: Int,
+    /** Day the payment is due, as days since 1970-01-01. */
+    val dueDay: Long,
+    val amountPaisa: Long,
+    val paidPaisa: Long = 0,
+)

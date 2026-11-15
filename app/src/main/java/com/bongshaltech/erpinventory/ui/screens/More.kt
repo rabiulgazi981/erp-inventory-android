@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.ToggleOn
 import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.UploadFile
@@ -138,6 +139,7 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
     val who = rememberWho()
     val settings by app.settings.settings.collectAsStateWithLifecycle(null)
     val staff by remember { app.repo.staff.all() }.collectAsStateWithLifecycle(emptyList())
+    val delAsks by remember { app.repo.saleFix.requestCount() }.collectAsStateWithLifecycle(0)
     val s = settings
     val appId = ctx.packageName.removeSuffix(".debug")
     fun open(url: String) = runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
@@ -198,6 +200,9 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     ListRow(stringResource(R.string.import_products), Icons.Outlined.UploadFile, Tints.Green, trailing = { Chevron() }) { go(Routes.IMPORT) }
                     ListRow(stringResource(R.string.labels), Icons.Outlined.QrCode, Tints.Blue, trailing = { Chevron() }) { go(Routes.LABELS) }
                     ListRow(stringResource(R.string.audit), Icons.Outlined.History, Tints.Grey, trailing = { Chevron() }) { go(Routes.AUDIT) }
+                    ListRow(stringResource(R.string.del_sales), Icons.Outlined.DeleteOutline, Tints.Amber, trailing = {
+                        if (delAsks > 0) Tag(stringResource(R.string.del_requests_n, delAsks), Color(0xFF92400E), Tints.Amber.brush) else Chevron()
+                    }) { go(Routes.DELETED_SALES) }
                     if (s?.on(Feature.ORDERS) == true) ListRow(stringResource(R.string.orders), Icons.Outlined.Description, Tints.Blue, trailing = { Chevron() }) { go(Routes.ORDERS) }
                     ListRow(stringResource(R.string.returns), Icons.Outlined.Replay, Tints.Purple, trailing = { Chevron() }) { go(Routes.RETURNS) }
                     ListRow(stringResource(R.string.backup), Icons.Outlined.CloudUpload, Tints.Blue, trailing = { Chevron() }) { go(Routes.BACKUP) }

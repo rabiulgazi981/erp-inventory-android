@@ -177,6 +177,7 @@ fun CustomerDetailScreen(id: Long, go: (String) -> Unit, onBack: () -> Unit) {
     var note by rememberSaveable { mutableStateOf("") }
     var tried by remember { mutableStateOf(false) }
     val savedMsg = stringResource(R.string.cust_payment_saved)
+    val plan by remember(id) { app.repo.saleFix.forCustomer(id) }.collectAsStateWithLifecycle(emptyList())
     val tooMuch = stringResource(R.string.cust_amount_too_much)
     val required = stringResource(R.string.required)
     if (who.ready && !who.can(StaffMenu.CUSTOMERS)) return NotAllowed(onBack)
@@ -238,6 +239,7 @@ fun CustomerDetailScreen(id: Long, go: (String) -> Unit, onBack: () -> Unit) {
                     }
                 }
             }
+            InstallmentList(plan)
             T(stringResource(R.string.cust_history), 15.sp, FontWeight.Bold)
             if (history.isEmpty()) Muted(stringResource(R.string.cust_history_empty))
             history.forEach { HistoryRow(it) }

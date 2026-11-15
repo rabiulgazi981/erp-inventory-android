@@ -124,6 +124,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
     var sms by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var codeOpen by remember { mutableStateOf(false) }
+    var parts by remember { mutableStateOf(0) }
     var codeText by remember { mutableStateOf("") }
     var codePromo by remember { mutableStateOf<com.bongshaltech.erpinventory.data.db.PromoEntity?>(null) }
     var saved by remember { mutableStateOf<SaleResult.Saved?>(null) }
@@ -155,7 +156,9 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
     }.collectAsStateWithLifecycle(emptyList())
     val subtotal = cart.sumOf { it.totalPaisa }
     // Offers running today come off by themselves; one coupon or gift voucher can be typed in on top.
-    val promosOn = app.settings.settings.collectAsStateWithLifecycle(null).value?.on(com.bongshaltech.erpinventory.data.Feature.PROMOS) == true
+    val saleSettings = app.settings.settings.collectAsStateWithLifecycle(null).value
+    val promosOn = saleSettings?.on(com.bongshaltech.erpinventory.data.Feature.PROMOS) == true
+    val instalmentsOn = saleSettings?.on(com.bongshaltech.erpinventory.data.Feature.INSTALLMENTS) == true
     val liveOffers by remember { app.repo.promos.liveOffers(System.currentTimeMillis()) }.collectAsStateWithLifecycle(emptyList())
     val offers = if (promosOn) liveOffers else emptyList()
     val offerOff = PromoMath.offers(
@@ -205,7 +208,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
         if (next <= 0) cart.removeAt(i) else cart[i] = cart[i].copy(qtyMilli = next, serials = cart[i].serials.take((next / 1000).toInt()))
     }
     fun reset() {
-        codeOpen = false; codeText = ""; codePromo = null
+        codeOpen = false; codeText = ""; codePromo = null; parts = 0
         cart.clear(); discount = ""; paid = ""; phone = ""; custName = ""; showName = false; method = PayMethod.CASH; message = null
     }
 
@@ -345,10 +348,19 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                     T(stringResource(R.string.sale_paid), 14.sp, color = Ui.c.muted, modifier = Modifier.weight(1f))
                     Input(paid, { paid = it }, Modifier.width(110.dp), keyboard = KeyboardType.Decimal, height = 34.dp, alignEnd = true, placeholder = total.taka0().removePrefix("৳ "))
                 }
-                when {
-                    paidPaisa < total -> SumRow(stringResource(R.string.sale_due), (total - paidPaisa).taka0(), strong = true, color = Brand.Amber)
-                    paidPaisa > total -> SumRow(stringResource(R.string.sale_change), (paidPaisa - total).taka0(), strong = true, color = Brand.DarkGreen)
+                if (paidPaisa < total) SumRow(stringResource(R.string.sale_due), (total - paidPaisa).taka0(), strong = true, color = Brand.Amber)
+                if (instalmentsOn && paidPaisa < total) Row(verticalAlignment = Alignment.CenterVertically) {
+                    T(stringResource(R.string.inst_split), 14.sp, color = Ui.c.muted, modifier = Modifier.weight(1f))
+                    val opts = listOf(0, 2, 3, 6, 12)
+                    com.bongshaltech.erpinventory.ui.components.Segmented(
+                        opts.map { if (it == 0) "—" else it.toString() }, opts.indexOf(parts).coerceAtLeast(0),
+                    ) { parts = opts[it] }
                 }
+                if (instalmentsOn && paidPaisa < total && parts > 1) {
+                    val first = com.bongshaltech.erpinventory.core.sale.Installments.plan(total - paidPaisa, parts, java.time.LocalDate.now().plusMonths(1))
+                    Muted(stringResource(R.string.inst_each, parts, (first.firstOrNull()?.amountPaisa ?: 0).taka0()))
+                }
+                if (paidPaisa > total) SumRow(stringResource(R.string.sale_change), (paidPaisa - total).taka0(), strong = true, color = Brand.DarkGreen)
                 val shape = RoundedCornerShape(12.dp)
                 Row(
                     Modifier.fillMaxWidth().clip(shape)
@@ -395,7 +407,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                         NewSale(
                             lines = cart.toList(), discountPaisa = discountPaisa, paidPaisa = paidPaisa, method = method,
                             customerPhone = phone, customerName = custName, smsRequested = sms && hasPhone, staffId = who.staffId,
-                            promos = promos(),
+                            promos = promos(), installments = if (instalmentsOn && paidPaisa < total) parts else 0,
                         )
                     )
                     when (r) {
