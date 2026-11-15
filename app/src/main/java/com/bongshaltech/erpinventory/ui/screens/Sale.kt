@@ -174,6 +174,10 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
         else PromoMath.coupon(beforeCode, PromoRule(c.id, c.percentBp, c.fixedPaisa, minPaisa = c.minPaisa))
     }
     val loyaltyOn = saleSettings?.on(com.bongshaltech.erpinventory.data.Feature.LOYALTY) == true
+    val rxOn = saleSettings?.on(com.bongshaltech.erpinventory.data.Feature.PRESCRIPTION) == true
+    var patient by remember { mutableStateOf("") }
+    var doctor by remember { mutableStateOf("") }
+    var rxNo by remember { mutableStateOf("") }
     val pointValue = saleSettings?.pointValuePaisa ?: 100
     val havePoints = if (loyaltyOn) customer?.points ?: 0 else 0
     val maxPoints = if (pointValue > 0) minOf(havePoints, (beforeCode - codeOff).coerceAtLeast(0) / pointValue) else 0
@@ -225,6 +229,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
     fun reset() {
         codeOpen = false; codeText = ""; codePromo = null; parts = 0; usePoints = ""
         cart.clear(); discount = ""; paid = ""; phone = ""; custName = ""; showName = false; method = PayMethod.CASH; message = null
+        patient = ""; doctor = ""; rxNo = ""
     }
 
     val notEnough = stringResource(R.string.sale_not_enough, "%s")
@@ -268,6 +273,13 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                         modifier = Modifier.weight(1f),
                     )
                     Muted(stringResource(R.string.date_is, today))
+                }
+                if (rxOn) {
+                    Input(patient, { patient = it }, placeholder = stringResource(R.string.rx_patient), height = 42.dp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Input(doctor, { doctor = it }, Modifier.weight(1f), placeholder = stringResource(R.string.rx_doctor), height = 42.dp)
+                        Input(rxNo, { rxNo = it }, Modifier.weight(1f), placeholder = stringResource(R.string.rx_no), height = 42.dp)
+                    }
                 }
             }
             Panel(stringResource(R.string.panel_product), Brand.GreenGrad, PanelColors.Green) {
@@ -433,6 +445,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
                             promos = promos(), installments = if (instalmentsOn && paidPaisa < total) parts else 0,
                             checkCreditLimit = saleSettings?.on(com.bongshaltech.erpinventory.data.Feature.CREDIT_LIMIT) == true,
                             pointsUsed = pointsUse, pointEveryPaisa = if (loyaltyOn) saleSettings?.pointEveryPaisa ?: 0 else 0,
+                            patientName = if (rxOn) patient else "", doctorName = if (rxOn) doctor else "", prescriptionNo = if (rxOn) rxNo else "",
                         )
                     )
                     when (r) {

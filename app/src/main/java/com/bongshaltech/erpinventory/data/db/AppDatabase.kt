@@ -33,9 +33,9 @@ class Converters {
         DeletedSaleEntity::class, SaleDeleteRequestEntity::class, InstallmentEntity::class,
         StockAdjustEntity::class, HrLockEntity::class,
         InvestorEntity::class, LedgerAccountEntity::class, JournalEntryEntity::class, JournalLineEntity::class, RecurringExpenseEntity::class,
-        RecipeEntity::class, RecipeItemEntity::class, WorkOrderEntity::class, WorkLineEntity::class,
+        RecipeEntity::class, RecipeItemEntity::class, WorkOrderEntity::class, WorkLineEntity::class, KotEntity::class,
     ],
-    version = 21,
+    version = 22,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -63,6 +63,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun stockMore(): StockMoreDao
     abstract fun books(): BooksDao
     abstract fun making(): MakingDao
+    abstract fun kitchen(): KitchenDao
 
     companion object {
         // Schema changes must be additive migrations: shop data on the phone is never wiped.
@@ -469,12 +470,25 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE sale ADD COLUMN patientName TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE sale ADD COLUMN doctorName TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE sale ADD COLUMN prescriptionNo TEXT NOT NULL DEFAULT ''")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `kot` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, " +
+                        "`tableName` TEXT NOT NULL, `itemsText` TEXT NOT NULL, `status` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `readyAt` INTEGER)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_kot_status` ON `kot` (`status`)")
+            }
+        }
+
         fun open(context: Context): AppDatabase {
             System.loadLibrary("sqlcipher")
             val factory = SupportOpenHelperFactory(DbKey.get(context))
             return Room.databaseBuilder(context, AppDatabase::class.java, "shop.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
                 .build()
         }
     }

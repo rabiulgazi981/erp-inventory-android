@@ -76,6 +76,9 @@ object Routes {
     const val RECIPES = "recipes"
     const val FACTORY = "factory"
     const val REPAIR = "repair"
+    const val KITCHEN = "kitchen"
+    const val REST_REPORT = "rest_report"
+    const val PHARMA_REPORT = "pharma_report"
     const val TABLE = "table/{id}"
 
     fun productEdit(id: Long) = "product/$id"
@@ -199,6 +202,9 @@ fun ErpNavHost() {
         composable(Routes.RECIPES) { RecipesScreen(back) }
         composable(Routes.FACTORY) { WorkOrdersScreen(false, back) }
         composable(Routes.REPAIR) { WorkOrdersScreen(true, back) }
+        composable(Routes.KITCHEN) { KitchenScreen(back) }
+        composable(Routes.REST_REPORT) { RestaurantReportScreen(back) }
+        composable(Routes.PHARMA_REPORT) { PharmacyReportScreen(back) }
         composable(Routes.DELETED_SALES) { DeletedSalesScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.SERIALS) { SerialsScreen(back) }
         composable(Routes.WAREHOUSES) { WarehousesScreen(go = { nav.navigate(it) }, onBack = back) }

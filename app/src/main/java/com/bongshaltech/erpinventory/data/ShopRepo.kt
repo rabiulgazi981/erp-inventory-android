@@ -57,6 +57,7 @@ import com.bongshaltech.erpinventory.data.db.RecurringExpenseEntity
 import java.time.LocalDate
 import com.bongshaltech.erpinventory.core.stock.Recipe
 import com.bongshaltech.erpinventory.data.db.RecipeEntity
+import com.bongshaltech.erpinventory.data.db.KotEntity
 import com.bongshaltech.erpinventory.data.db.RecipeItemEntity
 import com.bongshaltech.erpinventory.data.db.WorkOrderEntity
 import com.bongshaltech.erpinventory.data.db.WorkLineEntity
@@ -88,6 +89,10 @@ data class NewSale(
     /** Loyalty: points spent on this sale (their value is already inside [discountPaisa]); earn one per [pointEveryPaisa] paid, 0 = off. */
     val pointsUsed: Long = 0,
     val pointEveryPaisa: Long = 0,
+    /** Pharmacy prescription details. */
+    val patientName: String = "",
+    val doctorName: String = "",
+    val prescriptionNo: String = "",
 )
 
 sealed interface DeleteResult {
@@ -355,6 +360,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                         totalPaisa = total, paidPaisa = minOf(s.paidPaisa, total), method = s.method,
                         smsRequested = s.smsRequested && phone != null, staffId = s.staffId,
                         pointsEarned = earned, pointsUsed = if (customerId != null) s.pointsUsed else 0,
+                        patientName = s.patientName.trim(), doctorName = s.doctorName.trim(), prescriptionNo = s.prescriptionNo.trim(),
                     )
                 )
                 db.sales().insertItems(s.lines.map {
@@ -573,6 +579,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     val batches get() = db.batches()
     val stockTools get() = db.stockTools()
     val making get() = db.making()
+    val kitchen get() = db.kitchen()
 
     suspend fun saveRecipe(out: ProductEntity, outMilli: Long, inputs: List<Pair<ProductEntity, Long>>, note: String): Long? {
         if (outMilli <= 0 || inputs.isEmpty() || inputs.any { it.second <= 0 || it.first.id == out.id }) return null
@@ -813,6 +820,8 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             if (fresh.isEmpty()) return@withTransaction null
             val number = nextNumber(code, DocType.KOT)
             db.tables().markSent(orderId)
+            db.kitchen().insert(KotEntity(number = number, tableName = db.kitchen().tableNameFor(orderId).orEmpty(),
+                itemsText = fresh.joinToString("\n") { (n, q) -> "$q\t$n" }))
             number to fresh
         }
     }

@@ -1123,3 +1123,55 @@ interface MakingDao {
     @Query("UPDATE work_order SET status = :status, chargePaisa = chargePaisa + :charge WHERE id = :id")
     suspend fun update(id: Long, status: String, charge: Long)
 }
+
+data class TableSales(val name: String, val bills: Int, val revenuePaisa: Long, val avgMinutes: Long)
+
+data class ItemSales(val name: String, val qtyMilli: Long, val revenuePaisa: Long)
+
+data class GenericSales(val generic: String, val medicines: Int, val stockMilli: Long, val stockValuePaisa: Long, val soldMilli: Long, val salesPaisa: Long)
+
+@Dao
+interface KitchenDao {
+    @Insert
+    suspend fun insert(k: KotEntity): Long
+
+    @Query("SELECT t.name FROM table_order o JOIN dining_table t ON t.id = o.tableId WHERE o.id = :orderId")
+    suspend fun tableNameFor(orderId: Long): String?
+
+    @Query("SELECT * FROM kot WHERE status != 'SERVED' OR createdAt >= :since ORDER BY status = 'SERVED', createdAt")
+    fun active(since: Long): Flow<List<KotEntity>>
+
+    @Query("UPDATE kot SET status = :status, readyAt = CASE WHEN :status = 'READY' THEN :now ELSE readyAt END WHERE id = :id")
+    suspend fun setStatus(id: Long, status: String, now: Long)
+
+    @Query("SELECT COUNT(*) FROM kot WHERE createdAt >= :from")
+    fun countSince(from: Long): Flow<Int>
+
+    @Query("SELECT COALESCE(AVG((readyAt - createdAt) / 60000), 0) FROM kot WHERE createdAt >= :from AND readyAt IS NOT NULL")
+    fun avgMinutesSince(from: Long): Flow<Long>
+
+    @Query(
+        "SELECT t.name AS name, COUNT(*) AS bills, COALESCE(SUM(s.totalPaisa), 0) AS revenuePaisa, " +
+            "COALESCE(AVG((s.createdAt - o.createdAt) / 60000), 0) AS avgMinutes " +
+            "FROM table_order o JOIN sale s ON s.number = o.saleNumber JOIN dining_table t ON t.id = o.tableId " +
+            "WHERE s.createdAt >= :from AND s.createdAt < :to GROUP BY t.id ORDER BY bills DESC"
+    )
+    suspend fun byTable(from: Long, to: Long): List<TableSales>
+
+    @Query(
+        "SELECT si.name AS name, SUM(si.qtyMilli - COALESCE((SELECT SUM(r.qtyMilli) FROM sale_return_item r WHERE r.saleItemId = si.id), 0)) AS qtyMilli, " +
+            "SUM(si.lineTotalPaisa - COALESCE((SELECT SUM(r.lineTotalPaisa) FROM sale_return_item r WHERE r.saleItemId = si.id), 0)) AS revenuePaisa " +
+            "FROM sale_item si JOIN sale s ON s.id = si.saleId WHERE s.createdAt >= :from AND s.createdAt < :to " +
+            "GROUP BY si.productId ORDER BY revenuePaisa DESC LIMIT 50"
+    )
+    suspend fun topItems(from: Long, to: Long): List<ItemSales>
+
+    @Query(
+        "SELECT CASE WHEN TRIM(p.generic) = '' THEN '—' ELSE TRIM(p.generic) END AS generic, COUNT(*) AS medicines, " +
+            "COALESCE(SUM(MAX(p.stockMilli, 0)), 0) AS stockMilli, COALESCE(SUM(MAX(p.stockMilli, 0) * p.costPaisa / 1000), 0) AS stockValuePaisa, " +
+            "COALESCE(SUM((SELECT SUM(si.qtyMilli) FROM sale_item si JOIN sale s ON s.id = si.saleId WHERE si.productId = p.id AND s.createdAt >= :from AND s.createdAt < :to)), 0) AS soldMilli, " +
+            "COALESCE(SUM((SELECT SUM(si.lineTotalPaisa) FROM sale_item si JOIN sale s ON s.id = si.saleId WHERE si.productId = p.id AND s.createdAt >= :from AND s.createdAt < :to)), 0) AS salesPaisa " +
+            "FROM product p WHERE p.active = 1 GROUP BY 1 ORDER BY salesPaisa DESC, generic"
+    )
+    suspend fun byGeneric(from: Long, to: Long): List<GenericSales>
+}

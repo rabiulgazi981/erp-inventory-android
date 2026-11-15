@@ -154,6 +154,10 @@ data class SaleEntity(
     /** Loyalty points this sale gave and spent; kept so a delete can undo them. */
     @ColumnInfo(defaultValue = "0") val pointsEarned: Long = 0,
     @ColumnInfo(defaultValue = "0") val pointsUsed: Long = 0,
+    /** Pharmacy prescription details, blank when not given. */
+    @ColumnInfo(defaultValue = "") val patientName: String = "",
+    @ColumnInfo(defaultValue = "") val doctorName: String = "",
+    @ColumnInfo(defaultValue = "") val prescriptionNo: String = "",
 )
 
 @Entity(
@@ -770,4 +774,17 @@ data class WorkLineEntity(
     val ratePaisa: Long = 0,
     val doneMilli: Long = 0,
     val scrapMilli: Long = 0,
+)
+
+/** A kitchen ticket (KOT) for the kitchen screen. [itemsText] is one "qtyMilli<TAB>name" per line. */
+@Entity(tableName = "kot", indices = [Index("status")])
+data class KotEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val number: String,
+    val tableName: String,
+    val itemsText: String,
+    /** NEW, COOKING, READY or SERVED. */
+    val status: String = "NEW",
+    val createdAt: Long = System.currentTimeMillis(),
+    val readyAt: Long? = null,
 )
