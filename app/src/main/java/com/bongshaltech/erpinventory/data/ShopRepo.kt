@@ -3,6 +3,8 @@ package com.bongshaltech.erpinventory.data
 import androidx.room.withTransaction
 import com.bongshaltech.erpinventory.core.DocNumber
 import com.bongshaltech.erpinventory.core.DocType
+import com.bongshaltech.erpinventory.core.Money
+import com.bongshaltech.erpinventory.data.db.AuditLogEntity
 import com.bongshaltech.erpinventory.data.db.AppDatabase
 import com.bongshaltech.erpinventory.data.db.CustomerEntity
 import com.bongshaltech.erpinventory.data.db.DocCounterEntity
@@ -194,7 +196,90 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
         }
     }
 
-    suspend fun saveProduct(p: ProductEntity) = db.products().upsert(p)
+    suspend fun saveProduct(p: ProductEntity): Long {
+        val old = if (p.id != 0L) db.products().get(p.id) else null
+        val id = db.products().upsert(p)
+        when {
+            old == null -> audit("PRODUCT_NEW", "${p.name} · ${tk(p.pricePaisa)}")
+            else -> {
+                if (old.pricePaisa != p.pricePaisa) audit("PRICE_CHANGE", "${p.name}: ${tk(old.pricePaisa)} → ${tk(p.pricePaisa)}")
+                if (old.costPaisa != p.costPaisa) audit("COST_CHANGE", "${p.name}: ${tk(old.costPaisa)} → ${tk(p.costPaisa)}")
+                if (old.stockMilli != p.stockMilli) audit("STOCK_EDIT", "${p.name}: ${Qty.text(old.stockMilli)} → ${Qty.text(p.stockMilli)}")
+            }
+        }
+        return id
+    }
+
+    private fun tk(paisa: Long) = Money(paisa).format()
+
+    private object Qty {
+        fun text(milli: Long) = java.math.BigDecimal(milli).movePointLeft(3).stripTrailingZeros().toPlainString()
+    }
+
+    val audit get() = db.audit()
+
+    /** One line in the activity log, as whoever is signed in now. */
+    private suspend fun audit(action: String, detail: String) {
+        val who = (settings.current().session as? Session.Staff)?.id
+        db.audit().insert(AuditLogEntity(staffId = who, action = action, detail = detail.take(300)))
+    }
+
+    /** Gives a product a barcode when it has none, so a label can be printed. Returns the barcode. */
+    suspend fun ensureBarcode(p: ProductEntity): String {
+        p.barcode?.takeIf { it.isNotBlank() }?.let { return it }
+        var code = "2" + p.id.toString().padStart(11, '0')
+        if (db.products().byBarcode(code) != null) code += System.currentTimeMillis() % 1000
+        db.products().upsert(p.copy(barcode = code))
+        return code
+    }
+
+    data class ImportResult(val added: Int, val updated: Int, val skipped: List<Int>)
+
+    /**
+     * Adds products from a sheet. A row whose barcode (or, without one, exact name) matches a product updates its
+     * name, category, prices; stock is only taken for new products, so re-importing never doubles stock.
+     */
+    suspend fun importProducts(rows: List<com.bongshaltech.erpinventory.core.sheet.ProductRow>): ImportResult {
+        var added = 0
+        var updated = 0
+        val skipped = mutableListOf<Int>()
+        db.withTransaction {
+            val all = db.products().allNow()
+            val byName = all.associateBy { it.name.trim().lowercase() }
+            for (r in rows) {
+                val price = Money.parse(r.price)?.paisa
+                val cost = Money.parse(r.cost)?.paisa
+                val barcode = r.barcode.trim().ifEmpty { null }
+                val existing = barcode?.let { db.products().byBarcode(it) } ?: byName[r.name.trim().lowercase()]
+                if (existing == null && price == null) { skipped += r.line; continue }
+                if (existing == null) {
+                    db.products().upsert(
+                        ProductEntity(
+                            name = r.name.trim(), barcode = barcode, category = r.category, unit = r.unit.ifBlank { "pcs" },
+                            costPaisa = cost ?: 0, pricePaisa = price ?: 0, generic = r.generic,
+                            stockMilli = milli(r.stock) ?: 0, lowStockMilli = milli(r.lowAt) ?: 0,
+                        )
+                    )
+                    added++
+                } else {
+                    db.products().upsert(
+                        existing.copy(
+                            name = r.name.trim(), barcode = existing.barcode ?: barcode,
+                            category = r.category.ifBlank { existing.category }, unit = r.unit.ifBlank { existing.unit },
+                            costPaisa = cost ?: existing.costPaisa, pricePaisa = price ?: existing.pricePaisa,
+                            generic = r.generic.ifBlank { existing.generic }, lowStockMilli = milli(r.lowAt) ?: existing.lowStockMilli,
+                            active = true,
+                        )
+                    )
+                    updated++
+                }
+            }
+        }
+        audit("IMPORT", "+$added · ~$updated")
+        return ImportResult(added, updated, skipped)
+    }
+
+    private fun milli(text: String): Long? = text.replace(",", "").trim().toBigDecimalOrNull()?.movePointRight(3)?.toLong()
 
     suspend fun saveSale(s: NewSale): SaleResult {
         val subtotal = s.lines.sumOf { it.totalPaisa }
@@ -256,6 +341,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                         SalePromoEntity(saleId = saleId, promoId = it.promoId, kind = it.kind, code = it.code, amountPaisa = it.amountPaisa)
                     })
                 }
+                audit("SALE", "$number · ${tk(total)}" + if (s.discountPaisa > 0) " · −${tk(s.discountPaisa)}" else "")
                 SaleResult.Saved(saleId, number, total)
             }
         } catch (e: NotEnough) {
@@ -329,6 +415,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             for (l in p.lines) if (l.batchNo.isNotBlank() || l.expiryDay != null) {
                 db.batches().insert(StockBatchEntity(productId = l.product.id, batchNo = l.batchNo.trim(), expiryDay = l.expiryDay, qtyMilli = l.qtyMilli, purchaseId = id))
             }
+            audit("PURCHASE", "$number · ${tk(total)}")
             PurchaseResult.Saved(number, total)
         }
     }
@@ -356,6 +443,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             db.expenses().insert(
                 ExpenseEntity(number = number, category = category.trim(), amountPaisa = amountPaisa, method = method, note = note.trim(), staffId = staffId)
             )
+            audit("EXPENSE", "$number · ${category.trim()} · ${tk(amountPaisa)}")
             number
         }
     }
@@ -384,6 +472,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                     StockJobEntity(number = number, outProductId = out.id, outName = out.name, outQtyMilli = outQty, costPaisa = cost, note = note.trim(), staffId = staffId)
                 )
                 db.stockTools().insertJobInputs(rows.map { it.copy(jobId = jobId) })
+                audit("REPACK", "$number · ${out.name} +${Qty.text(outQty)}")
                 null
             }
         } catch (e: NotEnough) {
@@ -415,6 +504,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                 if (held < qtyMilli) return@withTransaction false
                 db.stockTools().setHeld(WarehouseStockEntity(warehouseId, productId, held - qtyMilli))
             }
+            audit("STOCK_MOVE", "${p.name} · ${Qty.text(qtyMilli)} " + if (intoWarehouse) "→ #$warehouseId" else "← #$warehouseId")
             true
         }
     }
@@ -444,6 +534,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
         if (b.qtyMilli <= 0) return@withTransaction
         db.batches().take(b.id, b.qtyMilli)
         db.products().addStock(b.productId, -b.qtyMilli)
+        audit("WRITE_OFF", "${db.products().get(b.productId)?.name.orEmpty()} · ${b.batchNo} · ${Qty.text(b.qtyMilli)}")
     }
 
     /** Adds one of a product to a table's open order, opening one if needed. */
@@ -488,6 +579,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                 ExpenseEntity(number = number, category = category.trim(), amountPaisa = amountPaisa, method = method, note = note.trim(), staffId = staffId)
             )
             db.hr().insertPayment(SalaryPaymentEntity(employeeId = employeeId, month = month, amountPaisa = amountPaisa, expenseId = expenseId))
+            audit("SALARY", "$number · ${note.trim()} · ${tk(amountPaisa)}")
             number
         }
     }
@@ -529,6 +621,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                 MoneyMoveEntity(number = number, kind = kind.name, fromMethod = from?.name, toMethod = to?.name,
                     amountPaisa = amountPaisa, loanId = loanId, note = note.trim(), staffId = staffId)
             )
+            audit("MONEY", "$number · ${kind.name} · ${tk(amountPaisa)}")
             number
         }
     }
@@ -566,6 +659,8 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
         val expected = s.openingPaisa + db.money().cashFlowSince(s.openedAt)
         val closed = s.copy(closedAt = System.currentTimeMillis(), expectedPaisa = expected, countedPaisa = countedPaisa, note = note.trim())
         db.money().updateSession(closed)
+        audit("DAY_CLOSE", "${tk(expected)} / ${tk(countedPaisa)}")
+        db.audit().trim(System.currentTimeMillis() - 400L * 24 * 60 * 60 * 1000)
         closed
     }
 
@@ -638,6 +733,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                     lineTotalPaisa = Returns.value(listOf(it), sale.subtotalPaisa, sale.totalPaisa), unitCostPaisa = it.line.unitCostPaisa,
                 )
             })
+            audit("SALE_RETURN", "$number · ${tk(split.totalPaisa)}")
             ReturnResult.Saved(number, split)
         }
     }
@@ -671,6 +767,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                         qtyMilli = it.qtyMilli, lineTotalPaisa = Returns.value(listOf(it), pur.subtotalPaisa, pur.totalPaisa),
                     )
                 })
+                audit("PURCHASE_RETURN", "$number · ${tk(split.totalPaisa)}")
                 ReturnResult.Saved(number, split)
             }
         } catch (e: NotEnough) {

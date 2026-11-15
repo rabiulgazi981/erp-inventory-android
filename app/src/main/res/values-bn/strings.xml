@@ -668,4 +668,27 @@
     <string name="warehouse_to_here">দোকান → এখানে</string>
     <string name="warehouse_to_shop">এখান → দোকান</string>
     <string name="warehouse_not_enough">সেখানে এত নেই</string>
+    <string name="import_products">পণ্য ইমপোর্ট (Excel)</string>
+    <string name="import_help">Excel (.xlsx) বা CSV ফাইল বেছে নিন। প্রথম সারিতে Name, Barcode, Category, Unit, Cost, Price, Stock (বা নাম, বারকোড, দাম…) এমন শিরোনাম থাকতে হবে। আগে থেকে থাকা পণ্যের (একই বারকোড বা নাম) দাম আপডেট হবে; স্টক বদলাবে না।</string>
+    <string name="import_pick">ফাইল বাছুন</string>
+    <string name="import_template">নমুনা ফাইল</string>
+    <string name="import_bad">ফাইলটি পড়া যায়নি। এতে \"Name\" বা \"নাম\" কলাম থাকতে হবে।</string>
+    <string name="import_found">পণ্য পাওয়া গেছে</string>
+    <string name="import_go">%1$dটি পণ্য ইমপোর্ট করুন</string>
+    <string name="import_added">যোগ হয়েছে</string>
+    <string name="import_updated">আপডেট হয়েছে</string>
+    <string name="import_skipped">বাদ পড়া সারি (দাম নেই): %1$s</string>
+    <string name="labels">বারকোড লেবেল</string>
+    <string name="labels_help">পণ্য খুঁজে যোগ করুন, কতটি স্টিকার দিন, তারপর রসিদ প্রিন্টারে প্রিন্ট করুন বা ছবি হিসেবে শেয়ার করুন। বারকোড না থাকলে তৈরি হয়ে যাবে।</string>
+    <string name="labels_new_code">বারকোড তৈরি হবে</string>
+    <string name="labels_show_shop">লেবেলে দোকানের নাম</string>
+    <string name="labels_print">প্রিন্ট %1$d</string>
+    <string name="labels_no_printer">আগে আরও › প্রিন্টারে প্রিন্টার সেট করুন, অথবা শেয়ার করুন।</string>
+    <string name="audit">কাজের হিসাব (লগ)</string>
+    <string name="audit_owner">মালিক</string>
+    <string name="audit_search">নম্বর, পণ্য খুঁজুন…</string>
+    <string name="audit_product_new">নতুন পণ্য</string>
+    <string name="audit_price">দাম বদল</string>
+    <string name="audit_cost">কেনা দাম বদল</string>
+    <string name="audit_stock">হাতে স্টক বদল</string>
 </resources>

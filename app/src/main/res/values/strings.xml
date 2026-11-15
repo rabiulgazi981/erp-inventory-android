@@ -669,4 +669,27 @@
     <string name="warehouse_to_here">Shop → here</string>
     <string name="warehouse_to_shop">Here → shop</string>
     <string name="warehouse_not_enough">Not that much there</string>
+    <string name="import_products">Import products (Excel)</string>
+    <string name="import_help">Choose an Excel (.xlsx) or CSV file. The first row must have headings like Name, Barcode, Category, Unit, Cost, Price, Stock. Products that already exist (same barcode or name) get their prices updated; their stock is not changed.</string>
+    <string name="import_pick">Choose file</string>
+    <string name="import_template">Sample file</string>
+    <string name="import_bad">Could not read that file. It needs a \"Name\" column.</string>
+    <string name="import_found">Products found</string>
+    <string name="import_go">Import %1$d products</string>
+    <string name="import_added">Added</string>
+    <string name="import_updated">Updated</string>
+    <string name="import_skipped">Skipped rows (no price): %1$s</string>
+    <string name="labels">Barcode labels</string>
+    <string name="labels_help">Search and add products, set how many stickers, then print on the receipt printer or share as a picture. Products without a barcode get one.</string>
+    <string name="labels_new_code">Barcode will be made</string>
+    <string name="labels_show_shop">Shop name on label</string>
+    <string name="labels_print">Print %1$d</string>
+    <string name="labels_no_printer">Set up the printer first in More › Printer, or use Share.</string>
+    <string name="audit">Activity log</string>
+    <string name="audit_owner">Owner</string>
+    <string name="audit_search">Search number, product…</string>
+    <string name="audit_product_new">New product</string>
+    <string name="audit_price">Price changed</string>
+    <string name="audit_cost">Cost changed</string>
+    <string name="audit_stock">Stock changed by hand</string>
 </resources>

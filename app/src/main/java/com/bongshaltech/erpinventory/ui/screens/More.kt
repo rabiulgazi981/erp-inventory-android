@@ -22,6 +22,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.QrCode
+import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material.icons.outlined.Warehouse
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.EventBusy
@@ -189,6 +192,9 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     ListRow(stringResource(R.string.repack), Icons.Outlined.Inventory2, Tints.Teal, trailing = { Chevron() }) { go(Routes.REPACK) }
                     ListRow(stringResource(R.string.serials), Icons.Outlined.QrCode2, Tints.Purple, trailing = { Chevron() }) { go(Routes.SERIALS) }
                     ListRow(stringResource(R.string.warehouses), Icons.Outlined.Warehouse, Tints.Grey, trailing = { Chevron() }) { go(Routes.WAREHOUSES) }
+                    ListRow(stringResource(R.string.import_products), Icons.Outlined.UploadFile, Tints.Green, trailing = { Chevron() }) { go(Routes.IMPORT) }
+                    ListRow(stringResource(R.string.labels), Icons.Outlined.QrCode, Tints.Blue, trailing = { Chevron() }) { go(Routes.LABELS) }
+                    ListRow(stringResource(R.string.audit), Icons.Outlined.History, Tints.Grey, trailing = { Chevron() }) { go(Routes.AUDIT) }
                     ListRow(stringResource(R.string.orders), Icons.Outlined.Description, Tints.Blue, trailing = { Chevron() }) { go(Routes.ORDERS) }
                     ListRow(stringResource(R.string.returns), Icons.Outlined.Replay, Tints.Purple, trailing = { Chevron() }) { go(Routes.RETURNS) }
                     ListRow(stringResource(R.string.backup), Icons.Outlined.CloudUpload, Tints.Blue, trailing = { Chevron() }) { go(Routes.BACKUP) }

@@ -58,6 +58,9 @@ object Routes {
     const val HR = "hr"
     const val BATCHES = "batches"
     const val REPACK = "repack"
+    const val IMPORT = "import"
+    const val LABELS = "labels"
+    const val AUDIT = "audit"
     const val SERIALS = "serials"
     const val WAREHOUSES = "warehouses"
     const val WAREHOUSE = "warehouse/{id}"
@@ -172,6 +175,9 @@ fun ErpNavHost() {
         composable(Routes.HR) { HrScreen(back) }
         composable(Routes.BATCHES) { BatchesScreen(back) }
         composable(Routes.REPACK) { RepackScreen(back) }
+        composable(Routes.IMPORT) { ImportScreen(back) }
+        composable(Routes.LABELS) { LabelsScreen(back) }
+        composable(Routes.AUDIT) { AuditScreen(back) }
         composable(Routes.SERIALS) { SerialsScreen(back) }
         composable(Routes.WAREHOUSES) { WarehousesScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.WAREHOUSE, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e -> WarehouseScreen(e.arguments?.getLong("id") ?: 0L, back) }

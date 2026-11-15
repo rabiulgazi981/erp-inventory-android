@@ -558,3 +558,13 @@ data class WarehouseStockEntity(
     val productId: Long,
     val qtyMilli: Long,
 )
+
+/** Who did what and when, for the owner to check. [staffId] null means the owner. */
+@Entity(tableName = "audit_log", indices = [Index("at"), Index("action")])
+data class AuditLogEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val at: Long = System.currentTimeMillis(),
+    val staffId: Long?,
+    val action: String,
+    val detail: String,
+)

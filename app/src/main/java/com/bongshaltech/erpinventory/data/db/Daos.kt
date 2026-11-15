@@ -37,6 +37,9 @@ interface ProductDao {
     @Query("SELECT * FROM product WHERE id = :id")
     suspend fun get(id: Long): ProductEntity?
 
+    @Query("SELECT * FROM product")
+    suspend fun allNow(): List<ProductEntity>
+
     @Query("SELECT * FROM product WHERE active = 1 AND stockMilli <= lowStockMilli AND (:q = '' OR name LIKE '%' || :q || '%' OR barcode = :q) ORDER BY name COLLATE NOCASE")
     fun searchLow(q: String): Flow<List<ProductEntity>>
 
@@ -836,4 +839,23 @@ interface StockToolsDao {
 
     @Upsert
     suspend fun setHeld(row: WarehouseStockEntity)
+}
+
+data class AuditRow(val id: Long, val at: Long, val staffName: String?, val action: String, val detail: String)
+
+@Dao
+interface AuditDao {
+    @Insert
+    suspend fun insert(a: AuditLogEntity)
+
+    @Query(
+        "SELECT a.id AS id, a.at AS at, s.name AS staffName, a.action AS action, a.detail AS detail FROM audit_log a " +
+            "LEFT JOIN staff s ON s.id = a.staffId WHERE (:staff < 0 OR COALESCE(a.staffId, 0) = :staff) " +
+            "AND (:q = '' OR a.detail LIKE '%' || :q || '%') ORDER BY a.at DESC LIMIT 300"
+    )
+    fun list(staff: Long, q: String): Flow<List<AuditRow>>
+
+    /** Keeps the log from growing without end: about a year. */
+    @Query("DELETE FROM audit_log WHERE at < :before")
+    suspend fun trim(before: Long)
 }

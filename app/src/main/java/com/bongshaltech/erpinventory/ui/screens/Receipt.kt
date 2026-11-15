@@ -114,7 +114,7 @@ private fun sampleReceipt(ctx: Context, profile: BusinessProfile) = ReceiptData(
 )
 
 /** Shows Bangla-safe printer messages as a toast. */
-private fun toastResult(ctx: Context, r: PrintResult) {
+internal fun toastResult(ctx: Context, r: PrintResult) {
     val msg = when (r) {
         PrintResult.Done -> ctx.getString(R.string.printer_done)
         PrintResult.BluetoothOff -> ctx.getString(R.string.printer_bt_off)
@@ -124,7 +124,7 @@ private fun toastResult(ctx: Context, r: PrintResult) {
     Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
 }
 
-private fun shareImage(ctx: Context, bmp: Bitmap, name: String) {
+internal fun shareImage(ctx: Context, bmp: Bitmap, name: String) {
     val dir = File(ctx.cacheDir, "receipts").apply { mkdirs() }
     val file = File(dir, "$name.png")
     file.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
