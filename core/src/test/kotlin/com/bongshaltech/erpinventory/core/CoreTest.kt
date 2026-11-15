@@ -99,6 +99,7 @@ class DocNumberTest {
     @Test fun formats() {
         assertEquals("DMS-26-0001", DocNumber.format("dms", DocType.SALE, 2026, 1))
         assertEquals("DMS-PUR-26-0021", DocNumber.format("DMS", DocType.PURCHASE, 2026, 21))
+        assertEquals("DMS-SPAY-26-0003", DocNumber.format("DMS", DocType.SUPPLIER_PAYMENT, 2026, 3))
         assertEquals(1, DocNumber.next(null))
     }
 }
