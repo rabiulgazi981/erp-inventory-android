@@ -451,4 +451,15 @@
     <string name="sms_sim_signed_out">SMS account signed out, sending from your SIM</string>
     <string name="sms_sim_busy">SMS service busy, sending from your SIM</string>
     <string name="sms_working">Please wait…</string>
+    <string name="adfree_help">Pay a small subscription and the app shows no ads. Your shop data stays on this phone either way.</string>
+    <string name="adfree_per_month">/ month</string>
+    <string name="adfree_per_year">/ year</string>
+    <string name="adfree_trial">Includes a free trial</string>
+    <string name="adfree_unavailable">The subscription is not available right now. Check that Google Play is signed in and you are online.</string>
+    <string name="adfree_restore">Already paid? Restore</string>
+    <string name="adfree_cancel_note">Billed by Google Play. Cancel any time in Play Store › Payments &amp; subscriptions.</string>
+    <string name="adfree_on">Ad-free is on</string>
+    <string name="adfree_on_note">Thank you! No ads are shown on this phone while the subscription is active.</string>
+    <string name="adfree_on_short">Ad-free</string>
+    <string name="adfree_manage">Manage subscription</string>
 </resources>

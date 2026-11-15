@@ -153,6 +153,7 @@ fun ReportsScreen(tab: (Tab) -> Unit) {
                 }
             }
         }
+        com.bongshaltech.erpinventory.ads.AdBanner()
         BottomNav(Tab.REPORTS, tab)
     }
 }
