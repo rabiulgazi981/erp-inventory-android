@@ -590,7 +590,10 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
         if (p.kind != PromoKind.OFFER && (code.isEmpty() || db.promos().codeTaken(code, p.id) > 0)) return false
         if (p.percentBp == 0 && p.fixedPaisa <= 0 && p.balancePaisa <= 0) return false
         db.withTransaction {
-            db.promos().insert(p.copy(code = code, name = p.name.trim().ifEmpty { code }, category = p.category.trim()))
+            val saved = p.copy(code = code, name = p.name.trim().ifEmpty { code }, category = p.category.trim())
+            db.promos().insert(saved)
+            val off = if (saved.percentBp > 0) Qty.text(saved.percentBp * 10L) + "%" else tk(saved.fixedPaisa.takeIf { it > 0 } ?: saved.balancePaisa)
+            audit("PROMO_NEW", "${saved.kind.name.lowercase()} · ${saved.name} · $off")
             // A gift voucher sold for money: the money comes in now, the goods go out later at no charge.
             if (p.kind == PromoKind.VOUCHER && soldFor != null) {
                 moveMoney(MoveKind.VOUCHER_SOLD, null, soldFor, p.balancePaisa, code, staffId)
@@ -650,8 +653,11 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             n
         }
 
-    suspend fun openDay(countedPaisa: Long, staffId: Long?): Long =
-        db.money().insertSession(CashSessionEntity(openingPaisa = countedPaisa, staffId = staffId))
+    suspend fun openDay(countedPaisa: Long, staffId: Long?): Long = db.withTransaction {
+        val id = db.money().insertSession(CashSessionEntity(openingPaisa = countedPaisa, staffId = staffId))
+        audit("DAY_OPEN", tk(countedPaisa))
+        id
+    }
 
     /** Closes the open day: expected cash = counted at opening + every cash flow since. */
     suspend fun closeDay(countedPaisa: Long, note: String): CashSessionEntity? = db.withTransaction {
