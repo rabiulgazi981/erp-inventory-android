@@ -237,7 +237,7 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     if (s?.on(Feature.ORDERS) == true) ListRow(stringResource(R.string.orders), Icons.Outlined.Description, Tints.Blue, trailing = { Chevron() }) { go(Routes.ORDERS) }
                     ListRow(stringResource(R.string.returns), Icons.Outlined.Replay, Tints.Purple, trailing = { Chevron() }) { go(Routes.RETURNS) }
                     ListRow(stringResource(R.string.backup), Icons.Outlined.CloudUpload, Tints.Blue, trailing = { Chevron() }) { go(Routes.BACKUP) }
-                    ListRow(stringResource(R.string.sms_pack), Icons.Outlined.ChatBubbleOutline, Tints.Teal, trailing = { Chevron() },
+                    if (com.bongshaltech.erpinventory.data.SmsCloud.ENABLED) ListRow(stringResource(R.string.sms_pack), Icons.Outlined.ChatBubbleOutline, Tints.Teal, trailing = { Chevron() },
                         sub = com.bongshaltech.erpinventory.data.SmsCloud.signedInEmail(ctx) ?: stringResource(R.string.sms_pack_off)) { go(Routes.SMS_ACCOUNT) }
                 }
                 ListRow(stringResource(R.string.printer), Icons.Outlined.Print, Tints.Grey, trailing = { Chevron() }) { go(Routes.PRINTER) }
