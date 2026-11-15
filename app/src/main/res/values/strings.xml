@@ -873,8 +873,8 @@
     <string name="mfg_output_qty">Recipe makes (%1$s)</string>
     <string name="mfg_inputs">Inputs used for that amount</string>
     <string name="mfg_recipe">Recipe saved</string>
-    <string name="repair_help">Goods leave stock when sent and come back when received. The repair bill goes on the supplier's due.</string>
-    <string name="factory_help">Goods enter stock when received, at the order rate. The charge goes on the factory's due.</string>
+    <string name="repair_help">Goods leave stock when sent and come back when received. The repair bill goes on the supplier\'s due.</string>
+    <string name="factory_help">Goods enter stock when received, at the order rate. The charge goes on the factory\'s due.</string>
     <string name="repair_new">Send for repair</string>
     <string name="factory_new">New factory order</string>
     <string name="work_need_supplier">Add the factory or repair shop as a supplier first</string>
@@ -890,7 +890,7 @@
     <string name="repair_charge">Repair bill ৳</string>
     <string name="work_receive">Receive</string>
     <string name="work_cancel">Close order</string>
-    <string name="work_due_note">Charges are added to this supplier's due. Pay them from Suppliers.</string>
+    <string name="work_due_note">Charges are added to this supplier\'s due. Pay them from Suppliers.</string>
     <string name="audit_factory_receive">Factory goods received</string>
     <string name="audit_repair_back">Repair goods back</string>
 </resources>
