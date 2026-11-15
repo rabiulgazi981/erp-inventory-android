@@ -66,6 +66,7 @@ private val kindLabel = mapOf(
     MoveKind.CAPITAL_IN.name to R.string.mv_capital_in, MoveKind.DRAWING.name to R.string.mv_drawing,
     MoveKind.LOAN_TAKEN.name to R.string.mv_loan_taken, MoveKind.LOAN_REPAID.name to R.string.mv_loan_repaid,
     MoveKind.LOAN_GIVEN.name to R.string.mv_loan_given, MoveKind.LOAN_RECEIVED.name to R.string.mv_loan_received,
+    MoveKind.VOUCHER_SOLD.name to R.string.mv_voucher_sold,
 )
 
 @Composable

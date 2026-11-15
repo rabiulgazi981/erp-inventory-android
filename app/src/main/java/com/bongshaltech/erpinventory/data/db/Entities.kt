@@ -332,7 +332,7 @@ data class OrderDocItemEntity(
 )
 
 /** Money moved without a sale or purchase: transfers between cash / bank / wallets, owner's money in or out, loans, opening balances. */
-enum class MoveKind { OPENING, TRANSFER, CAPITAL_IN, DRAWING, LOAN_TAKEN, LOAN_REPAID, LOAN_GIVEN, LOAN_RECEIVED }
+enum class MoveKind { OPENING, TRANSFER, CAPITAL_IN, DRAWING, LOAN_TAKEN, LOAN_REPAID, LOAN_GIVEN, LOAN_RECEIVED, VOUCHER_SOLD }
 
 @Entity(tableName = "money_move", indices = [Index("createdAt"), Index("loanId")])
 data class MoneyMoveEntity(
@@ -375,4 +375,48 @@ data class CashSessionEntity(
     val countedPaisa: Long? = null,
     val note: String = "",
     val staffId: Long? = null,
+)
+
+/** Offers apply by themselves; coupons and gift vouchers are typed in as a code at the sale. */
+enum class PromoKind { OFFER, COUPON, VOUCHER }
+
+@Entity(tableName = "promo", indices = [Index("kind"), Index("code")])
+data class PromoEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val kind: PromoKind,
+    val name: String,
+    /** Upper-case code for a coupon or voucher; empty for an offer. */
+    val code: String = "",
+    /** Basis points (1000 = 10%); 0 means [fixedPaisa] is used. */
+    val percentBp: Int = 0,
+    val fixedPaisa: Long = 0,
+    /** Offer on one product, or a category, or (both empty) everything. */
+    val productId: Long? = null,
+    val category: String = "",
+    /** A coupon only works on a bill of at least this much. */
+    val minPaisa: Long = 0,
+    /** What is left on a gift voucher. */
+    val balancePaisa: Long = 0,
+    val startAt: Long? = null,
+    val endAt: Long? = null,
+    /** 0 = no limit. */
+    val maxUses: Int = 0,
+    val uses: Int = 0,
+    val active: Boolean = true,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** Which offer, coupon or voucher took how much off a sale. */
+@Entity(
+    tableName = "sale_promo",
+    foreignKeys = [ForeignKey(entity = SaleEntity::class, parentColumns = ["id"], childColumns = ["saleId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("saleId"), Index("promoId")],
+)
+data class SalePromoEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val saleId: Long,
+    val promoId: Long?,
+    val kind: PromoKind,
+    val code: String,
+    val amountPaisa: Long,
 )

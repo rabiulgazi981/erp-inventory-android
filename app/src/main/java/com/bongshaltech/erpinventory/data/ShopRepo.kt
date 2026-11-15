@@ -27,6 +27,9 @@ import com.bongshaltech.erpinventory.data.db.CashSessionEntity
 import com.bongshaltech.erpinventory.data.db.LoanEntity
 import com.bongshaltech.erpinventory.data.db.MoneyMoveEntity
 import com.bongshaltech.erpinventory.data.db.MoveKind
+import com.bongshaltech.erpinventory.data.db.PromoEntity
+import com.bongshaltech.erpinventory.data.db.PromoKind
+import com.bongshaltech.erpinventory.data.db.SalePromoEntity
 import com.bongshaltech.erpinventory.data.db.OrderDocItemEntity
 import com.bongshaltech.erpinventory.data.db.OrderKind
 import com.bongshaltech.erpinventory.data.db.OrderStatus
@@ -50,7 +53,11 @@ data class NewSale(
     val customerName: String?,
     val smsRequested: Boolean,
     val staffId: Long?,
+    /** Offers, coupon and voucher already counted inside [discountPaisa]. */
+    val promos: List<AppliedPromo> = emptyList(),
 )
+
+data class AppliedPromo(val promoId: Long?, val kind: PromoKind, val code: String, val amountPaisa: Long)
 
 data class PurchaseLine(val product: ProductEntity, val qtyMilli: Long, val unitCostPaisa: Long) {
     val totalPaisa: Long get() = (unitCostPaisa * qtyMilli + 500) / 1000
@@ -77,6 +84,8 @@ sealed interface SaleResult {
     data class Saved(val id: Long, val number: String, val totalPaisa: Long) : SaleResult
     data class NotEnoughStock(val productName: String) : SaleResult
     data object DueNeedsCustomer : SaleResult
+    /** A coupon ran out of uses or a voucher's balance dropped while the sale was open. */
+    data class PromoUsedUp(val code: String) : SaleResult
 }
 
 data class OrderLine(val product: ProductEntity, val qtyMilli: Long, val unitPricePaisa: Long) {
@@ -220,10 +229,26 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                         unitCostPaisa = it.product.costPaisa,
                     )
                 })
+                for (p in s.promos) {
+                    val id = p.promoId ?: continue
+                    val ok = when (p.kind) {
+                        PromoKind.OFFER -> 1
+                        PromoKind.COUPON -> db.promos().use(id)
+                        PromoKind.VOUCHER -> db.promos().spend(id, p.amountPaisa)
+                    }
+                    if (ok == 0) throw PromoGone(p.code)
+                }
+                if (s.promos.isNotEmpty()) {
+                    db.promos().insertSalePromos(s.promos.filter { it.amountPaisa > 0 }.map {
+                        SalePromoEntity(saleId = saleId, promoId = it.promoId, kind = it.kind, code = it.code, amountPaisa = it.amountPaisa)
+                    })
+                }
                 SaleResult.Saved(saleId, number, total)
             }
         } catch (e: NotEnough) {
             SaleResult.NotEnoughStock(e.productName)
+        } catch (e: PromoGone) {
+            SaleResult.PromoUsedUp(e.code)
         }
     }
 
@@ -317,6 +342,35 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             )
             number
         }
+    }
+
+    val promos get() = db.promos()
+
+    /** Saves an offer, coupon or voucher. Returns false when the code is empty or already used by another one. */
+    suspend fun savePromo(p: PromoEntity, soldFor: PayMethod? = null, staffId: Long? = null): Boolean {
+        val code = p.code.trim().uppercase().filter { !it.isWhitespace() }
+        if (p.kind != PromoKind.OFFER && (code.isEmpty() || db.promos().codeTaken(code, p.id) > 0)) return false
+        if (p.percentBp == 0 && p.fixedPaisa <= 0 && p.balancePaisa <= 0) return false
+        db.withTransaction {
+            db.promos().insert(p.copy(code = code, name = p.name.trim().ifEmpty { code }, category = p.category.trim()))
+            // A gift voucher sold for money: the money comes in now, the goods go out later at no charge.
+            if (p.kind == PromoKind.VOUCHER && soldFor != null) {
+                moveMoney(MoveKind.VOUCHER_SOLD, null, soldFor, p.balancePaisa, code, staffId)
+            }
+        }
+        return true
+    }
+
+    /** Looks up a coupon or voucher typed at the sale; null when unknown, off, out of date or used up. */
+    suspend fun findCode(raw: String, now: Long = System.currentTimeMillis()): PromoEntity? {
+        val code = raw.trim().uppercase().filter { !it.isWhitespace() }
+        if (code.isEmpty()) return null
+        val p = db.promos().byCode(PromoKind.COUPON, code) ?: db.promos().byCode(PromoKind.VOUCHER, code) ?: return null
+        if (p.startAt != null && p.startAt > now) return null
+        if (p.endAt != null && p.endAt < now) return null
+        if (p.kind == PromoKind.COUPON && p.maxUses > 0 && p.uses >= p.maxUses) return null
+        if (p.kind == PromoKind.VOUCHER && p.balancePaisa <= 0) return null
+        return p
     }
 
     /** Records a money movement that isn't a sale or purchase. Returns its number. */
@@ -506,6 +560,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     }
 
     private class NotEnough(val productName: String) : RuntimeException()
+    private class PromoGone(val code: String) : RuntimeException()
 }
 
 fun StaffEntity.menuSet(): Set<StaffMenu> =

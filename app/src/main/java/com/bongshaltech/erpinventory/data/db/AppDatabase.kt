@@ -26,7 +26,7 @@ class Converters {
         OrderDocEntity::class, OrderDocItemEntity::class,
         MoneyMoveEntity::class, LoanEntity::class, CashSessionEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -44,6 +44,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun returns(): ReturnDao
     abstract fun orders(): OrderDao
     abstract fun money(): MoneyDao
+    abstract fun promos(): PromoDao
 
     companion object {
         // Schema changes must be additive migrations: shop data on the phone is never wiped.
@@ -225,12 +226,32 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `promo` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`code` TEXT NOT NULL, `percentBp` INTEGER NOT NULL, `fixedPaisa` INTEGER NOT NULL, `productId` INTEGER, `category` TEXT NOT NULL, " +
+                        "`minPaisa` INTEGER NOT NULL, `balancePaisa` INTEGER NOT NULL, `startAt` INTEGER, `endAt` INTEGER, `maxUses` INTEGER NOT NULL, " +
+                        "`uses` INTEGER NOT NULL, `active` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_promo_kind` ON `promo` (`kind`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_promo_code` ON `promo` (`code`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sale_promo` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `saleId` INTEGER NOT NULL, " +
+                        "`promoId` INTEGER, `kind` TEXT NOT NULL, `code` TEXT NOT NULL, `amountPaisa` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`saleId`) REFERENCES `sale`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_promo_saleId` ON `sale_promo` (`saleId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_promo_promoId` ON `sale_promo` (`promoId`)")
+            }
+        }
+
         fun open(context: Context): AppDatabase {
             System.loadLibrary("sqlcipher")
             val factory = SupportOpenHelperFactory(DbKey.get(context))
             return Room.databaseBuilder(context, AppDatabase::class.java, "shop.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 .build()
         }
     }

@@ -595,3 +595,42 @@ interface MoneyDao {
     @Update
     suspend fun updateSession(c: CashSessionEntity)
 }
+
+@Dao
+interface PromoDao {
+    @Query("SELECT * FROM promo WHERE kind = :kind ORDER BY active DESC, createdAt DESC")
+    fun byKind(kind: PromoKind): Flow<List<PromoEntity>>
+
+    /** Offers running right now. */
+    @Query("SELECT * FROM promo WHERE kind = 'OFFER' AND active = 1 AND (startAt IS NULL OR startAt <= :now) AND (endAt IS NULL OR endAt >= :now)")
+    fun liveOffers(now: Long): Flow<List<PromoEntity>>
+
+    @Query("SELECT * FROM promo WHERE kind = :kind AND code = :code AND active = 1 LIMIT 1")
+    suspend fun byCode(kind: PromoKind, code: String): PromoEntity?
+
+    @Query("SELECT COUNT(*) FROM promo WHERE kind != 'OFFER' AND code = :code AND id != :exceptId")
+    suspend fun codeTaken(code: String, exceptId: Long): Int
+
+    @Insert
+    suspend fun insert(p: PromoEntity): Long
+
+    @Query("UPDATE promo SET active = :active WHERE id = :id")
+    suspend fun setActive(id: Long, active: Boolean)
+
+    /** Counts one use; 0 rows when the limit is already reached. */
+    @Query("UPDATE promo SET uses = uses + 1 WHERE id = :id AND (maxUses = 0 OR uses < maxUses)")
+    suspend fun use(id: Long): Int
+
+    /** Spends from a voucher; 0 rows when the balance is too low. */
+    @Query("UPDATE promo SET balancePaisa = balancePaisa - :amount, uses = uses + 1 WHERE id = :id AND balancePaisa >= :amount")
+    suspend fun spend(id: Long, amount: Long): Int
+
+    @Insert
+    suspend fun insertSalePromos(rows: List<SalePromoEntity>)
+
+    @Query("SELECT * FROM sale_promo WHERE saleId = :saleId")
+    suspend fun forSale(saleId: Long): List<SalePromoEntity>
+
+    @Query("SELECT COALESCE(SUM(amountPaisa), 0) FROM sale_promo sp JOIN sale s ON s.id = sp.saleId WHERE sp.promoId = :promoId")
+    fun given(promoId: Long): Flow<Long>
+}

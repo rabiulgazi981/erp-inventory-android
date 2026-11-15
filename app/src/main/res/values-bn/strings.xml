@@ -560,4 +560,40 @@
     <string name="cash_day_short">কম</string>
     <string name="cash_day_over">বেশি</string>
     <string name="cash_day_past">আগের দিনগুলো</string>
+    <string name="mv_voucher_sold">গিফট ভাউচার বিক্রি</string>
+    <string name="promos">অফার ও কুপন</string>
+    <string name="promo_offers">অফার</string>
+    <string name="promo_coupons">কুপন</string>
+    <string name="promo_vouchers">গিফট ভাউচার</string>
+    <string name="promo_offers_help">অফার চালু থাকলে বিক্রির সময় নিজে থেকেই ছাড় হয়ে যায়।</string>
+    <string name="promo_coupons_help">কাস্টমার বিক্রির সময় কোড দিলে বিল থেকে ছাড় হয়।</string>
+    <string name="promo_vouchers_help">কোডসহ গিফট কার্ড বিক্রি করুন; ব্যালেন্স শেষ না হওয়া পর্যন্ত পরে মাল কেনা যাবে।</string>
+    <string name="promo_one_product">একটি পণ্য</string>
+    <string name="promo_all">সব পণ্য</string>
+    <string name="promo_category">ক্যাটাগরি</string>
+    <string name="promo_min_short">কমপক্ষে %1$s</string>
+    <string name="promo_used">ব্যবহার %1$d</string>
+    <string name="promo_until">%1$s পর্যন্ত</string>
+    <string name="promo_new">নতুন যোগ করুন</string>
+    <string name="promo_name">নাম</string>
+    <string name="promo_code">কোড</string>
+    <string name="promo_percent">শতাংশ %</string>
+    <string name="promo_taka">টাকা ৳</string>
+    <string name="promo_voucher_value">ভাউচারের মূল্য (৳)</string>
+    <string name="promo_percent_value">কত % ছাড়</string>
+    <string name="promo_taka_per_unit">প্রতি পিসে কত টাকা ছাড়</string>
+    <string name="promo_taka_value">বিলে কত টাকা ছাড়</string>
+    <string name="promo_min_bill">কমপক্ষে বিল (ঐচ্ছিক)</string>
+    <string name="promo_max_uses">কতবার (খালি = সীমা নেই)</string>
+    <string name="promo_days">কত দিন চলবে (খালি = শেষ নেই)</string>
+    <string name="promo_sold_for">এর জন্য টাকা পেয়েছেন</string>
+    <string name="promo_free_gift">ফ্রি উপহার</string>
+    <string name="promo_bad">নাম, কোড আর টাকা দেখুন। একটি কোড একবারই দেওয়া যায়।</string>
+    <string name="promo_offer_off">অফার</string>
+    <string name="promo_add_code">+ কুপন / গিফট ভাউচার</string>
+    <string name="promo_code_hint">কোড</string>
+    <string name="promo_apply">দিন</string>
+    <string name="promo_code_bad">কোড পাওয়া যায়নি, বন্ধ বা শেষ</string>
+    <string name="promo_code_gone">কোডটি এইমাত্র শেষ হয়েছে। টোটাল দেখে আবার সেভ করুন।</string>
+    <string name="promo_min_not_met">বিল কম</string>
 </resources>

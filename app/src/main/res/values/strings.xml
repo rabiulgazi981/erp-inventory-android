@@ -561,4 +561,40 @@
     <string name="cash_day_short">Short</string>
     <string name="cash_day_over">Extra</string>
     <string name="cash_day_past">Past days</string>
+    <string name="mv_voucher_sold">Gift voucher sold</string>
+    <string name="promos">Offers &amp; coupons</string>
+    <string name="promo_offers">Offers</string>
+    <string name="promo_coupons">Coupons</string>
+    <string name="promo_vouchers">Gift vouchers</string>
+    <string name="promo_offers_help">Offers come off by themselves at the sale while they are on.</string>
+    <string name="promo_coupons_help">The customer gives a code at the sale; it takes money off the bill.</string>
+    <string name="promo_vouchers_help">Sell a gift card with a code; it pays for goods later until its balance is used up.</string>
+    <string name="promo_one_product">One product</string>
+    <string name="promo_all">All products</string>
+    <string name="promo_category">Category</string>
+    <string name="promo_min_short">min %1$s</string>
+    <string name="promo_used">used %1$d</string>
+    <string name="promo_until">till %1$s</string>
+    <string name="promo_new">Add new</string>
+    <string name="promo_name">Name</string>
+    <string name="promo_code">Code</string>
+    <string name="promo_percent">Percent %</string>
+    <string name="promo_taka">Taka ৳</string>
+    <string name="promo_voucher_value">Voucher value (৳)</string>
+    <string name="promo_percent_value">Percent off</string>
+    <string name="promo_taka_per_unit">Taka off each unit</string>
+    <string name="promo_taka_value">Taka off the bill</string>
+    <string name="promo_min_bill">Minimum bill (optional)</string>
+    <string name="promo_max_uses">How many times (blank = no limit)</string>
+    <string name="promo_days">Valid for days (blank = no end)</string>
+    <string name="promo_sold_for">Money received for it</string>
+    <string name="promo_free_gift">Free gift</string>
+    <string name="promo_bad">Check the name, code and amount. A code can only be used once.</string>
+    <string name="promo_offer_off">Offer</string>
+    <string name="promo_add_code">+ Coupon / gift voucher</string>
+    <string name="promo_code_hint">Code</string>
+    <string name="promo_apply">Apply</string>
+    <string name="promo_code_bad">Code not found, off or used up</string>
+    <string name="promo_code_gone">That code was just used up. Check the total and save again.</string>
+    <string name="promo_min_not_met">Bill too small</string>
 </resources>
