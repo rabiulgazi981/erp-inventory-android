@@ -28,6 +28,7 @@ import com.bongshaltech.erpinventory.data.db.LoanEntity
 import com.bongshaltech.erpinventory.data.db.MoneyMoveEntity
 import com.bongshaltech.erpinventory.data.db.MoveKind
 import com.bongshaltech.erpinventory.data.db.PromoEntity
+import com.bongshaltech.erpinventory.data.db.SalaryPaymentEntity
 import com.bongshaltech.erpinventory.data.db.PromoKind
 import com.bongshaltech.erpinventory.data.db.SalePromoEntity
 import com.bongshaltech.erpinventory.data.db.OrderDocItemEntity
@@ -345,6 +346,21 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     }
 
     val promos get() = db.promos()
+    val hr get() = db.hr()
+
+    /** Pays salary (or an advance) for [month] (yyyyMM). It is also saved as an expense, so cash and profit include it. */
+    suspend fun paySalary(employeeId: Long, month: Int, amountPaisa: Long, method: PayMethod, category: String, note: String, staffId: Long?): String? {
+        if (amountPaisa <= 0) return null
+        val code = settings.current().shopCode
+        return db.withTransaction {
+            val number = nextNumber(code, DocType.EXPENSE)
+            val expenseId = db.expenses().insert(
+                ExpenseEntity(number = number, category = category.trim(), amountPaisa = amountPaisa, method = method, note = note.trim(), staffId = staffId)
+            )
+            db.hr().insertPayment(SalaryPaymentEntity(employeeId = employeeId, month = month, amountPaisa = amountPaisa, expenseId = expenseId))
+            number
+        }
+    }
 
     /** Saves an offer, coupon or voucher. Returns false when the code is empty or already used by another one. */
     suspend fun savePromo(p: PromoEntity, soldFor: PayMethod? = null, staffId: Long? = null): Boolean {

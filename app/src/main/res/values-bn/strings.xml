@@ -596,4 +596,26 @@
     <string name="promo_code_bad">কোড পাওয়া যায়নি, বন্ধ বা শেষ</string>
     <string name="promo_code_gone">কোডটি এইমাত্র শেষ হয়েছে। টোটাল দেখে আবার সেভ করুন।</string>
     <string name="promo_min_not_met">বিল কম</string>
+    <string name="hr">হাজিরা ও বেতন</string>
+    <string name="hr_attendance">হাজিরা</string>
+    <string name="hr_salary">বেতন</string>
+    <string name="hr_people">কর্মচারী</string>
+    <string name="hr_present">উপস্থিত</string>
+    <string name="hr_absent">অনুপস্থিত</string>
+    <string name="hr_half">অর্ধেক দিন</string>
+    <string name="hr_leave">ছুটি</string>
+    <string name="hr_no_people">আগে কর্মচারী ট্যাবে কর্মচারী যোগ করুন।</string>
+    <string name="hr_all_present">বাকি সবাইকে উপস্থিত দিন</string>
+    <string name="hr_total_left">বেতন বাকি</string>
+    <string name="hr_month_line">উপস্থিত %1$d · অনুপস্থিত %2$d · অর্ধেক %3$d · ছুটি %4$d</string>
+    <string name="hr_monthly">মাসিক বেতন</string>
+    <string name="hr_earned">এই মাসে পাওনা</string>
+    <string name="hr_paid">দেওয়া হয়েছে</string>
+    <string name="hr_pay">বেতন দিন</string>
+    <string name="hr_paid_saved">দেওয়া হয়েছে · %1$s</string>
+    <string name="hr_salary_help">অনুপস্থিত দিনের বেতন কাটা যায়, অর্ধেক দিনে অর্ধেক; ছুটির বেতন কাটা যায় না। বেতন খরচ হিসেবেও সেভ হয়, তাই ক্যাশ আর লাভে দেখা যায়। অগ্রিম যেকোনো সময় দেওয়া যায়।</string>
+    <string name="hr_add_person">কর্মচারী যোগ করুন</string>
+    <string name="hr_edit_person">কর্মচারী এডিট</string>
+    <string name="hr_role">কাজ (ঐচ্ছিক)</string>
+    <string name="hr_cancel">বাতিল</string>
 </resources>

@@ -420,3 +420,37 @@ data class SalePromoEntity(
     val code: String,
     val amountPaisa: Long,
 )
+
+/** Someone the shop pays a salary to. They don't need an app login (that's Staff). */
+@Entity(tableName = "employee")
+data class EmployeeEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val phone: String = "",
+    val role: String = "",
+    val salaryPaisa: Long = 0,
+    val active: Boolean = true,
+    val joinedAt: Long = System.currentTimeMillis(),
+)
+
+enum class AttendanceStatus { PRESENT, ABSENT, LEAVE, HALF }
+
+/** One mark per employee per day; [day] is yyyyMMdd. */
+@Entity(tableName = "attendance", indices = [Index(value = ["employeeId", "day"], unique = true), Index("day")])
+data class AttendanceEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val employeeId: Long,
+    val day: Int,
+    val status: AttendanceStatus,
+)
+
+/** A salary (or advance) paid for [month] (yyyyMM). The money itself is the linked expense. */
+@Entity(tableName = "salary_payment", indices = [Index("employeeId"), Index("month")])
+data class SalaryPaymentEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val employeeId: Long,
+    val month: Int,
+    val amountPaisa: Long,
+    val expenseId: Long,
+    val createdAt: Long = System.currentTimeMillis(),
+)

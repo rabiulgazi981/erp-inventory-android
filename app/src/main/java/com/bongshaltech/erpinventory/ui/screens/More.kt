@@ -178,6 +178,7 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     ListRow(stringResource(R.string.cash_day), Icons.Outlined.PointOfSale, Tints.Amber, trailing = { Chevron() }) { go(Routes.CASH_DAY) }
                     ListRow(stringResource(R.string.loans), Icons.Outlined.Handshake, Tints.Orange, trailing = { Chevron() }) { go(Routes.LOANS) }
                     ListRow(stringResource(R.string.promos), Icons.Outlined.LocalOffer, Tints.Pink, trailing = { Chevron() }) { go(Routes.PROMOS) }
+                    ListRow(stringResource(R.string.hr), Icons.Outlined.Badge, Tints.Indigo, trailing = { Chevron() }) { go(Routes.HR) }
                     ListRow(stringResource(R.string.orders), Icons.Outlined.Description, Tints.Blue, trailing = { Chevron() }) { go(Routes.ORDERS) }
                     ListRow(stringResource(R.string.returns), Icons.Outlined.Replay, Tints.Purple, trailing = { Chevron() }) { go(Routes.RETURNS) }
                     ListRow(stringResource(R.string.backup), Icons.Outlined.CloudUpload, Tints.Blue, trailing = { Chevron() }) { go(Routes.BACKUP) }

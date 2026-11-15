@@ -597,4 +597,26 @@
     <string name="promo_code_bad">Code not found, off or used up</string>
     <string name="promo_code_gone">That code was just used up. Check the total and save again.</string>
     <string name="promo_min_not_met">Bill too small</string>
+    <string name="hr">Attendance &amp; salary</string>
+    <string name="hr_attendance">Attendance</string>
+    <string name="hr_salary">Salary</string>
+    <string name="hr_people">Employees</string>
+    <string name="hr_present">Present</string>
+    <string name="hr_absent">Absent</string>
+    <string name="hr_half">Half day</string>
+    <string name="hr_leave">Leave</string>
+    <string name="hr_no_people">Add employees first in the Employees tab.</string>
+    <string name="hr_all_present">Mark everyone else present</string>
+    <string name="hr_total_left">Salary still to pay</string>
+    <string name="hr_month_line">Present %1$d · absent %2$d · half %3$d · leave %4$d</string>
+    <string name="hr_monthly">Monthly salary</string>
+    <string name="hr_earned">Earned this month</string>
+    <string name="hr_paid">Paid</string>
+    <string name="hr_pay">Pay salary</string>
+    <string name="hr_paid_saved">Paid · %1$s</string>
+    <string name="hr_salary_help">Absent days are cut from the salary, half days by half; leave is paid. A payment is also saved as an expense, so cash and profit show it. Advances can be paid any time.</string>
+    <string name="hr_add_person">Add employee</string>
+    <string name="hr_edit_person">Edit employee</string>
+    <string name="hr_role">Job (optional)</string>
+    <string name="hr_cancel">Cancel</string>
 </resources>

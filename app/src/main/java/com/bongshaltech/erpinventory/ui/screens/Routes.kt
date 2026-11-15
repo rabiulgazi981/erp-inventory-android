@@ -55,6 +55,7 @@ object Routes {
     const val LOAN = "loan/{id}"
     const val CASH_DAY = "cash_day"
     const val PROMOS = "promos"
+    const val HR = "hr"
 
     fun productEdit(id: Long) = "product/$id"
     fun ledger(m: com.bongshaltech.erpinventory.data.db.PayMethod) = "ledger/${m.name}"
@@ -159,6 +160,7 @@ fun ErpNavHost() {
         composable(Routes.LOAN, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e -> LoanScreen(e.arguments?.getLong("id") ?: 0L, back) }
         composable(Routes.CASH_DAY) { CashDayScreen(back) }
         composable(Routes.PROMOS) { PromosScreen(back) }
+        composable(Routes.HR) { HrScreen(back) }
         composable(Routes.RETURNS) { ReturnsScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.SALE_RETURN, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
             ReturnScreen(purchase = false, docId = e.arguments?.getLong("id") ?: 0L, onBack = back)

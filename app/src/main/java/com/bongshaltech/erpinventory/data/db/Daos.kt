@@ -634,3 +634,40 @@ interface PromoDao {
     @Query("SELECT COALESCE(SUM(amountPaisa), 0) FROM sale_promo sp JOIN sale s ON s.id = sp.saleId WHERE sp.promoId = :promoId")
     fun given(promoId: Long): Flow<Long>
 }
+
+data class MonthMark(val employeeId: Long, val absent: Int, val half: Int, val leave: Int, val present: Int)
+data class MonthPaid(val employeeId: Long, val paidPaisa: Long)
+
+@Dao
+interface HrDao {
+    @Query("SELECT * FROM employee ORDER BY active DESC, name")
+    fun employees(): Flow<List<EmployeeEntity>>
+
+    @Upsert
+    suspend fun saveEmployee(e: EmployeeEntity): Long
+
+    @Query("SELECT * FROM attendance WHERE day = :day")
+    fun day(day: Int): Flow<List<AttendanceEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun mark(a: AttendanceEntity)
+
+    @Query("DELETE FROM attendance WHERE employeeId = :employeeId AND day = :day")
+    suspend fun unmark(employeeId: Long, day: Int)
+
+    @Query(
+        "SELECT employeeId, SUM(status = 'ABSENT') AS absent, SUM(status = 'HALF') AS half, SUM(status = 'LEAVE') AS leave, " +
+            "SUM(status = 'PRESENT') AS present FROM attendance WHERE day BETWEEN :from AND :to GROUP BY employeeId"
+    )
+    fun month(from: Int, to: Int): Flow<List<MonthMark>>
+
+    // Joined to the expense, so a salary expense deleted from Expenses no longer counts as paid.
+    @Query(
+        "SELECT sp.employeeId AS employeeId, SUM(sp.amountPaisa) AS paidPaisa FROM salary_payment sp " +
+            "JOIN expense e ON e.id = sp.expenseId WHERE sp.month = :month GROUP BY sp.employeeId"
+    )
+    fun paid(month: Int): Flow<List<MonthPaid>>
+
+    @Insert
+    suspend fun insertPayment(p: SalaryPaymentEntity): Long
+}
