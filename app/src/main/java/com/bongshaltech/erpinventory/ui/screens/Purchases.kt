@@ -139,7 +139,7 @@ fun PurchasesScreen(go: (String) -> Unit, onBack: () -> Unit) {
                     }
                 }
                 if (list.isEmpty()) item { Muted(stringResource(R.string.pur_empty), 14.sp) }
-                items(list, key = { it.id }) { PurchaseRowCard(it) }
+                items(list, key = { it.id }) { PurchaseRowCard(it) { go(Routes.purchaseReturn(it.id)) } }
             }
             Fab(stringResource(R.string.pur_new), { go(Routes.PURCHASE_NEW) }, Modifier.align(Alignment.BottomEnd))
         }
@@ -150,9 +150,9 @@ private fun startOfMonth(): Long = java.time.LocalDate.now().withDayOfMonth(1)
     .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
 
 @Composable
-private fun PurchaseRowCard(p: PurchaseRow) {
+private fun PurchaseRowCard(p: PurchaseRow, onClick: () -> Unit) {
     val fmt = remember { SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()) }
-    Card(Modifier.fillMaxWidth(), padding = 10.dp) {
+    Card(Modifier.fillMaxWidth(), padding = 10.dp, onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TintIcon(Icons.Outlined.LocalShipping, Tints.Orange, 40.dp, 20.dp, 10.dp)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {

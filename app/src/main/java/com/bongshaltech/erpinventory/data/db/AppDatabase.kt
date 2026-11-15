@@ -22,8 +22,9 @@ class Converters {
         StaffEntity::class, DocCounterEntity::class, DuePaymentEntity::class,
         SupplierEntity::class, PurchaseEntity::class, PurchaseItemEntity::class, SupplierPaymentEntity::class,
         ExpenseEntity::class, MfsWalletEntity::class, MfsTxnEntity::class,
+        SaleReturnEntity::class, SaleReturnItemEntity::class, PurchaseReturnEntity::class, PurchaseReturnItemEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -38,6 +39,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun expenses(): ExpenseDao
     abstract fun reports(): ReportDao
     abstract fun mfs(): MfsDao
+    abstract fun returns(): ReturnDao
 
     companion object {
         // Schema changes must be additive migrations: shop data on the phone is never wiped.
@@ -134,12 +136,52 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sale_return` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, " +
+                        "`saleId` INTEGER NOT NULL, `customerId` INTEGER, `totalPaisa` INTEGER NOT NULL, `dueCutPaisa` INTEGER NOT NULL, " +
+                        "`refundPaisa` INTEGER NOT NULL, `method` TEXT NOT NULL, `costPaisa` INTEGER NOT NULL, `note` TEXT NOT NULL, " +
+                        "`staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_sale_return_number` ON `sale_return` (`number`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_return_saleId` ON `sale_return` (`saleId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_return_customerId` ON `sale_return` (`customerId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_return_createdAt` ON `sale_return` (`createdAt`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sale_return_item` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `returnId` INTEGER NOT NULL, " +
+                        "`saleItemId` INTEGER NOT NULL, `productId` INTEGER NOT NULL, `name` TEXT NOT NULL, `qtyMilli` INTEGER NOT NULL, " +
+                        "`lineTotalPaisa` INTEGER NOT NULL, `unitCostPaisa` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`returnId`) REFERENCES `sale_return`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_return_item_returnId` ON `sale_return_item` (`returnId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_return_item_saleItemId` ON `sale_return_item` (`saleItemId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `purchase_return` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, " +
+                        "`purchaseId` INTEGER NOT NULL, `supplierId` INTEGER, `totalPaisa` INTEGER NOT NULL, `dueCutPaisa` INTEGER NOT NULL, " +
+                        "`refundPaisa` INTEGER NOT NULL, `method` TEXT NOT NULL, `note` TEXT NOT NULL, `staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_purchase_return_number` ON `purchase_return` (`number`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_return_purchaseId` ON `purchase_return` (`purchaseId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_return_supplierId` ON `purchase_return` (`supplierId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_return_createdAt` ON `purchase_return` (`createdAt`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `purchase_return_item` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `returnId` INTEGER NOT NULL, " +
+                        "`purchaseItemId` INTEGER NOT NULL, `productId` INTEGER NOT NULL, `name` TEXT NOT NULL, `qtyMilli` INTEGER NOT NULL, " +
+                        "`lineTotalPaisa` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`returnId`) REFERENCES `purchase_return`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_return_item_returnId` ON `purchase_return_item` (`returnId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_return_item_purchaseItemId` ON `purchase_return_item` (`purchaseItemId`)")
+            }
+        }
+
         fun open(context: Context): AppDatabase {
             System.loadLibrary("sqlcipher")
             val factory = SupportOpenHelperFactory(DbKey.get(context))
             return Room.databaseBuilder(context, AppDatabase::class.java, "shop.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .build()
         }
     }

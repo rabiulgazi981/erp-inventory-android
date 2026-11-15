@@ -43,8 +43,13 @@ object Routes {
     const val RECEIPT = "receipt/{id}"
     const val PRINTER = "printer"
     const val SMS_ACCOUNT = "sms_account"
+    const val RETURNS = "returns"
+    const val SALE_RETURN = "sale_return/{id}"
+    const val PURCHASE_RETURN = "purchase_return/{id}"
 
     fun productEdit(id: Long) = "product/$id"
+    fun saleReturn(saleId: Long) = "sale_return/$saleId"
+    fun purchaseReturn(purchaseId: Long) = "purchase_return/$purchaseId"
     fun customer(id: Long) = "customer/$id"
     fun customerEdit(id: Long) = "customer_edit/$id"
     fun supplier(id: Long) = "supplier/$id"
@@ -88,7 +93,7 @@ fun ErpNavHost() {
         composable(Routes.SALE) { SaleScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.SALE_SCAN) { SaleScreen(go = { nav.navigate(it) }, onBack = back, startScan = true) }
         composable(Routes.RECEIPT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
-            ReceiptScreen(e.arguments?.getLong("id") ?: 0L, back)
+            ReceiptScreen(e.arguments?.getLong("id") ?: 0L, go = { nav.navigate(it) }, onBack = back)
         }
         composable(Routes.PRINTER) { PrinterScreen(back) }
         composable(Routes.MORE) {
@@ -123,6 +128,13 @@ fun ErpNavHost() {
         composable(Routes.MFS_WALLETS) { MfsWalletsScreen(back) }
         composable(Routes.BACKUP) { BackupScreen(back) }
         composable(Routes.SMS_ACCOUNT) { SmsAccountScreen(back) }
+        composable(Routes.RETURNS) { ReturnsScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.SALE_RETURN, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            ReturnScreen(purchase = false, docId = e.arguments?.getLong("id") ?: 0L, onBack = back)
+        }
+        composable(Routes.PURCHASE_RETURN, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            ReturnScreen(purchase = true, docId = e.arguments?.getLong("id") ?: 0L, onBack = back)
+        }
         composable(Routes.REPORTS) { ReportsScreen(tab = { nav.goTab(it) }) }
     }
 }

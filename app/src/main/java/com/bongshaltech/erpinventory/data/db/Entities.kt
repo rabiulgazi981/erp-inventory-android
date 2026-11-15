@@ -217,3 +217,74 @@ data class MfsTxnEntity(
     val staffId: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
 )
+
+/**
+ * Goods a customer brought back from [saleId]. Stock goes back up. [dueCutPaisa] came off what the
+ * customer owed (a credit note); [refundPaisa] was paid back to them by [method].
+ */
+@Entity(tableName = "sale_return", indices = [Index(value = ["number"], unique = true), Index("saleId"), Index("customerId"), Index("createdAt")])
+data class SaleReturnEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val number: String,
+    val saleId: Long,
+    val customerId: Long? = null,
+    val totalPaisa: Long,
+    val dueCutPaisa: Long,
+    val refundPaisa: Long,
+    val method: PayMethod,
+    /** Buying cost of the goods that came back, taken off the cost of sales for profit. */
+    val costPaisa: Long,
+    val note: String = "",
+    val staffId: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+@Entity(
+    tableName = "sale_return_item",
+    foreignKeys = [ForeignKey(entity = SaleReturnEntity::class, parentColumns = ["id"], childColumns = ["returnId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("returnId"), Index("saleItemId")],
+)
+data class SaleReturnItemEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val returnId: Long,
+    val saleItemId: Long,
+    val productId: Long,
+    val name: String,
+    val qtyMilli: Long,
+    val lineTotalPaisa: Long,
+    val unitCostPaisa: Long,
+)
+
+/**
+ * Goods the shop sent back to the supplier from [purchaseId]. Stock goes down. [dueCutPaisa] came off
+ * what the shop owed the supplier (a debit note); [refundPaisa] the supplier paid back by [method].
+ */
+@Entity(tableName = "purchase_return", indices = [Index(value = ["number"], unique = true), Index("purchaseId"), Index("supplierId"), Index("createdAt")])
+data class PurchaseReturnEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val number: String,
+    val purchaseId: Long,
+    val supplierId: Long? = null,
+    val totalPaisa: Long,
+    val dueCutPaisa: Long,
+    val refundPaisa: Long,
+    val method: PayMethod,
+    val note: String = "",
+    val staffId: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+@Entity(
+    tableName = "purchase_return_item",
+    foreignKeys = [ForeignKey(entity = PurchaseReturnEntity::class, parentColumns = ["id"], childColumns = ["returnId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("returnId"), Index("purchaseItemId")],
+)
+data class PurchaseReturnItemEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val returnId: Long,
+    val purchaseItemId: Long,
+    val productId: Long,
+    val name: String,
+    val qtyMilli: Long,
+    val lineTotalPaisa: Long,
+)

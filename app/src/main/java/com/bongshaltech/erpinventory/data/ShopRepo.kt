@@ -19,6 +19,11 @@ import com.bongshaltech.erpinventory.data.db.SaleItemEntity
 import com.bongshaltech.erpinventory.data.db.StaffEntity
 import com.bongshaltech.erpinventory.data.db.MfsTxnEntity
 import com.bongshaltech.erpinventory.data.db.MfsWalletEntity
+import com.bongshaltech.erpinventory.data.db.PurchaseReturnEntity
+import com.bongshaltech.erpinventory.data.db.PurchaseReturnItemEntity
+import com.bongshaltech.erpinventory.data.db.ReturnableLine
+import com.bongshaltech.erpinventory.data.db.SaleReturnEntity
+import com.bongshaltech.erpinventory.data.db.SaleReturnItemEntity
 import com.bongshaltech.erpinventory.security.PinHasher
 import java.time.LocalDate
 import kotlinx.coroutines.flow.map
@@ -66,6 +71,37 @@ sealed interface SaleResult {
     data object DueNeedsCustomer : SaleResult
 }
 
+/** How many of one line are coming back. */
+data class ReturnPick(val line: ReturnableLine, val qtyMilli: Long)
+
+/** What a return is worth and how it is settled: first off the party's due, the rest paid back. */
+data class ReturnSplit(val totalPaisa: Long, val dueCutPaisa: Long, val refundPaisa: Long)
+
+sealed interface ReturnResult {
+    data class Saved(val number: String, val split: ReturnSplit) : ReturnResult
+    data class NotEnoughStock(val productName: String) : ReturnResult
+    /** Nothing picked, or more than what is left to return. */
+    data object Invalid : ReturnResult
+}
+
+object Returns {
+    private fun part(amount: Long, num: Long, den: Long) = if (den <= 0) 0 else (amount * num + den / 2) / den
+
+    /**
+     * Value of the picked goods at the price on the memo, with the memo's discount shared out
+     * by value, so a return never pays back more than the customer actually paid for those goods.
+     */
+    fun value(picks: List<ReturnPick>, docSubtotal: Long, docTotal: Long): Long =
+        picks.sumOf { p -> part(part(p.line.lineTotalPaisa, p.qtyMilli, p.line.qtyMilli), docTotal, docSubtotal) }
+
+    fun split(total: Long, partyDue: Long): ReturnSplit {
+        val cut = minOf(partyDue.coerceAtLeast(0), total)
+        return ReturnSplit(total, cut, total - cut)
+    }
+
+    fun cost(picks: List<ReturnPick>): Long = picks.sumOf { (it.line.unitCostPaisa * it.qtyMilli + 500) / 1000 }
+}
+
 class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) {
     val products get() = db.products()
     val customers get() = db.customers()
@@ -76,6 +112,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     val expenses get() = db.expenses()
     val reports get() = db.reports()
     val mfs get() = db.mfs()
+    val returns get() = db.returns()
 
     /** Makes sure every provider has a row, so the owner only switches them on. */
     suspend fun ensureWallets() = db.mfs().insertWallets(MfsProvider.entries.map { MfsWalletEntity(provider = it.name) })
@@ -244,6 +281,74 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                 ExpenseEntity(number = number, category = category.trim(), amountPaisa = amountPaisa, method = method, note = note.trim(), staffId = staffId)
             )
             number
+        }
+    }
+
+    /** Customer returns goods from a sale: stock back, then off their due first, the rest paid back by [method]. */
+    suspend fun returnSale(saleId: Long, picks: List<ReturnPick>, method: PayMethod, note: String, staffId: Long?): ReturnResult {
+        val code = settings.current().shopCode
+        return db.withTransaction {
+            val sale = db.sales().get(saleId) ?: return@withTransaction ReturnResult.Invalid
+            val left = db.returns().saleLines(saleId).associateBy { it.id }
+            val ok = picks.filter { it.qtyMilli > 0 }
+            if (ok.isEmpty() || ok.any { it.qtyMilli > (left[it.line.id]?.leftMilli ?: 0) }) return@withTransaction ReturnResult.Invalid
+            val fresh = ok.map { it.copy(line = left.getValue(it.line.id)) }
+            val total = Returns.value(fresh, sale.subtotalPaisa, sale.totalPaisa)
+            val due = sale.customerId?.let { db.customers().get(it)?.duePaisa } ?: 0
+            val split = Returns.split(total, due)
+            for (p in fresh) db.products().addStock(p.line.productId, p.qtyMilli)
+            if (split.dueCutPaisa > 0 && sale.customerId != null) db.customers().addDue(sale.customerId, -split.dueCutPaisa)
+            val number = nextNumber(code, DocType.RETURN)
+            val id = db.returns().insertSaleReturn(
+                SaleReturnEntity(
+                    number = number, saleId = saleId, customerId = sale.customerId, totalPaisa = total,
+                    dueCutPaisa = split.dueCutPaisa, refundPaisa = split.refundPaisa, method = method,
+                    costPaisa = Returns.cost(fresh), note = note.trim(), staffId = staffId,
+                )
+            )
+            db.returns().insertSaleReturnItems(fresh.map {
+                SaleReturnItemEntity(
+                    returnId = id, saleItemId = it.line.id, productId = it.line.productId, name = it.line.name, qtyMilli = it.qtyMilli,
+                    lineTotalPaisa = Returns.value(listOf(it), sale.subtotalPaisa, sale.totalPaisa), unitCostPaisa = it.line.unitCostPaisa,
+                )
+            })
+            ReturnResult.Saved(number, split)
+        }
+    }
+
+    /** Shop sends goods back to the supplier: stock down, then off what the shop owes first, the rest paid back to the shop. */
+    suspend fun returnPurchase(purchaseId: Long, picks: List<ReturnPick>, method: PayMethod, note: String, staffId: Long?): ReturnResult {
+        val code = settings.current().shopCode
+        return try {
+            db.withTransaction {
+                val pur = db.purchases().get(purchaseId) ?: return@withTransaction ReturnResult.Invalid
+                val left = db.returns().purchaseLines(purchaseId).associateBy { it.id }
+                val ok = picks.filter { it.qtyMilli > 0 }
+                if (ok.isEmpty() || ok.any { it.qtyMilli > (left[it.line.id]?.leftMilli ?: 0) }) return@withTransaction ReturnResult.Invalid
+                val fresh = ok.map { it.copy(line = left.getValue(it.line.id)) }
+                for (p in fresh) if (db.products().takeStock(p.line.productId, p.qtyMilli) == 0) throw NotEnough(p.line.name)
+                val total = Returns.value(fresh, pur.subtotalPaisa, pur.totalPaisa)
+                val due = pur.supplierId?.let { db.suppliers().get(it)?.duePaisa } ?: 0
+                val split = Returns.split(total, due)
+                if (split.dueCutPaisa > 0 && pur.supplierId != null) db.suppliers().addDue(pur.supplierId, -split.dueCutPaisa)
+                val number = nextNumber(code, DocType.PURCHASE_RETURN)
+                val id = db.returns().insertPurchaseReturn(
+                    PurchaseReturnEntity(
+                        number = number, purchaseId = purchaseId, supplierId = pur.supplierId, totalPaisa = total,
+                        dueCutPaisa = split.dueCutPaisa, refundPaisa = split.refundPaisa, method = method,
+                        note = note.trim(), staffId = staffId,
+                    )
+                )
+                db.returns().insertPurchaseReturnItems(fresh.map {
+                    PurchaseReturnItemEntity(
+                        returnId = id, purchaseItemId = it.line.id, productId = it.line.productId, name = it.line.name,
+                        qtyMilli = it.qtyMilli, lineTotalPaisa = Returns.value(listOf(it), pur.subtotalPaisa, pur.totalPaisa),
+                    )
+                })
+                ReturnResult.Saved(number, split)
+            }
+        } catch (e: NotEnough) {
+            ReturnResult.NotEnoughStock(e.productName)
         }
     }
 

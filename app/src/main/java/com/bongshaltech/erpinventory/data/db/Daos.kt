@@ -41,6 +41,10 @@ interface ProductDao {
     /** Returns rows changed: 0 means there was not enough stock. */
     @Query("UPDATE product SET stockMilli = stockMilli - :qtyMilli WHERE id = :id AND stockMilli >= :qtyMilli")
     suspend fun takeStock(id: Long, qtyMilli: Long): Int
+
+    /** Goods coming back from a customer: stock up, cost left as it is. */
+    @Query("UPDATE product SET stockMilli = stockMilli + :qtyMilli WHERE id = :id")
+    suspend fun addStock(id: Long, qtyMilli: Long)
 }
 
 @Dao
@@ -91,6 +95,9 @@ interface CustomerDao {
            UNION ALL
            SELECT id, number, createdAt, amountPaisa, 0 AS duePaisa, 1 AS isPayment
            FROM due_payment WHERE customerId = :id
+           UNION ALL
+           SELECT id, number, createdAt, dueCutPaisa AS amountPaisa, 0 AS duePaisa, 1 AS isPayment
+           FROM sale_return WHERE customerId = :id AND dueCutPaisa > 0
            ORDER BY createdAt DESC LIMIT 100"""
     )
     fun history(id: Long): Flow<List<CustomerTxn>>
@@ -141,6 +148,7 @@ interface SaleDao {
     /**
      * Net cash since [from]: cash sales and cash due collected, minus cash paid for
      * purchases, to suppliers and for expenses, plus the cash side of mobile banking entries.
+     * Cash paid back on a sale return goes out; cash a supplier paid back on a purchase return comes in.
      */
     @Query(
         """SELECT
@@ -149,7 +157,9 @@ interface SaleDao {
            - (SELECT COALESCE(SUM(paidPaisa), 0) FROM purchase WHERE createdAt >= :from AND method = 'CASH')
            - (SELECT COALESCE(SUM(amountPaisa), 0) FROM supplier_payment WHERE createdAt >= :from AND method = 'CASH')
            - (SELECT COALESCE(SUM(amountPaisa), 0) FROM expense WHERE createdAt >= :from AND method = 'CASH')
-           + (SELECT COALESCE(SUM(cashDeltaPaisa), 0) FROM mfs_txn WHERE createdAt >= :from)"""
+           + (SELECT COALESCE(SUM(cashDeltaPaisa), 0) FROM mfs_txn WHERE createdAt >= :from)
+           - (SELECT COALESCE(SUM(refundPaisa), 0) FROM sale_return WHERE createdAt >= :from AND method = 'CASH')
+           + (SELECT COALESCE(SUM(refundPaisa), 0) FROM purchase_return WHERE createdAt >= :from AND method = 'CASH')"""
     )
     fun cashSince(from: Long): Flow<Long>
 
@@ -202,6 +212,9 @@ interface SupplierDao {
            UNION ALL
            SELECT id, number, createdAt, amountPaisa, 0 AS duePaisa, 1 AS isPayment
            FROM supplier_payment WHERE supplierId = :id
+           UNION ALL
+           SELECT id, number, createdAt, dueCutPaisa AS amountPaisa, 0 AS duePaisa, 1 AS isPayment
+           FROM purchase_return WHERE supplierId = :id AND dueCutPaisa > 0
            ORDER BY createdAt DESC LIMIT 100"""
     )
     fun history(id: Long): Flow<List<CustomerTxn>>
@@ -235,6 +248,9 @@ interface PurchaseDao {
 
     @Query("SELECT COALESCE(SUM(totalPaisa), 0) FROM purchase WHERE createdAt >= :from")
     fun totalSince(from: Long): Flow<Long>
+
+    @Query("SELECT * FROM purchase WHERE id = :id")
+    suspend fun get(id: Long): PurchaseEntity?
 }
 
 data class CategoryTotal(val category: String, val totalPaisa: Long)
@@ -321,6 +337,83 @@ interface ReportDao {
            GROUP BY day ORDER BY day DESC LIMIT 62"""
     )
     fun byDay(from: Long, to: Long): Flow<List<DayTotal>>
+
+    @Query("SELECT COALESCE(SUM(totalPaisa), 0) FROM sale_return WHERE createdAt >= :from AND createdAt < :to")
+    fun saleReturns(from: Long, to: Long): Flow<Long>
+
+    @Query("SELECT COALESCE(SUM(costPaisa), 0) FROM sale_return WHERE createdAt >= :from AND createdAt < :to")
+    fun saleReturnCost(from: Long, to: Long): Flow<Long>
+
+    @Query("SELECT COALESCE(SUM(totalPaisa), 0) FROM purchase_return WHERE createdAt >= :from AND createdAt < :to")
+    fun purchaseReturns(from: Long, to: Long): Flow<Long>
+}
+
+/** A sold or bought line with how much of it already came back. */
+data class ReturnableLine(
+    val id: Long,
+    val productId: Long,
+    val name: String,
+    val qtyMilli: Long,
+    val lineTotalPaisa: Long,
+    /** Buying price per unit (sale lines: saved at sale time; purchase lines: the price paid). */
+    val unitCostPaisa: Long,
+    val returnedMilli: Long,
+) {
+    val leftMilli get() = (qtyMilli - returnedMilli).coerceAtLeast(0)
+}
+
+data class ReturnRow(
+    val id: Long,
+    val number: String,
+    val createdAt: Long,
+    val totalPaisa: Long,
+    val dueCutPaisa: Long,
+    val refundPaisa: Long,
+    val isPurchase: Boolean,
+    val party: String?,
+    /** The sale or purchase it came from. */
+    val fromNumber: String?,
+)
+
+@Dao
+interface ReturnDao {
+    @Query(
+        """SELECT i.id, i.productId, i.name, i.qtyMilli, i.lineTotalPaisa, i.unitCostPaisa,
+                  COALESCE((SELECT SUM(r.qtyMilli) FROM sale_return_item r WHERE r.saleItemId = i.id), 0) AS returnedMilli
+           FROM sale_item i WHERE i.saleId = :saleId ORDER BY i.id"""
+    )
+    suspend fun saleLines(saleId: Long): List<ReturnableLine>
+
+    @Query(
+        """SELECT i.id, i.productId, i.name, i.qtyMilli, i.lineTotalPaisa, i.unitCostPaisa,
+                  COALESCE((SELECT SUM(r.qtyMilli) FROM purchase_return_item r WHERE r.purchaseItemId = i.id), 0) AS returnedMilli
+           FROM purchase_item i WHERE i.purchaseId = :purchaseId ORDER BY i.id"""
+    )
+    suspend fun purchaseLines(purchaseId: Long): List<ReturnableLine>
+
+    @Insert
+    suspend fun insertSaleReturn(r: SaleReturnEntity): Long
+
+    @Insert
+    suspend fun insertSaleReturnItems(items: List<SaleReturnItemEntity>)
+
+    @Insert
+    suspend fun insertPurchaseReturn(r: PurchaseReturnEntity): Long
+
+    @Insert
+    suspend fun insertPurchaseReturnItems(items: List<PurchaseReturnItemEntity>)
+
+    @Query(
+        """SELECT r.id, r.number, r.createdAt, r.totalPaisa, r.dueCutPaisa, r.refundPaisa, 0 AS isPurchase,
+                  c.name AS party, s.number AS fromNumber
+           FROM sale_return r LEFT JOIN customer c ON c.id = r.customerId LEFT JOIN sale s ON s.id = r.saleId
+           UNION ALL
+           SELECT r.id, r.number, r.createdAt, r.totalPaisa, r.dueCutPaisa, r.refundPaisa, 1 AS isPurchase,
+                  sp.name AS party, p.number AS fromNumber
+           FROM purchase_return r LEFT JOIN supplier sp ON sp.id = r.supplierId LEFT JOIN purchase p ON p.id = r.purchaseId
+           ORDER BY createdAt DESC LIMIT :limit"""
+    )
+    fun recent(limit: Int): Flow<List<ReturnRow>>
 }
 
 @Dao
