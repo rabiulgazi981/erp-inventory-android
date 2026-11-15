@@ -20,7 +20,7 @@ enum class ShopType { GENERAL, GROCERY, SUPER_SHOP, PHARMACY, RESTAURANT }
  * Optional modules, like the web dashboard's Settings > Features. Each is off until the owner turns it on,
  * except the module that belongs to the shop's own business type. Turning one off only hides it; no data is removed.
  */
-enum class Feature { CASH_DAY, LOANS, PROMOS, HR, ORDERS, TABLES, BATCHES, REPACK, SERIALS, WAREHOUSES, MOBILE_BANKING, INSTALLMENTS }
+enum class Feature { CASH_DAY, LOANS, PROMOS, HR, ORDERS, TABLES, BATCHES, REPACK, SERIALS, WAREHOUSES, MOBILE_BANKING, INSTALLMENTS, SCALE_BARCODE, PACKS }
 
 fun defaultFeatures(type: ShopType): Set<Feature> = when (type) {
     ShopType.RESTAURANT -> setOf(Feature.TABLES)
@@ -72,6 +72,8 @@ data class AppSettings(
     val adFree: Boolean,
     /** Optional modules that are on. Mobile banking keeps its own older switch and is merged in here. */
     val features: Set<Feature>,
+    /** Scale labels carry the price instead of the weight. */
+    val scaleByPrice: Boolean = false,
 ) {
     fun on(f: Feature) = f in features
 }
@@ -103,6 +105,7 @@ class SettingsRepo(private val context: Context) {
         val paperMm = intPreferencesKey("paper_mm")
         val adFree = booleanPreferencesKey("ad_free")
         val features = stringSetPreferencesKey("features_on")
+        val scaleByPrice = booleanPreferencesKey("scale_by_price")
     }
 
     val settings: Flow<AppSettings> = context.store.data.map(::read)
@@ -141,7 +144,10 @@ class SettingsRepo(private val context: Context) {
         paperMm = p[K.paperMm] ?: 58,
         adFree = p[K.adFree] ?: false,
         features = features,
+        scaleByPrice = p[K.scaleByPrice] ?: false,
     )
+
+    suspend fun setScaleByPrice(on: Boolean) = context.store.edit { it[K.scaleByPrice] = on }
 
     /** Turns one optional module on or off. The first change saves the shop type's defaults plus this change. */
     suspend fun setFeature(f: Feature, on: Boolean) {

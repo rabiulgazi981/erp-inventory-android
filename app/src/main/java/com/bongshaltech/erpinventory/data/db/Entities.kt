@@ -24,6 +24,10 @@ data class ProductEntity(
     val lowStockMilli: Long = 0,
     val active: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),
+    /** Bought in packs: how many units one pack holds (× 1000), 0 when not. */
+    @ColumnInfo(defaultValue = "0") val packMilli: Long = 0,
+    /** What the pack is called: box, carton, strip. */
+    @ColumnInfo(defaultValue = "") val packName: String = "",
 )
 
 @Entity(tableName = "customer", indices = [Index(value = ["phone"], unique = true)])
@@ -611,4 +615,18 @@ data class InstallmentEntity(
     val dueDay: Long,
     val amountPaisa: Long,
     val paidPaisa: Long = 0,
+)
+
+/** A stock correction with a reason: damaged, lost, found, counted. [qtyMilli] is + or −. */
+@Entity(tableName = "stock_adjust", indices = [Index("productId"), Index("createdAt")])
+data class StockAdjustEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val productId: Long,
+    val qtyMilli: Long,
+    val reason: String,
+    val note: String,
+    /** Cost of the change at the product's buying price, + or −. */
+    val costPaisa: Long,
+    val staffId: Long?,
+    val createdAt: Long = System.currentTimeMillis(),
 )

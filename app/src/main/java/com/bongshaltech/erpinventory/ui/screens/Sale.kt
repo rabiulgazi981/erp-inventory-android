@@ -189,8 +189,16 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
     fun scan() = scanBarcode(ctx) { code ->
         scope.launch {
             val p = app.repo.products.byBarcode(code)
-            val bySerial = if (p == null) app.repo.productForSerial(code) else null
+            val scale = if (p == null && saleSettings?.on(com.bongshaltech.erpinventory.data.Feature.SCALE_BARCODE) == true)
+                com.bongshaltech.erpinventory.core.stock.ScaleBarcode.read(code) else null
+            val scaled = scale?.let { r -> app.repo.products.byBarcode(r.plu) ?: app.repo.products.byBarcode(r.plu.trimStart('0')) }
+            val bySerial = if (p == null && scaled == null) app.repo.productForSerial(code) else null
             if (p != null) addProduct(p)
+            else if (scale != null && scaled != null) {
+                // A weighing-scale label: its own line with the weighed quantity.
+                val qty = com.bongshaltech.erpinventory.core.stock.ScaleBarcode.qtyMilli(scale, saleSettings?.scaleByPrice == true, scaled.pricePaisa)
+                if (qty > 0) cart.add(CartLine(scaled, qty))
+            }
             else if (bySerial != null) {
                 // A serial / IMEI: one unit of its product, remembered on the line.
                 val i = cart.indexOfFirst { it.product.id == bySerial.id }

@@ -24,7 +24,7 @@ object PromoMath {
     fun lineOff(line: PromoLine, offer: PromoRule): Long {
         val covers = when {
             offer.productId != null -> offer.productId == line.productId
-            offer.category.isNotBlank() -> offer.category.equals(line.category, ignoreCase = true)
+            offer.category.isNotBlank() -> com.bongshaltech.erpinventory.core.stock.Categories.has(line.category, offer.category)
             else -> true
         }
         if (!covers || line.totalPaisa <= 0) return 0

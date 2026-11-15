@@ -2,6 +2,7 @@ package com.bongshaltech.erpinventory.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -58,7 +59,7 @@ import kotlinx.coroutines.launch
 
 /** Search box that picks one product. */
 @Composable
-private fun ProductPick(picked: ProductEntity?, onPick: (ProductEntity?) -> Unit, label: String) {
+internal fun ProductPick(picked: ProductEntity?, onPick: (ProductEntity?) -> Unit, label: String) {
     val app = app()
     var q by remember { mutableStateOf("") }
     val matches by remember(q) { app.repo.products.search(q.trim()) }.collectAsStateWithLifecycle(emptyList())
@@ -251,18 +252,30 @@ fun WarehouseScreen(id: Long, onBack: () -> Unit) {
     var product by remember { mutableStateOf<ProductEntity?>(null) }
     var qty by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
+    var target by remember { mutableStateOf<Long?>(null) }
+    val all by remember { app.repo.stockTools.warehouses() }.collectAsStateWithLifecycle(emptyList())
+    val others = all.filter { it.id != id }
     Column(Modifier.fillMaxSize().background(Ui.c.bg)) {
         Header(w?.name ?: stringResource(R.string.warehouses), onBack)
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
                 Panel(stringResource(R.string.warehouse_move), Brand.BlueGrad, PanelColors.Blue) {
-                    Segmented(listOf(stringResource(R.string.warehouse_to_here), stringResource(R.string.warehouse_to_shop)), dir, { dir = it })
+                    Segmented(
+                        listOf(stringResource(R.string.warehouse_to_here), stringResource(R.string.warehouse_to_shop)) +
+                            if (others.isNotEmpty()) listOf(stringResource(R.string.warehouse_to_other)) else emptyList(),
+                        dir, { dir = it },
+                    )
+                    if (dir == 2) androidx.compose.foundation.layout.Row(
+                        Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) { others.forEach { o -> com.bongshaltech.erpinventory.ui.components.Chip(o.name, target == o.id, { target = o.id }) } }
                     ProductPick(product, { product = it }, stringResource(R.string.serial_product))
                     Input(qty, { qty = it }, label = stringResource(R.string.pur_qty, product?.unit ?: ""), keyboard = KeyboardType.Decimal)
                     GradButton(stringResource(R.string.ord_save), Brand.BlueGrad, Modifier.fillMaxWidth(), enabled = product != null && (qty.toMilli() ?: 0) > 0) {
                         val p = product ?: return@GradButton
                         scope.launch {
-                            val ok = app.repo.moveStock(id, p.id, qty.toMilli() ?: 0, intoWarehouse = dir == 0)
+                            val ok = if (dir == 2) target?.let { t -> app.repo.transferStock(id, t, p.id, qty.toMilli() ?: 0) } == true
+                                else app.repo.moveStock(id, p.id, qty.toMilli() ?: 0, intoWarehouse = dir == 0)
                             message = if (ok) { qty = ""; product = null; ctx.getString(R.string.ord_saved) } else ctx.getString(R.string.warehouse_not_enough)
                         }
                     }

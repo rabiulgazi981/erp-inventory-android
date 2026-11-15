@@ -31,8 +31,9 @@ class Converters {
         StockJobEntity::class, StockJobInputEntity::class, ProductSerialEntity::class, WarehouseEntity::class, WarehouseStockEntity::class,
         AuditLogEntity::class,
         DeletedSaleEntity::class, SaleDeleteRequestEntity::class, InstallmentEntity::class,
+        StockAdjustEntity::class,
     ],
-    version = 16,
+    version = 17,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -57,6 +58,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun stockTools(): StockToolsDao
     abstract fun audit(): AuditDao
     abstract fun saleFix(): SaleFixDao
+    abstract fun stockMore(): StockMoreDao
 
     companion object {
         // Schema changes must be additive migrations: shop data on the phone is never wiped.
@@ -369,12 +371,26 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE product ADD COLUMN packMilli INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE product ADD COLUMN packName TEXT NOT NULL DEFAULT ''")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `stock_adjust` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `productId` INTEGER NOT NULL, " +
+                        "`qtyMilli` INTEGER NOT NULL, `reason` TEXT NOT NULL, `note` TEXT NOT NULL, `costPaisa` INTEGER NOT NULL, " +
+                        "`staffId` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_adjust_productId` ON `stock_adjust` (`productId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_adjust_createdAt` ON `stock_adjust` (`createdAt`)")
+            }
+        }
+
         fun open(context: Context): AppDatabase {
             System.loadLibrary("sqlcipher")
             val factory = SupportOpenHelperFactory(DbKey.get(context))
             return Room.databaseBuilder(context, AppDatabase::class.java, "shop.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
                 .build()
         }
     }

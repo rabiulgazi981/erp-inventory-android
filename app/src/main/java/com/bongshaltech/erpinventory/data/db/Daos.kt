@@ -936,3 +936,21 @@ interface SaleFixDao {
     @Query("SELECT COUNT(*) FROM installment WHERE dueDay <= :day AND paidPaisa < amountPaisa")
     fun lateCount(day: Long): Flow<Int>
 }
+
+data class AdjustRow(val id: Long, val productName: String, val unit: String, val qtyMilli: Long, val reason: String, val note: String, val costPaisa: Long, val createdAt: Long)
+
+@Dao
+interface StockMoreDao {
+    @Insert
+    suspend fun insertAdjust(a: StockAdjustEntity)
+
+    @Query(
+        "SELECT a.id AS id, p.name AS productName, p.unit AS unit, a.qtyMilli AS qtyMilli, a.reason AS reason, a.note AS note, " +
+            "a.costPaisa AS costPaisa, a.createdAt AS createdAt FROM stock_adjust a JOIN product p ON p.id = a.productId ORDER BY a.createdAt DESC LIMIT 200"
+    )
+    fun adjustments(): Flow<List<AdjustRow>>
+
+    /** Products at or under their low-stock mark, lowest first. */
+    @Query("SELECT * FROM product WHERE active = 1 AND lowStockMilli > 0 AND stockMilli <= lowStockMilli ORDER BY stockMilli * 1.0 / lowStockMilli, name COLLATE NOCASE")
+    fun reorder(): Flow<List<ProductEntity>>
+}

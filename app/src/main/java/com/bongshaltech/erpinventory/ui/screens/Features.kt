@@ -36,6 +36,8 @@ internal val featureRows: List<Triple<Feature, Int, Int>> = listOf(
     Triple(Feature.SERIALS, R.string.serials, R.string.feat_serials_sub),
     Triple(Feature.REPACK, R.string.repack, R.string.feat_repack_sub),
     Triple(Feature.WAREHOUSES, R.string.warehouses, R.string.feat_warehouses_sub),
+    Triple(Feature.PACKS, R.string.feat_packs, R.string.feat_packs_sub),
+    Triple(Feature.SCALE_BARCODE, R.string.feat_scale, R.string.feat_scale_sub),
     Triple(Feature.TABLES, R.string.tables, R.string.feat_tables_sub),
     Triple(Feature.MOBILE_BANKING, R.string.mfs_toggle, R.string.mfs_toggle_sub),
 )
@@ -59,6 +61,10 @@ fun FeaturesScreen(onBack: () -> Unit) {
                     ListRow(
                         stringResource(title), sub = stringResource(sub), last = i == featureRows.lastIndex,
                         trailing = { Toggle(s?.on(f) == true, { on -> scope.launch { app.settings.setFeature(f, on) } }) },
+                    )
+                    if (f == Feature.SCALE_BARCODE && s?.on(f) == true) ListRow(
+                        stringResource(R.string.scale_by_price), sub = stringResource(R.string.scale_by_price_sub),
+                        trailing = { Toggle(s?.scaleByPrice == true, { on -> scope.launch { app.settings.setScaleByPrice(on) } }) },
                     )
                 }
             }

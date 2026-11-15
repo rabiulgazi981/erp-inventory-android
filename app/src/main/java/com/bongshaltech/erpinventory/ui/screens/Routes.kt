@@ -67,6 +67,8 @@ object Routes {
     const val TABLES = "tables"
     const val FEATURES = "features"
     const val DELETED_SALES = "deleted_sales"
+    const val STOCK_ADJUST = "stock_adjust"
+    const val REORDER = "reorder"
     const val TABLE = "table/{id}"
 
     fun productEdit(id: Long) = "product/$id"
@@ -181,6 +183,8 @@ fun ErpNavHost() {
         composable(Routes.LABELS) { LabelsScreen(back) }
         composable(Routes.AUDIT) { AuditScreen(back) }
         composable(Routes.FEATURES) { FeaturesScreen(back) }
+        composable(Routes.STOCK_ADJUST) { StockAdjustScreen(back) }
+        composable(Routes.REORDER) { ReorderScreen(back) }
         composable(Routes.DELETED_SALES) { DeletedSalesScreen(go = { nav.navigate(it) }, onBack = back) }
         composable(Routes.SERIALS) { SerialsScreen(back) }
         composable(Routes.WAREHOUSES) { WarehousesScreen(go = { nav.navigate(it) }, onBack = back) }

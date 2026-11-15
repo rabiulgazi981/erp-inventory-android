@@ -178,11 +178,15 @@ fun ProductEditScreen(id: Long, onDone: () -> Unit) {
     var price by rememberSaveable { mutableStateOf("") }
     var stock by rememberSaveable { mutableStateOf("") }
     var lowAt by rememberSaveable { mutableStateOf("") }
+    var packSize by rememberSaveable { mutableStateOf("") }
+    var packName by rememberSaveable { mutableStateOf("") }
     var tried by remember { mutableStateOf(false) }
     val required = stringResource(R.string.required)
     val savedMsg = stringResource(R.string.product_saved)
     val soon = stringResource(R.string.coming_soon)
-    val pharmacy = app.settings.settings.collectAsStateWithLifecycle(null).value?.shopType == com.bongshaltech.erpinventory.data.ShopType.PHARMACY
+    val st = app.settings.settings.collectAsStateWithLifecycle(null).value
+    val pharmacy = st?.shopType == com.bongshaltech.erpinventory.data.ShopType.PHARMACY
+    val packsOn = st?.on(com.bongshaltech.erpinventory.data.Feature.PACKS) == true
 
     LaunchedEffect(id) {
         if (id != 0L) app.repo.products.get(id)?.let { p ->
@@ -190,6 +194,7 @@ fun ProductEditScreen(id: Long, onDone: () -> Unit) {
             cost = (p.costPaisa / 100.0).toBigDecimal().stripTrailingZeros().toPlainString()
             price = (p.pricePaisa / 100.0).toBigDecimal().stripTrailingZeros().toPlainString()
             stock = p.stockMilli.qty(); lowAt = p.lowStockMilli.qty()
+            packSize = if (p.packMilli > 0) p.packMilli.qty() else ""; packName = p.packName
         }
     }
 
@@ -201,14 +206,15 @@ fun ProductEditScreen(id: Long, onDone: () -> Unit) {
         scope.launch {
             app.repo.saveProduct(
                 base.copy(
-                    name = name.trim(), barcode = barcode.trim().ifEmpty { null }, category = category.trim(), generic = generic.trim(),
+                    name = name.trim(), barcode = barcode.trim().ifEmpty { null }, category = com.bongshaltech.erpinventory.core.stock.Categories.join(com.bongshaltech.erpinventory.core.stock.Categories.split(category)), generic = generic.trim(),
                     unit = unit.trim().ifEmpty { "pcs" }, costPaisa = cost.toPaisa() ?: 0, pricePaisa = pricePaisa,
                     stockMilli = stock.toMilli() ?: 0, lowStockMilli = lowAt.toMilli() ?: 0,
+                    packMilli = (packSize.toMilli() ?: 0).coerceAtLeast(0), packName = packName.trim(),
                 )
             )
             if (next) {
                 Toast.makeText(ctx, savedMsg, Toast.LENGTH_SHORT).show()
-                loaded = null; name = ""; generic = ""; barcode = ""; cost = ""; price = ""; stock = ""; lowAt = ""; tried = false
+                loaded = null; name = ""; generic = ""; barcode = ""; cost = ""; price = ""; stock = ""; lowAt = ""; packSize = ""; packName = ""; tried = false
             } else onDone()
         }
     }
@@ -255,6 +261,11 @@ fun ProductEditScreen(id: Long, onDone: () -> Unit) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Input(category, { category = it }, Modifier.weight(1f), label = stringResource(R.string.product_category))
                         Input(unit, { unit = it }, Modifier.weight(1f), label = stringResource(R.string.product_unit))
+                    }
+                    Muted(stringResource(R.string.category_many_hint))
+                    if (packsOn) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Input(packName, { packName = it }, Modifier.weight(1f), label = stringResource(R.string.pack_name), placeholder = stringResource(R.string.pack_default))
+                        Input(packSize, { packSize = it }, Modifier.weight(1f), label = stringResource(R.string.pack_size, unit.ifBlank { "pcs" }), keyboard = KeyboardType.Decimal)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Input(cost, { cost = it }, Modifier.weight(1f), label = stringResource(R.string.product_cost), keyboard = KeyboardType.Decimal)

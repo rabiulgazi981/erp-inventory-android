@@ -594,6 +594,45 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             true
         }
     }
+    /** Moves stock from one warehouse to another; the shop's own stock doesn't change. */
+    suspend fun transferStock(fromId: Long, toId: Long, productId: Long, qtyMilli: Long): Boolean {
+        if (qtyMilli <= 0 || fromId == toId) return false
+        return db.withTransaction {
+            val p = db.products().get(productId) ?: return@withTransaction false
+            val from = db.stockTools().heldIn(fromId, productId)
+            if (from < qtyMilli) return@withTransaction false
+            db.stockTools().setHeld(WarehouseStockEntity(fromId, productId, from - qtyMilli))
+            db.stockTools().setHeld(WarehouseStockEntity(toId, productId, db.stockTools().heldIn(toId, productId) + qtyMilli))
+            audit("STOCK_MOVE", "${p.name} · ${Qty.text(qtyMilli)} #$fromId → #$toId")
+            true
+        }
+    }
+
+    val stockMore get() = db.stockMore()
+
+    /**
+     * Corrects the shop's stock with a reason. [deltaMilli] is + (found, counted more) or − (damaged, lost, counted less).
+     * Returns false when the shop doesn't hold enough to take away.
+     */
+    suspend fun adjustStock(productId: Long, deltaMilli: Long, reason: String, note: String, staffId: Long?): Boolean {
+        if (deltaMilli == 0L) return false
+        return db.withTransaction {
+            val p = db.products().get(productId) ?: return@withTransaction false
+            if (deltaMilli < 0) {
+                if (db.products().takeStock(productId, -deltaMilli) == 0) return@withTransaction false
+                takeFromBatches(productId, -deltaMilli)
+            } else db.products().addStock(productId, deltaMilli)
+            val cost = (p.costPaisa * deltaMilli + if (deltaMilli > 0) 500 else -500) / 1000
+            db.stockMore().insertAdjust(
+                com.bongshaltech.erpinventory.data.db.StockAdjustEntity(
+                    productId = productId, qtyMilli = deltaMilli, reason = reason, note = note.trim(), costPaisa = cost, staffId = staffId,
+                )
+            )
+            audit("STOCK_ADJUST", "${p.name} · ${if (deltaMilli > 0) "+" else "−"}${Qty.text(kotlin.math.abs(deltaMilli))} · $reason")
+            true
+        }
+    }
+
     val tables get() = db.tables()
 
     /** Sells from the batch that expires first. Stock outside batches covers the rest. */

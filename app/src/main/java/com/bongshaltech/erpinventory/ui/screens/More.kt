@@ -23,6 +23,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.ShoppingCartCheckout
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.ToggleOn
 import androidx.compose.material.icons.outlined.QrCode
@@ -193,6 +195,8 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     if (s?.on(Feature.HR) == true) ListRow(stringResource(R.string.hr), Icons.Outlined.Badge, Tints.Indigo, trailing = { Chevron() }) { go(Routes.HR) }
                     if (s?.on(Feature.TABLES) == true)
                         ListRow(stringResource(R.string.tables), Icons.Outlined.TableRestaurant, Tints.Orange, trailing = { Chevron() }) { go(Routes.TABLES) }
+                    ListRow(stringResource(R.string.adj_title), Icons.Outlined.Tune, Tints.Orange, trailing = { Chevron() }) { go(Routes.STOCK_ADJUST) }
+                    ListRow(stringResource(R.string.reorder), Icons.Outlined.ShoppingCartCheckout, Tints.Green, trailing = { Chevron() }) { go(Routes.REORDER) }
                     if (s?.on(Feature.BATCHES) == true) ListRow(stringResource(R.string.batches), Icons.Outlined.EventBusy, Tints.Amber, trailing = { Chevron() }) { go(Routes.BATCHES) }
                     if (s?.on(Feature.REPACK) == true) ListRow(stringResource(R.string.repack), Icons.Outlined.Inventory2, Tints.Teal, trailing = { Chevron() }) { go(Routes.REPACK) }
                     if (s?.on(Feature.SERIALS) == true) ListRow(stringResource(R.string.serials), Icons.Outlined.QrCode2, Tints.Purple, trailing = { Chevron() }) { go(Routes.SERIALS) }
