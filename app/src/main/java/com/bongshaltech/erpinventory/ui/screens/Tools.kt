@@ -237,7 +237,8 @@ private val actionLabel = mapOf(
     "SALARY" to R.string.hr_salary, "PRODUCT_NEW" to R.string.audit_product_new, "PRICE_CHANGE" to R.string.audit_price,
     "COST_CHANGE" to R.string.audit_cost, "STOCK_EDIT" to R.string.audit_stock, "WRITE_OFF" to R.string.batch_writeoff,
     "REPACK" to R.string.repack, "STOCK_MOVE" to R.string.warehouse_move, "IMPORT" to R.string.import_products,
-    "DAY_CLOSE" to R.string.cash_day_close,
+    "DAY_CLOSE" to R.string.cash_day_close, "DAY_OPEN" to R.string.cash_day_open,
+    "PROMO_NEW" to R.string.audit_promo_new, "PROMO_ON" to R.string.audit_promo_on, "PROMO_OFF" to R.string.audit_promo_off,
 )
 
 /** More › Activity log: who did what. Owner only. */

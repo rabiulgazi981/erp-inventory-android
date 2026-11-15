@@ -691,4 +691,7 @@
     <string name="audit_price">দাম বদল</string>
     <string name="audit_cost">কেনা দাম বদল</string>
     <string name="audit_stock">হাতে স্টক বদল</string>
+    <string name="audit_promo_new">নতুন অফার / কুপন</string>
+    <string name="audit_promo_on">অফার চালু</string>
+    <string name="audit_promo_off">অফার বন্ধ</string>
 </resources>

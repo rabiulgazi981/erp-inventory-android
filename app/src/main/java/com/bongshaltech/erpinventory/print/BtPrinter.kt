@@ -41,7 +41,12 @@ object BtPrinter {
         if (!hasPermission(ctx)) return emptyList()
         val a = adapter(ctx) ?: return emptyList()
         return runCatching {
-            a.bondedDevices.map {
+            // Earbuds, speakers, phones, laptops and watches are never receipt printers.
+            val notPrinters = setOf(
+                BluetoothClass.Device.Major.AUDIO_VIDEO, BluetoothClass.Device.Major.PHONE, BluetoothClass.Device.Major.COMPUTER,
+                BluetoothClass.Device.Major.WEARABLE, BluetoothClass.Device.Major.HEALTH, BluetoothClass.Device.Major.TOY,
+            )
+            a.bondedDevices.filter { it.bluetoothClass?.majorDeviceClass !in notPrinters }.map {
                 PairedPrinter(
                     name = it.name ?: it.address,
                     address = it.address,

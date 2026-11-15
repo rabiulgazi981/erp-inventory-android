@@ -130,7 +130,7 @@ fun PromosScreen(onBack: () -> Unit) {
                             }
                             Muted(bits.joinToString(" · "))
                         }
-                        Toggle(p.active, { on -> scope.launch { app.repo.promos.setActive(p.id, on) } })
+                        Toggle(p.active, { on -> scope.launch { app.repo.setPromoActive(p, on) } })
                     }
                 }
             }
