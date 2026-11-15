@@ -58,7 +58,7 @@ import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.launch
 
-private val kindLabel = mapOf(
+internal val kindLabel = mapOf(
     "SALE" to R.string.mv_sale, "DUE_IN" to R.string.mv_due_in, "PURCHASE" to R.string.mv_purchase,
     "SUPPLIER_PAY" to R.string.mv_supplier_pay, "EXPENSE" to R.string.mv_expense, "SALE_RETURN" to R.string.mv_sale_return,
     "PURCHASE_RETURN" to R.string.mv_purchase_return, "MFS" to R.string.mv_mfs,

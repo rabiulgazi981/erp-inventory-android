@@ -23,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bongshaltech.erpinventory.R
 import com.bongshaltech.erpinventory.ads.AdFreeBilling
 import com.bongshaltech.erpinventory.ads.findActivity
+import com.bongshaltech.erpinventory.core.billing.PlanMath
 import com.bongshaltech.erpinventory.ui.components.Card
 import com.bongshaltech.erpinventory.ui.components.GradButton
 import com.bongshaltech.erpinventory.ui.components.Header
@@ -62,9 +63,17 @@ fun AdFreeScreen(onBack: () -> Unit) {
             Muted(stringResource(R.string.adfree_help), 14.sp)
             when {
                 plans.isNotEmpty() -> plans.forEach { p ->
-                    val per = stringResource(if (p.period.endsWith("Y")) R.string.adfree_per_year else R.string.adfree_per_month)
+                    val monthly = plans.firstOrNull { it.months == 1 }?.priceMicros ?: 0
+                    val per = when (p.months) {
+                        1 -> stringResource(R.string.adfree_per_month)
+                        12 -> stringResource(R.string.adfree_per_year)
+                        0 -> ""
+                        else -> stringResource(R.string.adfree_per_n_months, p.months)
+                    }
+                    val save = PlanMath.savingPercent(p.priceMicros, p.months, monthly)
                     Card(Modifier.fillMaxWidth(), padding = 14.dp) {
                         T("${p.price} $per", 20.sp, FontWeight.Bold)
+                        if (save > 0) T(stringResource(R.string.adfree_save, save), 13.sp, FontWeight.SemiBold, Brand.DarkGreen)
                         if (p.hasTrial) Muted(stringResource(R.string.adfree_trial), 13.sp)
                         GradButton(stringResource(R.string.go_ad_free), Brand.GreenGrad, Modifier.fillMaxWidth().padding(top = 8.dp)) {
                             ctx.findActivity()?.let { app.adFree.buy(it, p) }

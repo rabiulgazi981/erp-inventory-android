@@ -16,10 +16,11 @@ class ErpApp : Application() {
 
     /** Last known ad-free state, kept in memory so ads can be skipped without a suspend call. */
     @Volatile var adFreeCached = false
+    @Volatile var installedAtCached = 0L
 
     override fun onCreate() {
         super.onCreate()
         adFree.refresh()
-        MainScope().launch { settings.settings.collect { adFreeCached = it.adFree } }
+        MainScope().launch { settings.settings.collect { adFreeCached = it.adFree; installedAtCached = it.installedAt } }
     }
 }

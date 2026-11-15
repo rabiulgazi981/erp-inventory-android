@@ -1175,3 +1175,95 @@ interface KitchenDao {
     )
     suspend fun byGeneric(from: Long, to: Long): List<GenericSales>
 }
+
+data class RpProduct(val name: String, val qtyMilli: Long, val revenuePaisa: Long, val costPaisa: Long)
+data class RpParty(val name: String, val phone: String, val bills: Int, val totalPaisa: Long, val paidPaisa: Long, val duePaisa: Long)
+data class RpStaff(val name: String?, val bills: Int, val totalPaisa: Long, val paidPaisa: Long)
+data class RpInvoice(val number: String, val createdAt: Long, val customer: String?, val revenuePaisa: Long, val costPaisa: Long)
+data class RpStock(val name: String, val unit: String, val stockMilli: Long, val costPaisa: Long, val pricePaisa: Long)
+data class RpDue(val name: String, val phone: String, val area: String, val duePaisa: Long)
+data class RpCategory(val category: String, val count: Int, val totalPaisa: Long)
+data class RpFlow(val kind: String, val inPaisa: Long, val outPaisa: Long)
+data class RpPayroll(val name: String, val salaryPaisa: Long, val advancePaisa: Long, val cutPaisa: Long)
+
+/** Queries behind More › All reports. Sales figures are net of returns, matching the Reports tab. */
+@Dao
+interface ReportSetDao {
+    @Query(
+        """SELECT i.name AS name,
+             SUM(i.qtyMilli - COALESCE((SELECT SUM(r.qtyMilli) FROM sale_return_item r WHERE r.saleItemId = i.id), 0)) AS qtyMilli,
+             SUM(i.lineTotalPaisa - COALESCE((SELECT SUM(r.lineTotalPaisa) FROM sale_return_item r WHERE r.saleItemId = i.id), 0)) AS revenuePaisa,
+             SUM((i.unitCostPaisa * (i.qtyMilli - COALESCE((SELECT SUM(r.qtyMilli) FROM sale_return_item r WHERE r.saleItemId = i.id), 0)) + 500) / 1000) AS costPaisa
+           FROM sale_item i JOIN sale s ON s.id = i.saleId WHERE s.createdAt >= :from AND s.createdAt < :to
+           GROUP BY i.productId ORDER BY revenuePaisa DESC"""
+    )
+    suspend fun byProduct(from: Long, to: Long): List<RpProduct>
+
+    @Query(
+        """SELECT COALESCE(c.name, '') AS name, COALESCE(c.phone, '') AS phone, COUNT(*) AS bills, SUM(s.totalPaisa) AS totalPaisa,
+             SUM(s.paidPaisa) AS paidPaisa, COALESCE(c.duePaisa, 0) AS duePaisa
+           FROM sale s LEFT JOIN customer c ON c.id = s.customerId WHERE s.createdAt >= :from AND s.createdAt < :to
+           GROUP BY s.customerId ORDER BY totalPaisa DESC"""
+    )
+    suspend fun byCustomer(from: Long, to: Long): List<RpParty>
+
+    @Query(
+        """SELECT st.name AS name, COUNT(*) AS bills, SUM(s.totalPaisa) AS totalPaisa, SUM(s.paidPaisa) AS paidPaisa
+           FROM sale s LEFT JOIN staff st ON st.id = s.staffId WHERE s.createdAt >= :from AND s.createdAt < :to
+           GROUP BY s.staffId ORDER BY totalPaisa DESC"""
+    )
+    suspend fun byStaff(from: Long, to: Long): List<RpStaff>
+
+    @Query(
+        """SELECT s.number AS number, s.createdAt AS createdAt, c.name AS customer,
+             s.totalPaisa - COALESCE((SELECT SUM(totalPaisa) FROM sale_return WHERE saleId = s.id), 0) AS revenuePaisa,
+             COALESCE((SELECT SUM((unitCostPaisa * qtyMilli + 500) / 1000) FROM sale_item WHERE saleId = s.id), 0)
+               - COALESCE((SELECT SUM(costPaisa) FROM sale_return WHERE saleId = s.id), 0) AS costPaisa
+           FROM sale s LEFT JOIN customer c ON c.id = s.customerId WHERE s.createdAt >= :from AND s.createdAt < :to
+           ORDER BY s.createdAt DESC LIMIT 1000"""
+    )
+    suspend fun invoices(from: Long, to: Long): List<RpInvoice>
+
+    @Query(
+        """SELECT COALESCE(sp.name, '') AS name, COALESCE(sp.phone, '') AS phone, COUNT(*) AS bills, SUM(p.totalPaisa) AS totalPaisa,
+             SUM(p.paidPaisa) AS paidPaisa, COALESCE(sp.duePaisa, 0) AS duePaisa
+           FROM purchase p LEFT JOIN supplier sp ON sp.id = p.supplierId WHERE p.createdAt >= :from AND p.createdAt < :to
+           GROUP BY p.supplierId ORDER BY totalPaisa DESC"""
+    )
+    suspend fun bySupplier(from: Long, to: Long): List<RpParty>
+
+    @Query("SELECT name, unit, stockMilli, costPaisa, pricePaisa FROM product WHERE active = 1 AND stockMilli != 0 ORDER BY name")
+    suspend fun stock(): List<RpStock>
+
+    @Query("SELECT name, phone, area, duePaisa FROM customer WHERE duePaisa > 0 ORDER BY area, duePaisa DESC")
+    suspend fun receivables(): List<RpDue>
+
+    @Query("SELECT name, phone, '' AS area, duePaisa FROM supplier WHERE duePaisa > 0 ORDER BY duePaisa DESC")
+    suspend fun payables(): List<RpDue>
+
+    @Query(
+        """SELECT category, COUNT(*) AS count, SUM(amountPaisa) AS totalPaisa FROM expense
+           WHERE createdAt >= :from AND createdAt < :to GROUP BY category ORDER BY totalPaisa DESC"""
+    )
+    suspend fun expenses(from: Long, to: Long): List<RpCategory>
+
+    @Query(
+        """SELECT kind, COALESCE(SUM(CASE WHEN delta > 0 THEN delta ELSE 0 END), 0) AS inPaisa,
+             COALESCE(SUM(CASE WHEN delta < 0 THEN -delta ELSE 0 END), 0) AS outPaisa
+           FROM ($MONEY_FLOWS) WHERE createdAt >= :from AND createdAt < :to AND kind != 'TRANSFER' GROUP BY kind ORDER BY inPaisa DESC, outPaisa DESC"""
+    )
+    suspend fun cashFlow(from: Long, to: Long): List<RpFlow>
+
+    @Query("SELECT COALESCE(SUM(delta), 0) FROM ($MONEY_FLOWS) WHERE createdAt < :before")
+    suspend fun cashBefore(before: Long): Long
+
+    @Query(
+        """SELECT e.name AS name,
+             COALESCE(SUM(CASE WHEN sp.kind = 'SALARY' THEN sp.amountPaisa ELSE 0 END), 0) AS salaryPaisa,
+             COALESCE(SUM(CASE WHEN sp.kind = 'ADVANCE' THEN sp.amountPaisa ELSE 0 END), 0) AS advancePaisa,
+             COALESCE(SUM(CASE WHEN sp.kind = 'ADVANCE_CUT' THEN sp.amountPaisa ELSE 0 END), 0) AS cutPaisa
+           FROM employee e JOIN salary_payment sp ON sp.employeeId = e.id
+           WHERE sp.createdAt >= :from AND sp.createdAt < :to GROUP BY e.id ORDER BY e.name"""
+    )
+    suspend fun payroll(from: Long, to: Long): List<RpPayroll>
+}

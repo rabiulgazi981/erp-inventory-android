@@ -80,8 +80,16 @@ data class AppSettings(
     /** Loyalty: one point for every this much paid (paisa), and what one point is worth when spent (paisa). */
     val pointEveryPaisa: Long = 100_00,
     val pointValuePaisa: Long = 1_00,
+    /** Each person's own accent colour (an Accent name), keyed by [userKey]. */
+    val accents: Map<String, String> = emptyMap(),
+    /** Changes whenever someone's profile photo changes, so pictures reload. */
+    val photoVersion: Long = 0,
 ) {
     fun on(f: Feature) = f in features
+
+    /** "owner" or "s<staff id>": the key for this person's colour and photo. */
+    val userKey: String get() = (session as? Session.Staff)?.let { "s${it.id}" } ?: "owner"
+    val accent: String get() = accents[userKey] ?: "BLUE"
 }
 
 private val Context.store by preferencesDataStore("settings")
@@ -114,6 +122,8 @@ class SettingsRepo(private val context: Context) {
         val scaleByPrice = booleanPreferencesKey("scale_by_price")
         val pointEvery = longPreferencesKey("point_every_paisa")
         val pointValue = longPreferencesKey("point_value_paisa")
+        val accents = stringSetPreferencesKey("accents")
+        val photoVer = longPreferencesKey("photo_version")
     }
 
     val settings: Flow<AppSettings> = context.store.data.map(::read)
@@ -155,7 +165,15 @@ class SettingsRepo(private val context: Context) {
         scaleByPrice = p[K.scaleByPrice] ?: false,
         pointEveryPaisa = (p[K.pointEvery] ?: 100_00L).coerceAtLeast(1),
         pointValuePaisa = (p[K.pointValue] ?: 1_00L).coerceAtLeast(0),
+        accents = p[K.accents].orEmpty().mapNotNull { e -> e.split('=', limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] } }.toMap(),
+        photoVersion = p[K.photoVer] ?: 0L,
     )
+
+    suspend fun setAccent(userKey: String, accent: String) = context.store.edit {
+        it[K.accents] = it[K.accents].orEmpty().filterNot { e -> e.startsWith("$userKey=") }.toSet() + "$userKey=$accent"
+    }
+
+    suspend fun photoChanged() = context.store.edit { it[K.photoVer] = (it[K.photoVer] ?: 0L) + 1 }
 
     suspend fun setLoyalty(everyPaisa: Long, valuePaisa: Long) = context.store.edit {
         it[K.pointEvery] = everyPaisa.coerceAtLeast(1); it[K.pointValue] = valuePaisa.coerceAtLeast(0)

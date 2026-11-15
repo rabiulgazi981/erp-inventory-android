@@ -34,6 +34,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.PictureAsPdf
+import com.bongshaltech.erpinventory.core.report.Col
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -256,6 +258,7 @@ fun ReceiptScreen(saleId: Long, go: (String) -> Unit, onBack: () -> Unit) {
     val (flow, withPermission) = rememberPrinterFlow()
     var number by remember { mutableStateOf("") }
     var bmp by remember { mutableStateOf<Bitmap?>(null) }
+    var data by remember { mutableStateOf<ReceiptData?>(null) }
     val paper = settings?.paperMm ?: 58
     val profile = settings?.profile
     var askDelete by remember { mutableStateOf(false) }
@@ -265,6 +268,7 @@ fun ReceiptScreen(saleId: Long, go: (String) -> Unit, onBack: () -> Unit) {
         val p = profile ?: return@LaunchedEffect
         val d = loadReceipt(ctx, saleId, p) ?: return@LaunchedEffect
         number = d.number
+        data = d
         bmp = withContext(Dispatchers.Default) { ReceiptRenderer.render(d, labels(ctx), ReceiptRenderer.widthFor(paper)) }
     }
 
@@ -276,6 +280,19 @@ fun ReceiptScreen(saleId: Long, go: (String) -> Unit, onBack: () -> Unit) {
             com.bongshaltech.erpinventory.ui.components.HeaderIcon(
                 androidx.compose.material.icons.Icons.Outlined.DeleteOutline, stringResource(R.string.del_title),
             ) { askDelete = true }
+            com.bongshaltech.erpinventory.ui.components.HeaderIcon(
+                androidx.compose.material.icons.Icons.Outlined.PictureAsPdf, stringResource(R.string.rs_share_pdf),
+            ) {
+                val d = data ?: return@HeaderIcon
+                val p = profile ?: return@HeaderIcon
+                scope.launch {
+                    val f = withContext(Dispatchers.IO) {
+                        com.bongshaltech.erpinventory.print.ReportPdf.write(ctx, invoiceTable(ctx, d), p,
+                            ctx.getString(R.string.dev_by) + " Bongshal Tech · ERP Inventory", "invoice-" + d.number)
+                    }
+                    com.bongshaltech.erpinventory.print.ReportPdf.share(ctx, f, "application/pdf")
+                }
+            }
         }
         if (pendingDelete != null) T(
             stringResource(R.string.del_pending, pendingDelete?.reason.orEmpty()), 13.sp, FontWeight.SemiBold, Brand.Amber,
@@ -338,4 +355,27 @@ fun PrinterScreen(onBack: () -> Unit) {
             }
         }
     }
+}
+
+/** The sale as an A4 invoice table for the PDF. */
+internal fun invoiceTable(ctx: Context, d: ReceiptData): com.bongshaltech.erpinventory.core.report.ReportTable {
+    val l = labels(ctx)
+    val notes = buildList {
+        add("${l.subtotal}: ${d.subtotal}")
+        d.discount?.let { add("${l.discount}: $it") }
+        add("${l.total}: ${d.total}")
+        add("${l.paid}: ${d.paid} (${d.method})")
+        d.due?.let { add("${l.due}: $it") }
+        if (d.profile.thanks.isNotBlank()) add(d.profile.thanks)
+        if (d.profile.returnPolicy.isNotBlank()) add(d.profile.returnPolicy)
+    }
+    return com.bongshaltech.erpinventory.core.report.ReportTable(
+        title = "${l.memo}: ${d.number}",
+        subtitle = listOfNotNull("${l.date}: ${d.dateText}", d.customer?.let { "${l.customer}: $it" }).plus(d.extra).joinToString(" · "),
+        columns = listOf(Col(ctx.getString(R.string.rs_product), false), Col(ctx.getString(R.string.rs_qty), true),
+            Col(ctx.getString(R.string.rs_price), true), Col(ctx.getString(R.string.rs_amount), true)),
+        rows = d.lines.map { listOf(it.name, it.qtyText, it.unitText, it.totalText) },
+        totals = listOf(l.total, "", "", d.total),
+        notes = notes,
+    )
 }

@@ -18,6 +18,7 @@ import com.android.billingclient.api.acknowledgePurchase
 import com.android.billingclient.api.queryProductDetails
 import com.android.billingclient.api.queryPurchasesAsync
 import com.bongshaltech.erpinventory.ErpApp
+import com.bongshaltech.erpinventory.core.billing.PlanMath
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,15 +29,15 @@ import kotlinx.coroutines.launch
 /**
  * "Remove ads" subscription through Google Play Billing.
  *
- * Play Console must have a subscription with product id [PRODUCT_ID] and its base plans
- * (for example monthly and yearly). Prices are set there, not in the app; the app shows
+ * Play Console must have a subscription with product id [PRODUCT_ID] and four auto-renewing base plans:
+ * monthly (P1M) 250, every 3 months (P3M) 700, every 6 months (P6M) 1300 and yearly (P1Y) 2400 taka. Prices are set there, not in the app; the app shows
  * whatever price Play returns, in the buyer's currency.
  *
  * The result is cached in settings so ads stay off while offline. Each time Play is
  * reachable the cache is refreshed, so a cancelled or expired subscription turns ads back on.
  */
 class AdFreeBilling(private val app: ErpApp) : PurchasesUpdatedListener {
-    data class Plan(val offerToken: String, val price: String, val period: String, val hasTrial: Boolean)
+    data class Plan(val offerToken: String, val price: String, val period: String, val hasTrial: Boolean, val priceMicros: Long = 0, val months: Int = 0)
 
     sealed interface State {
         data object Loading : State
@@ -78,8 +79,9 @@ class AdFreeBilling(private val app: ErpApp) : PurchasesUpdatedListener {
         _plans.value = d?.subscriptionOfferDetails.orEmpty().map { o ->
             val phases = o.pricingPhases.pricingPhaseList
             val paid = phases.last()
-            Plan(o.offerToken, paid.formattedPrice, paid.billingPeriod, phases.any { it.priceAmountMicros == 0L })
-        }.distinctBy { it.period }
+            Plan(o.offerToken, paid.formattedPrice, paid.billingPeriod, phases.any { it.priceAmountMicros == 0L },
+                paid.priceAmountMicros, PlanMath.months(paid.billingPeriod))
+        }.distinctBy { it.period }.sortedBy { if (it.months == 0) Int.MAX_VALUE else it.months }
         _state.value = if (_plans.value.isEmpty()) State.Unavailable else State.Ready
     }
 

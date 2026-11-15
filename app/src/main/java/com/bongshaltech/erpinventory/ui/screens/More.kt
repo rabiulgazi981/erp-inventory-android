@@ -25,6 +25,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Blender
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.SoupKitchen
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Medication
@@ -167,7 +169,7 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
         ) {
             Card(Modifier.fillMaxWidth(), onClick = if (who.owner) ({ go(Routes.BIZ) }) else null) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Initials(who.name.ifBlank { s?.profile?.name.orEmpty() })
+                    Avatar(who.name.ifBlank { s?.profile?.name.orEmpty() })
                     Column(Modifier.weight(1f)) {
                         T(who.name.ifBlank { s?.profile?.name.orEmpty() }, 15.sp, FontWeight.Bold, maxLines = 1)
                         Muted(
@@ -246,9 +248,11 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                         when (mode) { ThemeMode.LIGHT -> 0; ThemeMode.DARK -> 1; ThemeMode.SYSTEM -> 2 },
                     ) { i -> scope.launch { app.settings.setTheme(listOf(ThemeMode.LIGHT, ThemeMode.DARK, ThemeMode.SYSTEM)[i]) } }
                 })
-                ListRow(stringResource(R.string.language), Icons.Outlined.Translate, Tints.Teal, last = true, trailing = {
+                ListRow(stringResource(R.string.language), Icons.Outlined.Translate, Tints.Teal, trailing = {
                     Segmented(listOf(stringResource(R.string.device), "English", "বাংলা"), currentLangIndex()) { setLang(it) }
                 })
+                ListRow(stringResource(R.string.look_title), Icons.Outlined.Palette, Tints.Pink, trailing = { Chevron() }) { go(Routes.LOOK) }
+                ListRow(stringResource(R.string.guide_title), Icons.AutoMirrored.Outlined.HelpOutline, Tints.Blue, last = true, trailing = { Chevron() }) { go(Routes.GUIDE) }
             }
 
             if (who.owner && s?.mobileBankingOn == true) Group(stringResource(R.string.group_business)) {

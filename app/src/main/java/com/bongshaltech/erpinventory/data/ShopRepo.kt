@@ -580,6 +580,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     val stockTools get() = db.stockTools()
     val making get() = db.making()
     val kitchen get() = db.kitchen()
+    val reportSet get() = db.reportSet()
 
     suspend fun saveRecipe(out: ProductEntity, outMilli: Long, inputs: List<Pair<ProductEntity, Long>>, note: String): Long? {
         if (outMilli <= 0 || inputs.isEmpty() || inputs.any { it.second <= 0 || it.first.id == out.id }) return null

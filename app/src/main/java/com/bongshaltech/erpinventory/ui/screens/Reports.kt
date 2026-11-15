@@ -67,7 +67,7 @@ private val rangeLabels = listOf(
 )
 
 @Composable
-fun ReportsScreen(tab: (Tab) -> Unit) {
+fun ReportsScreen(tab: (Tab) -> Unit, go: (String) -> Unit = {}) {
     val app = app()
     val who = rememberWho()
     var range by rememberSaveable { mutableStateOf(Range.TODAY) }
@@ -108,6 +108,7 @@ fun ReportsScreen(tab: (Tab) -> Unit) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 rangeLabels.forEach { (rg, label) -> Chip(stringResource(label), range == rg, { range = rg }) }
             }
+            com.bongshaltech.erpinventory.ui.components.GradButton(stringResource(R.string.rs_all), Brand.PurpleGrad, Modifier.fillMaxWidth(), height = 44.dp) { go(Routes.REPORT_LIST) }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Big(stringResource(R.string.rep_sales), sales.taka0(), pluralStringResourceSafe(count))
                 if (showProfit) Big(stringResource(R.string.rep_net_profit), net.taka0(), stringResource(R.string.rep_after_expenses),
