@@ -19,6 +19,7 @@ object Routes {
     const val PRODUCTS_LOW = "products_low"
     const val PRODUCT_EDIT = "product/{id}"
     const val SALE = "sale"
+    const val SALE_SCAN = "sale_scan"
     const val MORE = "more"
     const val BIZ = "biz"
     const val STAFF_MANAGE = "staff_manage"
@@ -81,6 +82,7 @@ fun ErpNavHost() {
             ProductEditScreen(e.arguments?.getLong("id") ?: 0L, back)
         }
         composable(Routes.SALE) { SaleScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.SALE_SCAN) { SaleScreen(go = { nav.navigate(it) }, onBack = back, startScan = true) }
         composable(Routes.RECEIPT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
             ReceiptScreen(e.arguments?.getLong("id") ?: 0L, back)
         }

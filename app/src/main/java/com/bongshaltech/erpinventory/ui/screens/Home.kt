@@ -128,7 +128,7 @@ fun HomeScreen(go: (String) -> Unit, tab: (Tab) -> Unit) {
         ) {
             Image(painterResource(R.drawable.logo), "ERP Inventory", Modifier.size(width = 44.dp, height = 26.dp))
             T(settings?.profile?.name.orEmpty(), 16.sp, FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1)
-            HeaderIcon(Icons.Outlined.QrCodeScanner, stringResource(R.string.scan)) { go(Routes.SALE) }
+            HeaderIcon(Icons.Outlined.QrCodeScanner, stringResource(R.string.scan)) { go(Routes.SALE_SCAN) }
             HeaderIcon(Icons.Outlined.NotificationsNone, stringResource(R.string.notifications)) { go(Routes.SOON) }
         }
         Column(
