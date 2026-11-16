@@ -1067,4 +1067,5 @@
     <string name="feat_sec_type">Restaurant &amp; pharmacy</string>
     <string name="feat_sec_people">Staff</string>
     <string name="feat_on_count">%1$d of %2$d features on</string>
+    <string name="feat_search">Search features</string>
 </resources>

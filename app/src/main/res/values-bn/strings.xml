@@ -1066,4 +1066,5 @@
     <string name="feat_sec_type">রেস্টুরেন্ট ও ফার্মেসি</string>
     <string name="feat_sec_people">স্টাফ</string>
     <string name="feat_on_count">%2$d টার মধ্যে %1$d টা ফিচার চালু</string>
+    <string name="feat_search">ফিচার খুঁজুন</string>
 </resources>

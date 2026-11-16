@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.PointOfSale
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.RequestQuote
 import androidx.compose.material.icons.outlined.Scale
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SoupKitchen
 import androidx.compose.material.icons.outlined.Stars
 import androidx.compose.material.icons.outlined.TableRestaurant
@@ -129,6 +130,8 @@ fun FeaturesScreen(onBack: () -> Unit) {
     val s by app.settings.settings.collectAsStateWithLifecycle(null)
     val all = featureSections.sumOf { it.second.size }
     val onCount = featureSections.sumOf { sec -> sec.second.count { s?.on(it.f) == true } }
+    var query by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf("") }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     Column(Modifier.fillMaxSize().background(Ui.c.bg)) {
         Header(stringResource(R.string.features), onBack)
         Column(
@@ -149,8 +152,14 @@ fun FeaturesScreen(onBack: () -> Unit) {
                     T(stringResource(R.string.features_note), 12.sp, color = Color.White.copy(alpha = 0.85f))
                 }
             }
-            featureSections.forEach { (title, rows) ->
-                Group(stringResource(title)) {
+            com.bongshaltech.erpinventory.ui.components.Input(query, { query = it }, placeholder = stringResource(R.string.feat_search),
+                leading = { Icon(Icons.Outlined.Search, null, tint = Ui.c.muted, modifier = Modifier.size(20.dp)) })
+            val q = query.trim().lowercase()
+            featureSections.forEach { (title, all) ->
+                val rows = if (q.isEmpty()) all else all.filter { r ->
+                    ctx.getString(r.title).lowercase().contains(q) || ctx.getString(r.sub).lowercase().contains(q)
+                }
+                if (rows.isNotEmpty()) Group(stringResource(title)) {
                     rows.forEachIndexed { i, r ->
                         val on = s?.on(r.f) == true
                         FeatureItem(r, on, i == rows.lastIndex) { v -> scope.launch { app.settings.setFeature(r.f, v) } }
