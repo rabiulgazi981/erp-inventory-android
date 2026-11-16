@@ -9,3 +9,8 @@ captures/
 *.keystore
 *.jks
 keystore.properties
+
+# local junk (added by Claude)
+*.log
+screenshots/
+.DS_Store
