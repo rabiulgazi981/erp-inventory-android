@@ -249,7 +249,7 @@ private val actionLabel = mapOf(
     "DAY_CLOSE" to R.string.cash_day_close, "DAY_OPEN" to R.string.cash_day_open,
     "PROMO_NEW" to R.string.audit_promo_new, "PROMO_ON" to R.string.audit_promo_on, "PROMO_OFF" to R.string.audit_promo_off,
     "SALE_DELETE" to R.string.audit_sale_delete, "SALE_DELETE_ASK" to R.string.audit_sale_delete_ask, "SALE_DELETE_NO" to R.string.audit_sale_delete_no,
-    "STOCK_ADJUST" to R.string.adj_title, "SALARY_ADVANCE" to R.string.hr_advance, "INVESTOR_ADD" to R.string.audit_investor_add, "JOURNAL" to R.string.audit_journal, "PRODUCTION" to R.string.manufacturing, "RECIPE" to R.string.mfg_recipe, "FACTORY_ORDER" to R.string.factory_new, "FACTORY_RECEIVE" to R.string.audit_factory_receive, "REPAIR_SEND" to R.string.repair_new, "REPAIR_BACK" to R.string.audit_repair_back, "WORK_CANCEL" to R.string.work_cancel,
+    "STOCK_ADJUST" to R.string.adj_title, "SALARY_ADVANCE" to R.string.hr_advance, "INVESTOR_ADD" to R.string.audit_investor_add, "JOURNAL" to R.string.audit_journal, "PRODUCTION" to R.string.manufacturing, "RECIPE" to R.string.mfg_recipe, "FACTORY_ORDER" to R.string.factory_new, "FACTORY_RECEIVE" to R.string.audit_factory_receive, "REPAIR_SEND" to R.string.repair_new, "REPAIR_BACK" to R.string.audit_repair_back, "WORK_CANCEL" to R.string.work_cancel, "COURIER_BOOK" to R.string.cr_booked_log,
     "HR_LOCK" to R.string.hr_lock, "HR_UNLOCK" to R.string.hr_unlocked,
 )
 

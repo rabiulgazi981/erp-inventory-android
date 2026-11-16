@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 internal val featureRows: List<Triple<Feature, Int, Int>> = listOf(
     Triple(Feature.PROMOS, R.string.promos, R.string.feat_promos_sub),
     Triple(Feature.ORDERS, R.string.orders, R.string.feat_orders_sub),
+    Triple(Feature.COURIER, R.string.cr_title, R.string.feat_courier_sub),
     Triple(Feature.INSTALLMENTS, R.string.installments, R.string.feat_installments_sub),
     Triple(Feature.CREDIT_LIMIT, R.string.feat_credit, R.string.feat_credit_sub),
     Triple(Feature.AREAS, R.string.feat_areas, R.string.feat_areas_sub),
