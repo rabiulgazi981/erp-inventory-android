@@ -1059,4 +1059,12 @@
     <string name="cr_unknown">পার্সেল তৈরি হয়েছে কিনা নিশ্চিত না। আবার চেষ্টার আগে কুরিয়ারের প্যানেল দেখে নিন।</string>
     <string name="cr_booked_log">কুরিয়ারে পার্সেল পাঠানো</string>
     <string name="feat_courier_sub">নিজের key দিয়ে Steadfast, Pathao, RedX, Paperfly, eCourier বা webhook যুক্ত করুন, আর মেমো পার্সেল হিসেবে পাঠান।</string>
+    <string name="feat_sec_sales">বিক্রি</string>
+    <string name="feat_sec_money">টাকা ও হিসাব</string>
+    <string name="feat_sec_stock">স্টক</string>
+    <string name="feat_sec_make">তৈরি ও মেরামত</string>
+    <string name="feat_sec_type">রেস্টুরেন্ট ও ফার্মেসি</string>
+    <string name="feat_sec_people">স্টাফ</string>
+    <string name="feat_on_count">%2$d টার মধ্যে %1$d টা ফিচার চালু</string>
+    <string name="feat_search">ফিচার খুঁজুন</string>
 </resources>

@@ -1060,4 +1060,12 @@
     <string name="cr_unknown">Not sure if the parcel was made. Check the courier\'s panel before trying again.</string>
     <string name="cr_booked_log">Parcel sent to courier</string>
     <string name="feat_courier_sub">Connect Steadfast, Pathao, RedX, Paperfly, eCourier or a webhook with your own keys, and send memos as parcels.</string>
+    <string name="feat_sec_sales">Selling</string>
+    <string name="feat_sec_money">Money &amp; accounts</string>
+    <string name="feat_sec_stock">Stock</string>
+    <string name="feat_sec_make">Making &amp; repair</string>
+    <string name="feat_sec_type">Restaurant &amp; pharmacy</string>
+    <string name="feat_sec_people">Staff</string>
+    <string name="feat_on_count">%1$d of %2$d features on</string>
+    <string name="feat_search">Search features</string>
 </resources>

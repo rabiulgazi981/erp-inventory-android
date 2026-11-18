@@ -44,23 +44,26 @@ object Brand {
     val Purple = Color(0xFF7E22CE)
     val Pink = Color(0xFFC0397E)
 
+    // Premium look: every gradient stays inside one hue (a deep shade to a slightly lighter one),
+    // so buttons and cards read as one calm colour instead of two loud ones.
     val BlueGrad get() = Brush.horizontalGradient(listOf(Blue, Sky))
-    val GreenGrad = Brush.horizontalGradient(listOf(Green, Lime))
-    val OrangeGrad = Brush.horizontalGradient(listOf(Orange, Yellow))
-    val PurpleGrad = Brush.horizontalGradient(listOf(Purple, Pink))
-    val TotalGrad get() = Brush.linearGradient(listOf(Blue, Mint), start = Offset.Zero, end = Offset(900f, 500f))
-    val SplashGrad get() = Brush.linearGradient(listOf(Blue, Sky, Mint), start = Offset(0f, 0f), end = Offset(700f, 2000f))
+    val GreenGrad = Brush.horizontalGradient(listOf(Color(0xFF15803D), Color(0xFF1F9D55)))
+    val OrangeGrad = Brush.horizontalGradient(listOf(Color(0xFFD9480F), Color(0xFFE8692F)))
+    val PurpleGrad = Brush.horizontalGradient(listOf(Color(0xFF6D28D9), Color(0xFF8B5CF6)))
+    val TotalGrad get() = Brush.linearGradient(listOf(Navy, Blue), start = Offset.Zero, end = Offset(900f, 500f))
+    val SplashGrad get() = Brush.linearGradient(listOf(Navy, Blue), start = Offset(0f, 0f), end = Offset(700f, 2000f))
+    val Navy = Color(0xFF0F1B3D)
 }
 
 /** Accent colours a person can pick in More › My colour & photo. */
 enum class Accent(val main: Color, val light: Color) {
-    BLUE(Color(0xFF2F55D4), Color(0xFF4AA3E3)),
-    GREEN(Color(0xFF15803D), Color(0xFF4CB86B)),
-    PURPLE(Color(0xFF7E22CE), Color(0xFFB065E8)),
-    ORANGE(Color(0xFFD9480F), Color(0xFFF59F3A)),
-    TEAL(Color(0xFF0F766E), Color(0xFF2DB3A6)),
-    PINK(Color(0xFFBE185D), Color(0xFFEC6AA8)),
-    SLATE(Color(0xFF334155), Color(0xFF64748B)),
+    BLUE(Color(0xFF2747C9), Color(0xFF3F66E0)),
+    GREEN(Color(0xFF15803D), Color(0xFF22A05A)),
+    PURPLE(Color(0xFF6D28D9), Color(0xFF8B5CF6)),
+    ORANGE(Color(0xFFD9480F), Color(0xFFEA6A2E)),
+    TEAL(Color(0xFF0F766E), Color(0xFF14958A)),
+    PINK(Color(0xFFBE185D), Color(0xFFDB2777)),
+    SLATE(Color(0xFF1E293B), Color(0xFF334155)),
 }
 
 /** Soft tinted icon backgrounds (light gradient + strong foreground), as used on Home and More. */
@@ -70,15 +73,15 @@ data class Tint(val from: Color, val to: Color, val fg: Color) {
 }
 
 object Tints {
-    val Blue = Tint(Color(0xFFDBE6FE), Color(0xFFCDEEFB), Color(0xFF1D4ED8))
-    val Green = Tint(Color(0xFFDCFCE7), Color(0xFFECFCCB), Color(0xFF15803D))
-    val Orange = Tint(Color(0xFFFFEDD5), Color(0xFFFEF3C7), Color(0xFFC2410C))
-    val Purple = Tint(Color(0xFFF3E8FF), Color(0xFFFCE7F3), Color(0xFF7E22CE))
-    val Amber = Tint(Color(0xFFFEF3C7), Color(0xFFFFEDD5), Color(0xFFB45309))
-    val Teal = Tint(Color(0xFFCCFBF1), Color(0xFFDCFCE7), Color(0xFF0F766E))
-    val Indigo = Tint(Color(0xFFE0E7FF), Color(0xFFDBE6FE), Color(0xFF4338CA))
-    val Pink = Tint(Color(0xFFFCE7F3), Color(0xFFFFEDD5), Color(0xFFBE185D))
-    val Grey = Tint(Color(0xFFF3F4F6), Color(0xFFF3F4F6), Color(0xFF374151))
+    val Blue = Tint(Color(0xFFEAF0FF), Color(0xFFEAF0FF), Color(0xFF2747C9))
+    val Green = Tint(Color(0xFFE7F7EE), Color(0xFFE7F7EE), Color(0xFF15803D))
+    val Orange = Tint(Color(0xFFFFF0E6), Color(0xFFFFF0E6), Color(0xFFC2410C))
+    val Purple = Tint(Color(0xFFF3EEFF), Color(0xFFF3EEFF), Color(0xFF6D28D9))
+    val Amber = Tint(Color(0xFFFFF6E0), Color(0xFFFFF6E0), Color(0xFFB45309))
+    val Teal = Tint(Color(0xFFE3F6F4), Color(0xFFE3F6F4), Color(0xFF0F766E))
+    val Indigo = Tint(Color(0xFFEEEFFF), Color(0xFFEEEFFF), Color(0xFF4338CA))
+    val Pink = Tint(Color(0xFFFDEDF4), Color(0xFFFDEDF4), Color(0xFFBE185D))
+    val Grey = Tint(Color(0xFFF1F3F6), Color(0xFFF1F3F6), Color(0xFF374151))
 }
 
 /** Surface colours that change between light and dark. */
@@ -105,9 +108,9 @@ data class Palette(
 )
 
 val LightPalette = Palette(
-    bg = Color(0xFFF4F6FA), card = Color.White, cardTop = Color.White, cardBottom = Color(0xFFF4F7FC),
+    bg = Color(0xFFF5F6F8), card = Color.White, cardTop = Color.White, cardBottom = Color(0xFFFAFBFC),
     text = Color(0xFF111827), muted = Color(0xFF5B6472), label = Color(0xFF374151),
-    border = Color(0xFFE5E7EB), inputBorder = Color(0xFFD1D5DB), input = Color.White,
+    border = Color(0xFFE8EAEE), inputBorder = Color(0xFFD1D5DB), input = Color.White,
     divider = Color(0xFFF3F4F6), soft = Color(0xFFF3F4F6), dark = false,
     infoA = Color(0xFFDBE6FE), infoB = Color(0xFFD6F0E3), infoBorder = Color(0xFFBFD2FD), infoText = Color(0xFF1E3A8A),
 )

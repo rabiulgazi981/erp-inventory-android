@@ -240,8 +240,6 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     if (s?.on(Feature.COURIER) == true) ListRow(stringResource(R.string.cr_title), Icons.Outlined.LocalShipping, Tints.Blue, trailing = { Chevron() }) { go(Routes.COURIER) }
                     ListRow(stringResource(R.string.gw_title), Icons.Outlined.ChatBubbleOutline, Tints.Teal, trailing = { Chevron() },
                         sub = stringResource(if (com.bongshaltech.erpinventory.data.SmsGateway.ready(ctx)) R.string.gw_on else R.string.gw_off)) { go(Routes.SMS_GATEWAY) }
-                    if (com.bongshaltech.erpinventory.data.SmsCloud.ENABLED) ListRow(stringResource(R.string.sms_pack), Icons.Outlined.ChatBubbleOutline, Tints.Teal, trailing = { Chevron() },
-                        sub = com.bongshaltech.erpinventory.data.SmsCloud.signedInEmail(ctx) ?: stringResource(R.string.sms_pack_off)) { go(Routes.SMS_ACCOUNT) }
                 }
                 ListRow(stringResource(R.string.printer), Icons.Outlined.Print, Tints.Grey, trailing = { Chevron() }) { go(Routes.PRINTER) }
                 ListRow(stringResource(R.string.appearance), Icons.Outlined.Contrast, Tints.Indigo, trailing = {

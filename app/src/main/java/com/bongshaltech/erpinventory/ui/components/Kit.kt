@@ -280,7 +280,7 @@ fun Toggle(on: Boolean, onChange: (Boolean) -> Unit, width: Dp = 44.dp, height: 
     val knob = height - 6.dp
     Row(
         Modifier.width(width).height(height).clip(CircleShape)
-            .background(if (on) Brand.GreenGrad else SolidColor(if (Ui.c.dark) Ui.c.inputBorder else Color(0xFFD1D5DB)))
+            .background(if (on) SolidColor(Brand.Blue) else SolidColor(if (Ui.c.dark) Ui.c.inputBorder else Color(0xFFD1D5DB)))
             .clickable { onChange(!on) }.padding(3.dp),
         horizontalArrangement = if (on) Arrangement.End else Arrangement.Start,
     ) { Box(Modifier.size(knob).shadow(2.dp, CircleShape).clip(CircleShape).background(Color.White)) }
