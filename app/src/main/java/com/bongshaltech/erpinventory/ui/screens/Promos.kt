@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bongshaltech.erpinventory.R
+import com.bongshaltech.erpinventory.data.db.search
 import com.bongshaltech.erpinventory.data.db.PayMethod
 import com.bongshaltech.erpinventory.data.db.ProductEntity
 import com.bongshaltech.erpinventory.data.db.PromoEntity

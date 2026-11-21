@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -52,6 +53,8 @@ import com.bongshaltech.erpinventory.R
 import com.bongshaltech.erpinventory.ui.scanBarcode
 import com.bongshaltech.erpinventory.data.StaffMenu
 import com.bongshaltech.erpinventory.data.db.ProductEntity
+import com.bongshaltech.erpinventory.data.db.search
+import com.bongshaltech.erpinventory.data.db.searchLow
 import com.bongshaltech.erpinventory.ui.components.BottomBar
 import com.bongshaltech.erpinventory.ui.components.BottomNav
 import com.bongshaltech.erpinventory.ui.components.Card
@@ -150,7 +153,7 @@ fun ProductRow(p: ProductEntity, onClick: () -> Unit) {
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 T(p.name, 14.sp, FontWeight.SemiBold, maxLines = 1)
-                Muted(listOf(p.barcode?.let { "SKU $it" }, p.category.ifBlank { null }).filterNotNull().joinToString(" · ").ifEmpty { p.unit })
+                Muted(listOf(p.code.ifBlank { null }, p.barcode?.let { "SKU $it" }, p.category.ifBlank { null }).filterNotNull().joinToString(" · ").ifEmpty { p.unit })
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 T(p.pricePaisa.taka0(), 14.sp, FontWeight.Bold)
@@ -181,6 +184,12 @@ fun ProductEditScreen(id: Long, onDone: () -> Unit) {
     var packSize by rememberSaveable { mutableStateOf("") }
     var packName by rememberSaveable { mutableStateOf("") }
     var tried by remember { mutableStateOf(false) }
+    // Single product, or a style with size / colour variants (each its own price, barcode and stock).
+    var variantMode by rememberSaveable { mutableStateOf(false) }
+    var sizes by rememberSaveable { mutableStateOf("") }
+    var colors by rememberSaveable { mutableStateOf("") }
+    val vrows = remember { mutableStateListOf<VRow>() }
+    var variantMsg by remember { mutableStateOf<String?>(null) }
     val required = stringResource(R.string.required)
     val savedMsg = stringResource(R.string.product_saved)
     val soon = stringResource(R.string.coming_soon)
@@ -190,7 +199,12 @@ fun ProductEditScreen(id: Long, onDone: () -> Unit) {
 
     LaunchedEffect(id) {
         if (id != 0L) app.repo.products.get(id)?.let { p ->
-            loaded = p; name = p.name; barcode = p.barcode.orEmpty(); category = p.category; generic = p.generic; unit = p.unit
+            if (p.groupId != 0L) {
+                variantMode = true
+                vrows.clear()
+                app.repo.products.variantsNow(p.groupId).filter { it.active }.forEach { v -> vrows.add(VRow.of(v)) }
+            }
+            loaded = p; name = com.bongshaltech.erpinventory.core.stock.Variants.baseOf(p.name, p.variant); barcode = p.barcode.orEmpty(); category = p.category; generic = p.generic; unit = p.unit
             cost = (p.costPaisa / 100.0).toBigDecimal().stripTrailingZeros().toPlainString()
             price = (p.pricePaisa / 100.0).toBigDecimal().stripTrailingZeros().toPlainString()
             stock = p.stockMilli.qty(); lowAt = p.lowStockMilli.qty()
@@ -200,6 +214,22 @@ fun ProductEditScreen(id: Long, onDone: () -> Unit) {
 
     fun save(next: Boolean) {
         tried = true
+        if (variantMode) {
+            val rows = vrows.map { it.toRow() }
+            if (name.isBlank() || rows.isEmpty() || vrows.any { it.price.toPaisa() == null || it.variant.isBlank() }) { variantMsg = ctx.getString(R.string.var_need_rows); return }
+            val base = (loaded ?: ProductEntity(name = "", pricePaisa = 0)).copy(
+                name = name.trim(), category = com.bongshaltech.erpinventory.core.stock.Categories.join(com.bongshaltech.erpinventory.core.stock.Categories.split(category)),
+                generic = generic.trim(), unit = unit.trim().ifEmpty { "pcs" }, packMilli = (packSize.toMilli() ?: 0).coerceAtLeast(0), packName = packName.trim(),
+            )
+            scope.launch {
+                if (app.repo.saveVariants(base, rows) == null) { variantMsg = ctx.getString(R.string.var_need_rows); return@launch }
+                if (next) {
+                    Toast.makeText(ctx, savedMsg, Toast.LENGTH_SHORT).show()
+                    loaded = null; name = ""; vrows.clear(); sizes = ""; colors = ""; tried = false; variantMsg = null
+                } else onDone()
+            }
+            return
+        }
         val pricePaisa = price.toPaisa()
         if (name.isBlank() || pricePaisa == null) return
         val base = loaded ?: ProductEntity(name = "", pricePaisa = 0)
@@ -246,11 +276,26 @@ fun ProductEditScreen(id: Long, onDone: () -> Unit) {
                     }
                 }
             }
+            if (loaded?.groupId == 0L || loaded == null) Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    T(stringResource(R.string.var_type), 14.sp, FontWeight.SemiBold)
+                    Muted(stringResource(if (variantMode) R.string.var_type_variant_sub else R.string.var_type_single_sub))
+                }
+                com.bongshaltech.erpinventory.ui.components.Segmented(
+                    listOf(stringResource(R.string.var_single), stringResource(R.string.var_variant)), if (variantMode) 1 else 0,
+                    { i ->
+                        variantMode = i == 1
+                        // A saved single product turned into variants keeps its stock on the first variant.
+                        if (variantMode && vrows.isEmpty()) vrows.add(VRow(loaded?.id ?: 0L, "", price, cost, barcode, stock, lowAt))
+                    },
+                )
+            }
+            loaded?.code?.takeIf { it.isNotBlank() }?.let { Muted(stringResource(R.string.product_code_is, it)) }
             Card(Modifier.fillMaxWidth(), padding = 14.dp) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Input(name, { name = it }, label = stringResource(R.string.product_name), error = required.takeIf { tried && name.isBlank() })
+                    Input(name, { name = it }, label = stringResource(if (variantMode) R.string.var_style_name else R.string.product_name), error = required.takeIf { tried && name.isBlank() })
                     if (pharmacy || generic.isNotBlank()) Input(generic, { generic = it }, label = stringResource(R.string.product_generic))
-                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!variantMode) Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Input(barcode, { barcode = it }, Modifier.weight(1f), label = stringResource(R.string.product_barcode))
                         Box(
                             Modifier.size(46.dp).clip(RoundedCornerShape(12.dp)).background(Brand.GreenGrad)
@@ -267,18 +312,18 @@ fun ProductEditScreen(id: Long, onDone: () -> Unit) {
                         Input(packName, { packName = it }, Modifier.weight(1f), label = stringResource(R.string.pack_name), placeholder = stringResource(R.string.pack_default))
                         Input(packSize, { packSize = it }, Modifier.weight(1f), label = stringResource(R.string.pack_size, unit.ifBlank { "pcs" }), keyboard = KeyboardType.Decimal)
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (!variantMode) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Input(cost, { cost = it }, Modifier.weight(1f), label = stringResource(R.string.product_cost), keyboard = KeyboardType.Decimal)
                         Input(
                             price, { price = it }, Modifier.weight(1f), label = stringResource(R.string.product_price), keyboard = KeyboardType.Decimal,
                             error = required.takeIf { tried && priceP == null },
                         )
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (!variantMode) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Input(stock, { stock = it }, Modifier.weight(1f), label = stringResource(R.string.product_stock), keyboard = KeyboardType.Decimal)
                         Input(lowAt, { lowAt = it }, Modifier.weight(1f), label = stringResource(R.string.product_low_at), keyboard = KeyboardType.Decimal)
                     }
-                    if (costP != null && priceP != null && costP > 0) {
+                    if (!variantMode && costP != null && priceP != null && costP > 0) {
                         val profit = priceP - costP
                         val pct = profit * 100.0 / costP
                         Row(
@@ -293,6 +338,7 @@ fun ProductEditScreen(id: Long, onDone: () -> Unit) {
                     }
                 }
             }
+            if (variantMode) VariantEditor(sizes, { sizes = it }, colors, { colors = it }, vrows, variantMsg)
             if (loaded != null) T(
                 stringResource(R.string.delete), 15.sp, FontWeight.SemiBold, Brand.Red,
                 Modifier.align(Alignment.CenterHorizontally).clip(RoundedCornerShape(8.dp))
@@ -303,5 +349,82 @@ fun ProductEditScreen(id: Long, onDone: () -> Unit) {
             WhiteButton(stringResource(R.string.save_add_next), height = 52.dp) { save(true) }
             GradButton(stringResource(R.string.product_save), Brand.GreenGrad, Modifier.weight(1f), height = 52.dp) { save(false) }
         }
+    }
+}
+
+/** One variant row while it is being typed. */
+internal data class VRow(
+    val id: Long, val variant: String, val price: String, val cost: String, val barcode: String, val stock: String, val low: String,
+) {
+    fun toRow() = com.bongshaltech.erpinventory.data.ShopRepo.VariantRow(
+        id, variant.trim(), barcode.trim(), cost.toPaisa() ?: 0, price.toPaisa() ?: 0, stock.toMilli() ?: 0, low.toMilli() ?: 0,
+    )
+
+    companion object {
+        private fun money(p: Long) = if (p == 0L) "" else (p / 100.0).toBigDecimal().stripTrailingZeros().toPlainString()
+        fun of(p: ProductEntity) = VRow(p.id, p.variant, money(p.pricePaisa), money(p.costPaisa), p.barcode.orEmpty(), p.stockMilli.qty(), p.lowStockMilli.qty())
+    }
+}
+
+/** Sizes × colours make the rows; each row has its own price, cost, barcode, opening stock and reorder level. */
+@Composable
+private fun VariantEditor(
+    sizes: String, onSizes: (String) -> Unit, colors: String, onColors: (String) -> Unit,
+    rows: androidx.compose.runtime.snapshots.SnapshotStateList<VRow>, message: String?,
+) {
+    val ctx = LocalContext.current
+    com.bongshaltech.erpinventory.ui.components.Panel(stringResource(R.string.var_panel), Brand.PurpleGrad, com.bongshaltech.erpinventory.ui.components.PanelColors.Purple) {
+        Muted(stringResource(R.string.var_help))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Input(sizes, onSizes, Modifier.weight(1f), label = stringResource(R.string.var_sizes), placeholder = "S, M, L")
+            Input(colors, onColors, Modifier.weight(1f), label = stringResource(R.string.var_colors), placeholder = "Red, Blue")
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            GradButton(stringResource(R.string.var_make_rows), Brand.PurpleGrad, Modifier.weight(1f), height = 42.dp) {
+                val combos = com.bongshaltech.erpinventory.core.stock.Variants.combos(
+                    listOf(com.bongshaltech.erpinventory.core.stock.Variants.options(sizes), com.bongshaltech.erpinventory.core.stock.Variants.options(colors)),
+                )
+                val first = rows.firstOrNull()
+                // An empty first row (from a single product) takes the first combination and keeps its stock.
+                if (first != null && first.variant.isBlank() && combos.isNotEmpty()) rows[0] = first.copy(variant = combos.first())
+                combos.filter { c -> rows.none { it.variant.equals(c, ignoreCase = true) } }.forEach { c ->
+                    rows.add(VRow(0, c, first?.price.orEmpty(), first?.cost.orEmpty(), "", "", first?.low.orEmpty()))
+                }
+            }
+            WhiteButton(stringResource(R.string.var_same_all), height = 42.dp) {
+                val f = rows.firstOrNull() ?: return@WhiteButton
+                for (i in rows.indices) rows[i] = rows[i].copy(price = f.price, cost = f.cost, low = f.low)
+            }
+        }
+        rows.forEachIndexed { i, r ->
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, Ui.c.border, RoundedCornerShape(12.dp)).padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Input(r.variant, { rows[i] = r.copy(variant = it) }, Modifier.weight(1f), placeholder = stringResource(R.string.var_name), height = 40.dp)
+                    T("✕", 15.sp, color = Ui.c.muted, modifier = Modifier.clickable { rows.removeAt(i) }.padding(6.dp))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Input(r.price, { rows[i] = r.copy(price = it) }, Modifier.weight(1f), label = stringResource(R.string.product_price), keyboard = KeyboardType.Decimal, height = 40.dp)
+                    Input(r.cost, { rows[i] = r.copy(cost = it) }, Modifier.weight(1f), label = stringResource(R.string.product_cost), keyboard = KeyboardType.Decimal, height = 40.dp)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
+                    Input(r.stock, { rows[i] = r.copy(stock = it) }, Modifier.weight(1f), label = stringResource(R.string.product_stock), keyboard = KeyboardType.Decimal, height = 40.dp)
+                    Input(r.low, { rows[i] = r.copy(low = it) }, Modifier.weight(1f), label = stringResource(R.string.product_low_at), keyboard = KeyboardType.Decimal, height = 40.dp)
+                }
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Input(r.barcode, { rows[i] = r.copy(barcode = it) }, Modifier.weight(1f), label = stringResource(R.string.product_barcode), height = 40.dp)
+                    Box(
+                        Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(Brand.GreenGrad).clickable { scanBarcode(ctx) { code -> rows[i] = rows[i].copy(barcode = code) } },
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Outlined.QrCodeScanner, stringResource(R.string.scan), tint = Color.White, modifier = Modifier.size(18.dp)) }
+                }
+            }
+        }
+        if (rows.isEmpty()) Muted(stringResource(R.string.var_no_rows))
+        T("+ " + stringResource(R.string.var_add_row), 14.sp, FontWeight.SemiBold, Brand.Link,
+            Modifier.clickable { rows.add(VRow(0, "", rows.firstOrNull()?.price.orEmpty(), rows.firstOrNull()?.cost.orEmpty(), "", "", "")) }.padding(vertical = 4.dp))
+        message?.let { T(it, 13.sp, FontWeight.SemiBold, Brand.Red) }
     }
 }

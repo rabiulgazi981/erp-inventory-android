@@ -248,6 +248,8 @@ internal val typeOptions = listOf(
     TypeOption(ShopType.FASHION, R.string.type_fashion, R.string.type_note_fashion),
     TypeOption(ShopType.MOBILE, R.string.type_mobile, R.string.type_note_mobile),
     TypeOption(ShopType.FACTORY, R.string.type_factory, R.string.type_note_factory),
+    TypeOption(ShopType.TAILOR, R.string.type_tailor, R.string.type_note_tailor),
+    TypeOption(ShopType.GARMENTS, R.string.type_garments, R.string.type_note_garments),
 )
 
 @OptIn(ExperimentalLayoutApi::class)

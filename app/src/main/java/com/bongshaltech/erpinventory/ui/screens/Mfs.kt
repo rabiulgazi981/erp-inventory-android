@@ -129,7 +129,7 @@ fun MfsScreen(go: (String) -> Unit, onBack: () -> Unit) {
 
     Column(Modifier.fillMaxSize().background(Ui.c.bg)) {
         Header(stringResource(R.string.mfs_title), onBack) {
-            if (who.owner) T(stringResource(R.string.mfs_rates_short), 13.sp, FontWeight.SemiBold, Brand.Link,
+            if (who.owner) T(stringResource(R.string.mfs_rates_short), 13.sp, FontWeight.SemiBold, androidx.compose.ui.graphics.Color.White,
                 Modifier.clickable { go(Routes.MFS_WALLETS) }.padding(8.dp))
         }
         Box(Modifier.weight(1f)) {
@@ -169,7 +169,7 @@ fun MfsScreen(go: (String) -> Unit, onBack: () -> Unit) {
                             Column(Modifier.weight(1f)) {
                                 T(w.label(), 15.sp, FontWeight.SemiBold)
                                 Muted(listOf(
-                                    stringResource(if (w.group() == WalletGroup.LOAD) R.string.mfs_load else if (w.personal) R.string.mfs_personal else R.string.mfs_agent),
+                                    stringResource(if (w.group() == WalletGroup.LOAD) R.string.mfs_load else if (w.kind == "MERCHANT") R.string.mfs_merchant else if (w.personal) R.string.mfs_personal else R.string.mfs_agent),
                                     w.number,
                                 ).filter { it.isNotBlank() }.joinToString(" · "))
                             }
@@ -293,8 +293,11 @@ fun MfsEntryScreen(walletId: Long, onBack: () -> Unit) {
                     types.forEach { x -> Chip(stringResource(mfsTypeLabel.getValue(x)), x == t, { type = x }, soft = true) }
                 }
                 if (!t.isBalance) {
-                    Input(phone, { phone = it; suggestions.clear() }, label = stringResource(if (t == MfsType.PAY_BILL) R.string.mfs_bill_no else R.string.mfs_customer_no),
-                        keyboard = if (t == MfsType.PAY_BILL) KeyboardType.Text else KeyboardType.Phone)
+                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Input(phone, { phone = it; suggestions.clear() }, Modifier.weight(1f), label = stringResource(if (t == MfsType.PAY_BILL) R.string.mfs_bill_no else R.string.mfs_customer_no),
+                            keyboard = if (t == MfsType.PAY_BILL) KeyboardType.Text else KeyboardType.Phone)
+                        if (t != MfsType.PAY_BILL) com.bongshaltech.erpinventory.ui.components.ContactPickButton({ p, _ -> phone = p; suggestions.clear() })
+                    }
                     suggestions.forEach { s ->
                         T(stringResource(R.string.mfs_use_number, s), 13.sp, FontWeight.SemiBold, Brand.Link,
                             Modifier.clickable { phone = s; suggestions.clear() }.padding(vertical = 4.dp))
@@ -379,9 +382,14 @@ private fun WalletCard(w: MfsWalletEntity, save: (MfsWalletEntity) -> Unit) {
                 Toggle(w.active, { on -> save(w.copy(active = on)) })
             }
             if (w.active) {
-                if (!load) Segmented(
-                    listOf(stringResource(R.string.mfs_agent), stringResource(R.string.mfs_personal)), if (w.personal) 1 else 0,
-                ) { i -> save(w.copy(personal = i == 1)) }
+                if (!load) {
+                    // Agent, Personal or Merchant account, like the web's wallet type.
+                    val kinds = listOf("AGENT", "PERSONAL", "MERCHANT")
+                    val now = kinds.indexOf(w.kind).takeIf { it >= 0 } ?: if (w.personal) 1 else 0
+                    Segmented(
+                        listOf(stringResource(R.string.mfs_agent), stringResource(R.string.mfs_personal), stringResource(R.string.mfs_merchant)), now,
+                    ) { i -> save(w.copy(kind = kinds[i], personal = i == 1)) }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Input(number, { number = it; dirty = true }, Modifier.weight(1f), label = stringResource(R.string.mfs_number), keyboard = KeyboardType.Phone, height = 42.dp)
                     Input(balance, { balance = it; dirty = true }, Modifier.weight(1f), label = stringResource(R.string.mfs_balance), keyboard = KeyboardType.Decimal, height = 42.dp)

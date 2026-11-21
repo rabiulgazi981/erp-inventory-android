@@ -66,6 +66,21 @@ import com.bongshaltech.erpinventory.core.books.AccountType
 import com.bongshaltech.erpinventory.core.books.Books
 import com.bongshaltech.erpinventory.core.books.JournalLine
 import kotlinx.coroutines.flow.map
+import com.bongshaltech.erpinventory.core.garment.Garments
+import com.bongshaltech.erpinventory.core.stock.ProductCode
+import com.bongshaltech.erpinventory.core.stock.Variants
+import com.bongshaltech.erpinventory.core.tailor.Tailor
+import com.bongshaltech.erpinventory.data.db.GCellEntity
+import com.bongshaltech.erpinventory.data.db.GIssueEntity
+import com.bongshaltech.erpinventory.data.db.GOrderEntity
+import com.bongshaltech.erpinventory.data.db.GOutputEntity
+import com.bongshaltech.erpinventory.data.db.GStyleEntity
+import com.bongshaltech.erpinventory.data.db.PurchasePayEntity
+import com.bongshaltech.erpinventory.data.db.TailorItemEntity
+import com.bongshaltech.erpinventory.data.db.TailorMeasureEntity
+import com.bongshaltech.erpinventory.data.db.TailorOrderEntity
+import com.bongshaltech.erpinventory.data.db.TailorTaskEntity
+import com.bongshaltech.erpinventory.data.db.WorkerPayEntity
 
 data class CartLine(val product: ProductEntity, val qtyMilli: Long, val serials: List<String> = emptyList()) {
     /** price × qty, rounded to the nearest paisa. */
@@ -120,11 +135,15 @@ data class NewPurchase(
     val supplierName: String,
     val supplierPhone: String,
     val staffId: Long?,
+    /** Paid from several accounts at once: each method and its amount. Empty means [paidPaisa] by [method]. */
+    val pays: List<Pair<PayMethod, Long>> = emptyList(),
 )
 
 sealed interface PurchaseResult {
     data class Saved(val number: String, val totalPaisa: Long) : PurchaseResult
     data object DueNeedsSupplier : PurchaseResult
+    /** Paid from several accounts and the parts add up to more than the bill. */
+    data object Overpaid : PurchaseResult
 }
 
 sealed interface SaleResult {
@@ -193,6 +212,10 @@ object Returns {
     fun cost(picks: List<ReturnPick>): Long = picks.sumOf { (it.line.unitCostPaisa * it.qtyMilli + 500) / 1000 }
 }
 
+const val PRODUCT_CODE = "PRODUCT_CODE"
+const val TRANSFER_CHARGE = "Transfer charge"
+const val TAILOR_WAGES = "Tailor wages"
+
 class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) {
     val products get() = db.products()
     val customers get() = db.customers()
@@ -237,7 +260,9 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
 
     suspend fun saveProduct(p: ProductEntity): Long {
         val old = if (p.id != 0L) db.products().get(p.id) else null
-        val id = db.products().upsert(p)
+        // The code is given once and never changes, whatever the form sends.
+        val id = db.products().upsert(p.copy(code = old?.code ?: ""))
+        fillCodes()
         when {
             old == null -> audit("PRODUCT_NEW", "${p.name} · ${tk(p.pricePaisa)}")
             else -> {
@@ -314,6 +339,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                 }
             }
         }
+        fillCodes()
         audit("IMPORT", "+$added · ~$updated")
         return ImportResult(added, updated, skipped)
     }
@@ -332,6 +358,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             db.withTransaction {
                 // Stock check and decrement in one step per line, so two quick sales can never oversell.
                 for (line in s.lines) {
+                    if (line.product.service) continue
                     if (db.products().takeStock(line.product.id, line.qtyMilli) == 0) {
                         throw NotEnough(line.product.name)
                     }
@@ -463,7 +490,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
             val sale = db.sales().get(saleId) ?: return@withTransaction DeleteResult.Gone
             if (db.saleFix().returnCount(saleId) > 0) return@withTransaction DeleteResult.HasReturns
             val items = db.sales().items(saleId)
-            for (i in items) db.products().addStock(i.productId, i.qtyMilli)
+            for (i in items) if (db.products().get(i.productId)?.service != true) db.products().addStock(i.productId, i.qtyMilli)
             db.saleFix().unsellSerials(saleId)
             for (p in db.promos().forSale(saleId)) {
                 val id = p.promoId ?: continue
@@ -514,9 +541,12 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     }
 
     /** Goods in: stock up, latest cost saved on each product, and any unpaid part added to the supplier's due. */
-    suspend fun savePurchase(p: NewPurchase): PurchaseResult {
+    suspend fun savePurchase(input: NewPurchase): PurchaseResult {
+        val parts = input.pays.filter { it.second > 0 }
+        val p = if (parts.isEmpty()) input else input.copy(paidPaisa = parts.sumOf { it.second }, method = parts.maxBy { it.second }.first)
         val subtotal = p.lines.sumOf { it.totalPaisa }
         val total = (subtotal - p.discountPaisa).coerceAtLeast(0)
+        if (parts.size > 1 && p.paidPaisa > total) return PurchaseResult.Overpaid
         val due = total - p.paidPaisa
         val hasNew = p.supplierName.isNotBlank()
         if (due > 0 && p.supplierId == null && !hasNew) return PurchaseResult.DueNeedsSupplier
@@ -540,6 +570,7 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
                     qtyMilli = it.qtyMilli, unitCostPaisa = it.unitCostPaisa, lineTotalPaisa = it.totalPaisa,
                 )
             })
+            if (parts.size > 1) db.purchases().insertPays(parts.map { PurchasePayEntity(purchaseId = id, method = it.first, amountPaisa = it.second) })
             for (l in p.lines) if (l.batchNo.isNotBlank() || l.expiryDay != null) {
                 db.batches().insert(StockBatchEntity(productId = l.product.id, batchNo = l.batchNo.trim(), expiryDay = l.expiryDay, qtyMilli = l.qtyMilli, purchaseId = id))
             }
@@ -1174,6 +1205,366 @@ class ShopRepo(private val db: AppDatabase, private val settings: SettingsRepo) 
     suspend fun checkStaffPin(id: Long, pin: String): Boolean {
         val s = db.staff().get(id) ?: return false
         return s.active && PinHasher.matches(pin, s.pinSalt, s.pinHash)
+    }
+
+    // ---- Product codes and variants -------------------------------------------------------------
+
+    /** Gives every product without a code the next one (P0001…). Codes are never reused. */
+    suspend fun fillCodes() = db.withTransaction {
+        val ids = db.products().withoutCode()
+        if (ids.isEmpty()) return@withTransaction
+        var last = db.docCounters().last(PRODUCT_CODE, 0) ?: 0
+        for (id in ids) {
+            last++
+            db.products().setCode(id, ProductCode.format(last))
+        }
+        db.docCounters().set(DocCounterEntity(PRODUCT_CODE, 0, last))
+    }
+
+    /** One variant row of the product form. [id] 0 is a new variant. */
+    data class VariantRow(
+        val id: Long, val variant: String, val barcode: String, val costPaisa: Long, val pricePaisa: Long,
+        val stockMilli: Long, val lowMilli: Long,
+    )
+
+    /**
+     * Saves a style with size / colour variants. Each variant is its own product named "Base (variant)", all sharing
+     * the first one's id as [ProductEntity.groupId]. Variants taken out of the list are hidden, never deleted.
+     * [base] carries the shared fields (name, category, unit…) and, when editing, the product that was opened.
+     */
+    suspend fun saveVariants(base: ProductEntity, rows: List<VariantRow>): Long? {
+        val clean = rows.filter { it.variant.isNotBlank() }.distinctBy { it.variant.trim().lowercase() }
+        if (base.name.isBlank() || clean.isEmpty()) return null
+        return db.withTransaction {
+            val groupId = base.groupId.takeIf { it != 0L }
+            val existing = when {
+                groupId != null -> db.products().variantsNow(groupId)
+                base.id != 0L -> listOfNotNull(db.products().get(base.id))
+                else -> emptyList()
+            }
+            var group = groupId ?: 0L
+            val kept = mutableSetOf<Long>()
+            for (r in clean) {
+                val old = existing.firstOrNull { it.id == r.id && r.id != 0L }
+                val p = (old ?: base.copy(id = 0, code = "", createdAt = System.currentTimeMillis())).copy(
+                    name = Variants.fullName(base.name, r.variant), variant = r.variant.trim(), barcode = r.barcode.trim().ifEmpty { null },
+                    category = base.category, unit = base.unit, generic = base.generic, packMilli = base.packMilli, packName = base.packName,
+                    costPaisa = r.costPaisa, pricePaisa = r.pricePaisa, stockMilli = r.stockMilli, lowStockMilli = r.lowMilli,
+                    groupId = group, active = true,
+                )
+                val savedId = saveProduct(p).let { if (p.id != 0L) p.id else it }
+                if (group == 0L) group = savedId
+                kept += savedId
+            }
+            for (id in kept) db.products().get(id)?.let { if (it.groupId != group) db.products().upsert(it.copy(groupId = group)) }
+            for (o in existing) if (o.id !in kept) db.products().archive(o.id)
+            group
+        }
+    }
+
+    // ---- Money: split payments and transfer charges --------------------------------------------
+
+    /** Pays a supplier from several accounts at once: one receipt per part, all or nothing, never more than the due. */
+    suspend fun paySupplierSplit(supplierId: Long, parts: List<Pair<PayMethod, Long>>, note: String, staffId: Long?): List<String>? {
+        val used = parts.filter { it.second > 0 }
+        if (used.isEmpty()) return null
+        val code = settings.current().shopCode
+        return db.withTransaction {
+            val s = db.suppliers().get(supplierId) ?: return@withTransaction null
+            if (used.sumOf { it.second } > s.duePaisa) return@withTransaction null
+            val numbers = used.map { (m, amount) ->
+                val number = nextNumber(code, DocType.SUPPLIER_PAYMENT)
+                db.suppliers().insertPayment(SupplierPaymentEntity(number = number, supplierId = supplierId, amountPaisa = amount, method = m, note = note.trim(), staffId = staffId))
+                number
+            }
+            db.suppliers().addDue(supplierId, -used.sumOf { it.second })
+            audit("SUPPLIER_PAY", "${s.name} · ${tk(used.sumOf { it.second })} · ${used.size}")
+            numbers
+        }
+    }
+
+    /** A transfer with a charge or cost (cash-out fee, bank charge, rickshaw fare) posted as an expense from [chargeFrom]. */
+    suspend fun transferWithCharge(from: PayMethod, to: PayMethod, amountPaisa: Long, chargePaisa: Long, chargeFrom: PayMethod, note: String, staffId: Long?): String? =
+        db.withTransaction {
+            val n = moveMoney(MoveKind.TRANSFER, from, to, amountPaisa, note, staffId) ?: return@withTransaction null
+            if (chargePaisa > 0) addExpense(TRANSFER_CHARGE, chargePaisa, chargeFrom, "$n ${note.trim()}".trim(), staffId)
+            n
+        }
+
+    // ---- Tailors ---------------------------------------------------------------------------------
+
+    val tailor get() = db.tailor()
+
+    data class TailorLine(
+        val garment: String, val garmentName: String, val qty: Int, val makingPaisa: Long, val measurements: Map<String, String>,
+        val style: String, val saveMeasurements: Boolean, val fabric: ProductEntity?, val fabricMilli: Long, val fabricPricePaisa: Long,
+    )
+
+    data class NewTailorOrder(
+        val phone: String, val name: String, val lines: List<TailorLine>, val discountPaisa: Long, val advancePaisa: Long,
+        val method: PayMethod, val deliveryDay: Long?, val note: String, val staffId: Long?,
+    )
+
+    sealed interface TailorResult {
+        data class Saved(val orderId: Long, val saleId: Long, val number: String) : TailorResult
+        data object NeedsCustomer : TailorResult
+        data object Invalid : TailorResult
+        data class NotEnoughStock(val name: String) : TailorResult
+    }
+
+    /** The making-charge service product for a garment, made on first use. */
+    private suspend fun makingProduct(garment: String, name: String): ProductEntity {
+        val title = Tailor.makingName(garment, name)
+        db.products().serviceByName(title)?.let { return it }
+        val id = db.products().upsert(ProductEntity(name = title, pricePaisa = 0, unit = "pcs", category = "Tailoring", service = true))
+        fillCodes()
+        return db.products().get(id) ?: ProductEntity(id = id, name = title, pricePaisa = 0, service = true)
+    }
+
+    /** A tailoring order: a normal sale (making + shop fabric, advance paid, the rest a due) plus the garments beside it. */
+    suspend fun saveTailorOrder(n: NewTailorOrder): TailorResult {
+        val phone = n.phone.filter(Char::isDigit)
+        if (phone.isEmpty()) return TailorResult.NeedsCustomer
+        if (n.lines.isEmpty() || n.lines.any { it.qty <= 0 || it.makingPaisa < 0 || (it.fabric != null && it.fabricMilli <= 0) }) return TailorResult.Invalid
+        return db.withTransaction {
+            val cart = mutableListOf<CartLine>()
+            for (l in n.lines) {
+                cart += CartLine(makingProduct(l.garment, l.garmentName).copy(pricePaisa = l.makingPaisa), l.qty * 1000L)
+                if (l.fabric != null) cart += CartLine(l.fabric.copy(pricePaisa = l.fabricPricePaisa), l.fabricMilli)
+            }
+            val sale = saveSale(NewSale(cart, n.discountPaisa, n.advancePaisa, n.method, phone, n.name, false, n.staffId))
+            val saved = when (sale) {
+                is SaleResult.Saved -> sale
+                is SaleResult.NotEnoughStock -> return@withTransaction TailorResult.NotEnoughStock(sale.productName)
+                else -> return@withTransaction TailorResult.Invalid
+            }
+            val customer = db.customers().byPhone(phone) ?: return@withTransaction TailorResult.NeedsCustomer
+            val orderId = db.tailor().insertOrder(
+                TailorOrderEntity(number = saved.number, customerId = customer.id, saleId = saved.id, deliveryDay = n.deliveryDay, note = n.note.trim())
+            )
+            db.tailor().insertItems(n.lines.map {
+                TailorItemEntity(
+                    orderId = orderId, garment = it.garment, garmentName = it.garmentName.trim(), qty = it.qty, makingPaisa = it.makingPaisa,
+                    measurements = Tailor.encode(it.measurements), style = it.style.trim(), fabricProductId = it.fabric?.id,
+                    fabricName = it.fabric?.name.orEmpty(), fabricMilli = if (it.fabric != null) it.fabricMilli else 0,
+                    fabricPricePaisa = if (it.fabric != null) it.fabricPricePaisa else 0,
+                )
+            })
+            for (l in n.lines) if (l.saveMeasurements && l.measurements.any { it.value.isNotBlank() }) {
+                val old = db.tailor().measure(customer.id, l.garment)
+                db.tailor().saveMeasure(TailorMeasureEntity(id = old?.id ?: 0, customerId = customer.id, garment = l.garment, measurements = Tailor.encode(l.measurements), notes = l.style.trim()))
+            }
+            audit("TAILOR_ORDER", "${saved.number} · ${n.lines.sumOf { it.qty }}")
+            TailorResult.Saved(orderId, saved.id, saved.number)
+        }
+    }
+
+    suspend fun setTailorStatus(orderId: Long, status: String) = db.tailor().setStatus(orderId, status, null)
+
+    /** Hands the order over: what the customer pays now comes off their due. */
+    suspend fun deliverTailor(orderId: Long, payPaisa: Long, method: PayMethod, staffId: Long?): Boolean = db.withTransaction {
+        val o = db.tailor().order(orderId) ?: return@withTransaction false
+        if (o.status == "DELIVERED" || o.status == "CANCELLED") return@withTransaction false
+        if (payPaisa > 0) collectDue(o.customerId, payPaisa, method, o.number, staffId)
+        db.tailor().setStatus(orderId, "DELIVERED", System.currentTimeMillis())
+        audit("TAILOR_DELIVER", o.number)
+        true
+    }
+
+    /** Owner only: cancels the order and deletes its sale (stock and due go back). */
+    suspend fun cancelTailor(orderId: Long, reason: String): Boolean {
+        val o = db.tailor().order(orderId) ?: return false
+        if (o.status == "DELIVERED" || o.status == "CANCELLED") return false
+        return when (deleteSale(o.saleId, reason.ifBlank { "Tailor order cancelled" }, null)) {
+            is DeleteResult.Deleted, DeleteResult.Gone -> { db.tailor().setStatus(orderId, "CANCELLED", null); true }
+            else -> false
+        }
+    }
+
+    suspend fun addTailorTask(orderId: Long, itemId: Long, workerId: Long, task: String, qty: Int, ratePaisa: Long): Boolean {
+        if (qty <= 0 || ratePaisa < 0 || task.isBlank()) return false
+        db.tailor().insertTask(TailorTaskEntity(orderId = orderId, itemId = itemId, workerId = workerId, task = task.trim(), qty = qty, ratePaisa = ratePaisa, amountPaisa = ratePaisa * qty))
+        val o = db.tailor().order(orderId)
+        if (o != null && o.status == "RECEIVED") db.tailor().setStatus(orderId, "CUTTING", null)
+        return true
+    }
+
+    /** Wages or an advance to a tailoring worker, paid as a normal expense. */
+    suspend fun payTailorWorker(workerId: Long, advance: Boolean, amountPaisa: Long, method: PayMethod, note: String, staffId: Long?): String? {
+        if (amountPaisa <= 0) return null
+        return db.withTransaction {
+            val w = db.tailor().worker(workerId) ?: return@withTransaction null
+            val number = addExpense(TAILOR_WAGES, amountPaisa, method, "${w.name} ${note.trim()}".trim(), staffId)
+            db.tailor().insertPay(WorkerPayEntity(trade = "TAILOR", workerId = workerId, number = number, type = if (advance) "ADVANCE" else "PAY", amountPaisa = amountPaisa, method = method, note = note.trim()))
+            number
+        }
+    }
+
+    // ---- Garments --------------------------------------------------------------------------------
+
+    val garments get() = db.garments()
+
+    /** Saves a style and makes sure it has one finished-goods product for every size and colour. */
+    suspend fun saveStyle(st: GStyleEntity): Long? {
+        val sizes = Garments.list(st.sizes)
+        val colors = Garments.list(st.colors)
+        if (st.code.isBlank() || st.name.isBlank() || sizes.isEmpty() || colors.isEmpty()) return null
+        return db.withTransaction {
+            val base = "${st.code.trim()} ${st.name.trim()}"
+            var group = st.groupId
+            val have = if (group != 0L) db.products().variantsNow(group) else emptyList()
+            for (combo in Variants.combos(listOf(sizes, colors))) {
+                val old = have.firstOrNull { it.variant.equals(combo, ignoreCase = true) }
+                val p = (old ?: ProductEntity(name = "", pricePaisa = 0, unit = "pcs", category = "Garments")).copy(
+                    name = Variants.fullName(base, combo), variant = combo, pricePaisa = st.pricePaisa, groupId = group, active = true,
+                )
+                val id = saveProduct(p).let { if (p.id != 0L) p.id else it }
+                if (group == 0L) { group = id; db.products().get(id)?.let { db.products().upsert(it.copy(groupId = id)) } }
+            }
+            val id = db.garments().saveStyle(st.copy(code = st.code.trim(), name = st.name.trim(), sizes = sizes.joinToString(", "), colors = colors.joinToString(", "), groupId = group))
+            audit("STYLE", base)
+            if (st.id != 0L) st.id else id
+        }
+    }
+
+    /** New production order. A buyer is optional (empty = made for own stock). */
+    suspend fun newGarmentOrder(
+        styleId: Long, phone: String, name: String, buyerPo: String, deliveryDay: Long?, unitPricePaisa: Long,
+        cells: List<Garments.Cell>, note: String,
+    ): String? {
+        val used = cells.filter { it.qty > 0 }
+        if (used.isEmpty()) return null
+        val code = settings.current().shopCode
+        return db.withTransaction {
+            db.garments().style(styleId) ?: return@withTransaction null
+            val ph = phone.filter(Char::isDigit)
+            val customerId = if (ph.isNotEmpty()) db.customers().byPhone(ph)?.id ?: db.customers().insert(CustomerEntity(name = name.ifBlank { ph }.trim(), phone = ph)) else null
+            val number = nextNumber(code, DocType.GARMENT_ORDER)
+            val id = db.garments().insertOrder(GOrderEntity(number = number, styleId = styleId, customerId = customerId, buyerPo = buyerPo.trim(), deliveryDay = deliveryDay, unitPricePaisa = unitPricePaisa, note = note.trim()))
+            db.garments().insertCells(used.map { GCellEntity(orderId = id, size = it.size, color = it.color, qty = it.qty) })
+            audit("GARMENT_ORDER", "$number · ${used.sumOf { it.qty }}")
+            number
+        }
+    }
+
+    private suspend fun startProduction(o: GOrderEntity) {
+        if (o.status == "CONFIRMED") db.garments().updateOrder(o.copy(status = "IN_PRODUCTION"))
+    }
+
+    /** Material from the store to the floor ([back] = unused material returned). Its cost moves into / out of the order. */
+    suspend fun issueMaterial(orderId: Long, product: ProductEntity, qtyMilli: Long, back: Boolean): Boolean {
+        if (qtyMilli <= 0) return false
+        return db.withTransaction {
+            val o = db.garments().order(orderId) ?: return@withTransaction false
+            if (o.status !in Garments.OPEN) return@withTransaction false
+            val p = db.products().get(product.id) ?: return@withTransaction false
+            val cost = (qtyMilli * p.costPaisa + 500) / 1000
+            if (back) {
+                if (db.garments().issuedNow(orderId, p.id) < qtyMilli) return@withTransaction false
+                db.products().addStock(p.id, qtyMilli)
+            } else {
+                if (db.products().takeStock(p.id, qtyMilli) == 0) return@withTransaction false
+                takeFromBatches(p.id, qtyMilli)
+            }
+            db.garments().insertIssue(GIssueEntity(orderId = orderId, productId = p.id, name = p.name, qtyMilli = if (back) -qtyMilli else qtyMilli, costPaisa = if (back) -cost else cost))
+            db.garments().addWip(orderId, if (back) -cost else cost)
+            startProduction(o)
+            true
+        }
+    }
+
+    sealed interface OutputResult {
+        data object Saved : OutputResult
+        data object Invalid : OutputResult
+        /** Packing more of a size and colour than was ordered. */
+        data class TooMany(val left: Long) : OutputResult
+    }
+
+    /**
+     * Pieces done at a stage. A worker with a rate is owed rate × pieces, which joins the order's cost.
+     * Packing needs the size and colour: those pieces go into finished stock carrying their share of the cost.
+     */
+    suspend fun addOutput(
+        orderId: Long, stage: String, lineId: Long?, workerId: Long?, operation: String, ratePaisa: Long,
+        size: String, color: String, qty: Long, rejects: Long, note: String,
+    ): OutputResult {
+        if (qty < 0 || rejects < 0 || (qty == 0L && rejects == 0L) || ratePaisa < 0) return OutputResult.Invalid
+        return db.withTransaction {
+            val o = db.garments().order(orderId) ?: return@withTransaction OutputResult.Invalid
+            if (o.status !in Garments.OPEN) return@withTransaction OutputResult.Invalid
+            val amount = if (workerId != null) ratePaisa * qty else 0
+            val cells = db.garments().cellsNow(orderId)
+            val cell = if (stage == "PACKING") cells.firstOrNull { it.size == size && it.color == color } ?: return@withTransaction OutputResult.Invalid else null
+            if (cell != null && qty > cell.qty - cell.packed) return@withTransaction OutputResult.TooMany(cell.qty - cell.packed)
+            db.garments().insertOutput(
+                GOutputEntity(orderId = orderId, stage = stage, lineId = lineId, workerId = workerId, operation = operation.trim(), ratePaisa = ratePaisa,
+                    amountPaisa = amount, size = size, color = color, qty = qty, rejects = rejects, day = LocalDate.now().toEpochDay(), note = note.trim())
+            )
+            if (amount > 0) db.garments().addWip(orderId, amount)
+            startProduction(o)
+            if (cell != null && qty > 0) {
+                val style = db.garments().style(o.styleId) ?: return@withTransaction OutputResult.Invalid
+                val product = db.products().variantsNow(style.groupId).firstOrNull { it.variant.equals("$size, $color", ignoreCase = true) }
+                    ?: return@withTransaction OutputResult.Invalid
+                val now = db.garments().order(orderId) ?: o
+                val left = cells.sumOf { it.qty - it.packed }
+                val each = Garments.pieceCost(now.wipPaisa, left)
+                db.products().receive(product.id, qty * 1000, each)
+                db.garments().addWip(orderId, -each * qty)
+                db.garments().addPacked(cell.id, qty)
+                if (left - qty <= 0) db.garments().order(orderId)?.let { db.garments().updateOrder(it.copy(status = "READY")) }
+            }
+            OutputResult.Saved
+        }
+    }
+
+    /** Finished pieces to the buyer, as a normal sale at the order's price. [qty] is per cell id. */
+    suspend fun deliverGarments(orderId: Long, qty: Map<Long, Long>, discountPaisa: Long, paidPaisa: Long, method: PayMethod, staffId: Long?): SaleResult {
+        return db.withTransaction {
+            val o = db.garments().order(orderId) ?: return@withTransaction SaleResult.DueNeedsCustomer
+            val buyer = o.customerId?.let { db.customers().get(it) }
+            val style = db.garments().style(o.styleId) ?: return@withTransaction SaleResult.DueNeedsCustomer
+            val products = db.products().variantsNow(style.groupId)
+            val cells = db.garments().cellsNow(orderId)
+            val lines = cells.mapNotNull { c ->
+                val q = qty[c.id] ?: 0
+                if (q <= 0) return@mapNotNull null
+                if (q > c.packed - c.delivered) return@withTransaction SaleResult.NotEnoughStock("${c.size}, ${c.color}")
+                val p = products.firstOrNull { it.variant.equals("${c.size}, ${c.color}", ignoreCase = true) } ?: return@mapNotNull null
+                c to CartLine(p.copy(pricePaisa = o.unitPricePaisa), q * 1000)
+            }
+            if (lines.isEmpty()) return@withTransaction SaleResult.NotEnoughStock("—")
+            val r = saveSale(NewSale(lines.map { it.second }, discountPaisa, paidPaisa, method, buyer?.phone, buyer?.name, false, staffId))
+            if (r is SaleResult.Saved) {
+                for ((c, l) in lines) db.garments().addDelivered(c.id, l.qtyMilli / 1000)
+                val after = db.garments().cellsNow(orderId)
+                if (after.all { it.delivered >= it.qty }) db.garments().order(orderId)?.let { db.garments().updateOrder(it.copy(status = "DELIVERED")) }
+            }
+            r
+        }
+    }
+
+    /** Close an order (whatever cost is left is written off) or cancel one that has not started. */
+    suspend fun closeGarmentOrder(orderId: Long, cancel: Boolean): Boolean = db.withTransaction {
+        val o = db.garments().order(orderId) ?: return@withTransaction false
+        if (o.status == "CLOSED" || o.status == "CANCELLED") return@withTransaction false
+        if (cancel) {
+            if (o.status != "CONFIRMED" || o.wipPaisa != 0L) return@withTransaction false
+            db.garments().updateOrder(o.copy(status = "CANCELLED"))
+        } else db.garments().updateOrder(o.copy(status = "CLOSED", writeOffPaisa = o.writeOffPaisa + o.wipPaisa, wipPaisa = 0))
+        audit(if (cancel) "GARMENT_CANCEL" else "GARMENT_CLOSE", o.number)
+        true
+    }
+
+    /** Pay or an advance to a garments worker. Their work is already in the goods' cost, so this is a money move, not an expense. */
+    suspend fun payGarmentWorker(workerId: Long, advance: Boolean, amountPaisa: Long, method: PayMethod, note: String, staffId: Long?): String? {
+        if (amountPaisa <= 0) return null
+        return db.withTransaction {
+            val w = db.garments().worker(workerId) ?: return@withTransaction null
+            val number = moveMoney(MoveKind.WORKER_PAY, method, null, amountPaisa, "${w.name} ${note.trim()}".trim(), staffId) ?: return@withTransaction null
+            db.tailor().insertPay(WorkerPayEntity(trade = "GARMENT", workerId = workerId, number = number, type = if (advance) "ADVANCE" else "PAY", amountPaisa = amountPaisa, method = method, note = note.trim()))
+            number
+        }
     }
 
     private class NotEnough(val productName: String) : RuntimeException()

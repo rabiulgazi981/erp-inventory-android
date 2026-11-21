@@ -8,7 +8,7 @@ import androidx.room.PrimaryKey
 
 // Money is stored as paisa (Long) everywhere so totals never drift. Stock is stored in thousandths so 0.25 kg works.
 
-@Entity(tableName = "product", indices = [Index("barcode"), Index("name")])
+@Entity(tableName = "product", indices = [Index("barcode"), Index("name"), Index("code"), Index("groupId")])
 data class ProductEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
@@ -28,6 +28,14 @@ data class ProductEntity(
     @ColumnInfo(defaultValue = "0") val packMilli: Long = 0,
     /** What the pack is called: box, carton, strip. */
     @ColumnInfo(defaultValue = "") val packName: String = "",
+    /** Shop's own product code P0001…, given once and never changed. */
+    @ColumnInfo(defaultValue = "") val code: String = "",
+    /** Size / colour variants: the id of the style's first variant, shared by all of them; 0 for a single product. */
+    @ColumnInfo(defaultValue = "0") val groupId: Long = 0,
+    /** This variant's options, for example "M, Red"; [name] already carries them. */
+    @ColumnInfo(defaultValue = "") val variant: String = "",
+    /** A service such as a making charge: sold without stock. */
+    @ColumnInfo(defaultValue = "0") val service: Boolean = false,
 )
 
 @Entity(tableName = "customer", indices = [Index(value = ["phone"], unique = true)])
@@ -210,6 +218,8 @@ data class MfsWalletEntity(
     val paymentPct: Double = 0.0,
     val loadPct: Double = 0.0,
     val active: Boolean = false,
+    /** AGENT, PERSONAL or MERCHANT account. */
+    @ColumnInfo(defaultValue = "AGENT") val kind: String = "AGENT",
 )
 
 /** One mobile banking or load entry and what it did to the wallet, the cash drawer and the shop's earning. */
@@ -351,7 +361,7 @@ data class OrderDocItemEntity(
 )
 
 /** Money moved without a sale or purchase: transfers between cash / bank / wallets, owner's money in or out, loans, opening balances. */
-enum class MoveKind { OPENING, TRANSFER, CAPITAL_IN, DRAWING, LOAN_TAKEN, LOAN_REPAID, LOAN_GIVEN, LOAN_RECEIVED, VOUCHER_SOLD, INVEST_IN, INVEST_OUT }
+enum class MoveKind { OPENING, TRANSFER, CAPITAL_IN, DRAWING, LOAN_TAKEN, LOAN_REPAID, LOAN_GIVEN, LOAN_RECEIVED, VOUCHER_SOLD, INVEST_IN, INVEST_OUT, WORKER_PAY }
 
 @Entity(tableName = "money_move", indices = [Index("createdAt"), Index("loanId")])
 data class MoneyMoveEntity(
@@ -807,4 +817,216 @@ data class CourierParcelEntity(
     val address: String,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
+)
+
+/** One part of a purchase paid from a cash, bank or wallet account, when it was paid from more than one. */
+@Entity(tableName = "purchase_pay", indices = [Index("purchaseId")])
+data class PurchasePayEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val purchaseId: Long,
+    val method: PayMethod,
+    val amountPaisa: Long,
+)
+
+/** Tailors: someone paid by the piece. [rates] holds "GARMENT|TASK|paisa" lines. */
+@Entity(tableName = "tailor_worker")
+data class TailorWorkerEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val phone: String = "",
+    val rates: String = "",
+    val note: String = "",
+    val active: Boolean = true,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** A customer's saved measurements for one garment ("key=value" lines), filled in again next time. */
+@Entity(tableName = "tailor_measure", indices = [Index(value = ["customerId", "garment"], unique = true)])
+data class TailorMeasureEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val customerId: Long,
+    val garment: String,
+    val measurements: String,
+    val notes: String = "",
+    val updatedAt: Long = System.currentTimeMillis(),
+)
+
+/** A tailoring order. The money is the linked sale [saleId], whose number this order shares. */
+@Entity(tableName = "tailor_order", indices = [Index("saleId"), Index("customerId"), Index("status")])
+data class TailorOrderEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val number: String,
+    val customerId: Long,
+    val saleId: Long,
+    /** Delivery date as days since 1970-01-01, or null. */
+    val deliveryDay: Long? = null,
+    /** RECEIVED, CUTTING, SEWING, READY, DELIVERED or CANCELLED. */
+    val status: String = "RECEIVED",
+    val note: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+    val deliveredAt: Long? = null,
+)
+
+@Entity(
+    tableName = "tailor_item",
+    foreignKeys = [ForeignKey(entity = TailorOrderEntity::class, parentColumns = ["id"], childColumns = ["orderId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("orderId")],
+)
+data class TailorItemEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val orderId: Long,
+    val garment: String,
+    /** Name for "Other" (ফতুয়া, শেরওয়ানি…). */
+    val garmentName: String = "",
+    val qty: Int,
+    /** Making charge for one piece. */
+    val makingPaisa: Long,
+    val measurements: String,
+    val style: String = "",
+    /** The shop's own fabric; null when the customer brought cloth. */
+    val fabricProductId: Long? = null,
+    val fabricName: String = "",
+    val fabricMilli: Long = 0,
+    val fabricPricePaisa: Long = 0,
+)
+
+/** A job given to a worker: [qty] pieces of [itemId] at [ratePaisa] each. */
+@Entity(tableName = "tailor_task", indices = [Index("orderId"), Index("workerId")])
+data class TailorTaskEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val orderId: Long,
+    val itemId: Long,
+    val workerId: Long,
+    val task: String,
+    val qty: Int,
+    val ratePaisa: Long,
+    val amountPaisa: Long,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** Wages (PAY) or an advance paid to a worker. Tailors: the money is the linked expense. Garments: a money move. */
+@Entity(tableName = "worker_pay", indices = [Index(value = ["trade", "workerId"])])
+data class WorkerPayEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    /** TAILOR or GARMENT. */
+    val trade: String,
+    val workerId: Long,
+    val number: String,
+    /** PAY or ADVANCE. */
+    val type: String,
+    val amountPaisa: Long,
+    val method: PayMethod,
+    val note: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** Garments: a sewing line with its daily target. */
+@Entity(tableName = "g_line")
+data class GLineEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val supervisor: String = "",
+    val dailyTarget: Long = 0,
+    val workers: Int = 0,
+    val active: Boolean = true,
+)
+
+@Entity(tableName = "g_worker", indices = [Index("lineId")])
+data class GWorkerEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val phone: String = "",
+    val role: String = "",
+    val lineId: Long? = null,
+    val active: Boolean = true,
+)
+
+/** A design with its costing. Its finished goods are the product variants with [groupId]. */
+@Entity(tableName = "g_style", indices = [Index("groupId")])
+data class GStyleEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val code: String,
+    val name: String,
+    /** The buyer it is made for, or null for the factory's own design. */
+    val customerId: Long? = null,
+    /** Comma separated. */
+    val sizes: String,
+    val colors: String,
+    val pricePaisa: Long,
+    /** "productId|perPieceMilli|wastageBp" lines. */
+    val materials: String = "",
+    /** "name|STAGE|ratePaisa" lines. */
+    val operations: String = "",
+    /** "label|paisa" lines. */
+    val otherCosts: String = "",
+    val groupId: Long = 0,
+    val active: Boolean = true,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+@Entity(tableName = "g_order", indices = [Index("styleId"), Index("status")])
+data class GOrderEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val number: String,
+    val styleId: Long,
+    val customerId: Long? = null,
+    val buyerPo: String = "",
+    val deliveryDay: Long? = null,
+    val unitPricePaisa: Long,
+    val status: String = "CONFIRMED",
+    val note: String = "",
+    /** Cost so far that is not yet in finished stock: material given out and piece-rate pay. */
+    val wipPaisa: Long = 0,
+    /** Cost written off when the order was closed. */
+    val writeOffPaisa: Long = 0,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** One size and colour of an order: how many ordered, packed into stock and sent to the buyer. */
+@Entity(
+    tableName = "g_cell",
+    foreignKeys = [ForeignKey(entity = GOrderEntity::class, parentColumns = ["id"], childColumns = ["orderId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("orderId")],
+)
+data class GCellEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val orderId: Long,
+    val size: String,
+    val color: String,
+    val qty: Long,
+    val packed: Long = 0,
+    val delivered: Long = 0,
+)
+
+/** Pieces done at one stage. With a worker and a rate the worker is owed [amountPaisa]. */
+@Entity(tableName = "g_output", indices = [Index("orderId"), Index("workerId"), Index("day")])
+data class GOutputEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val orderId: Long,
+    val stage: String,
+    val lineId: Long? = null,
+    val workerId: Long? = null,
+    val operation: String = "",
+    val ratePaisa: Long = 0,
+    val amountPaisa: Long = 0,
+    val size: String = "",
+    val color: String = "",
+    val qty: Long,
+    val rejects: Long = 0,
+    /** Days since 1970-01-01. */
+    val day: Long,
+    val note: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+/** Material given to the floor for an order ([qtyMilli] < 0 when unused material came back). */
+@Entity(tableName = "g_issue", indices = [Index("orderId")])
+data class GIssueEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val orderId: Long,
+    val productId: Long,
+    val name: String,
+    val qtyMilli: Long,
+    val costPaisa: Long,
+    val createdAt: Long = System.currentTimeMillis(),
 )

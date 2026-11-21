@@ -68,6 +68,7 @@ internal val kindLabel = mapOf(
     MoveKind.LOAN_GIVEN.name to R.string.mv_loan_given, MoveKind.LOAN_RECEIVED.name to R.string.mv_loan_received,
     MoveKind.VOUCHER_SOLD.name to R.string.mv_voucher_sold,
     MoveKind.INVEST_IN.name to R.string.mv_invest_in, MoveKind.INVEST_OUT.name to R.string.mv_invest_out,
+    MoveKind.WORKER_PAY.name to R.string.mv_worker_pay,
 )
 
 @Composable
@@ -92,6 +93,9 @@ fun CashBankScreen(go: (String) -> Unit, onBack: () -> Unit) {
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
+    // Transfer charge or cost (cash-out fee, bank charge, rickshaw fare), posted as an expense from either side.
+    var charge by remember { mutableStateOf("") }
+    var chargeFromTo by remember { mutableStateOf(false) }
     val kinds = listOf(MoveKind.TRANSFER, MoveKind.CAPITAL_IN, MoveKind.DRAWING, MoveKind.OPENING)
     val kind = kinds[action]
     val needsFrom = kind == MoveKind.TRANSFER || kind == MoveKind.DRAWING
@@ -122,12 +126,27 @@ fun CashBankScreen(go: (String) -> Unit, onBack: () -> Unit) {
                 if (needsFrom) { Muted(stringResource(R.string.cash_bank_from)); MethodChips(from) { from = it } }
                 if (needsTo) { Muted(stringResource(R.string.cash_bank_to)); MethodChips(to) { to = it } }
                 Input(amount, { amount = it }, label = stringResource(R.string.cust_amount), keyboard = KeyboardType.Decimal)
+                if (kind == MoveKind.TRANSFER) {
+                    Input(charge, { charge = it }, label = stringResource(R.string.tr_charge), keyboard = KeyboardType.Decimal, placeholder = "0")
+                    if ((charge.toPaisa() ?: 0) > 0) {
+                        Muted(stringResource(R.string.tr_charge_from))
+                        Segmented(
+                            listOf(from?.let { f -> stringResource(methods.first { it.first == f }.second) } ?: "—", to?.let { t -> stringResource(methods.first { it.first == t }.second) } ?: "—"),
+                            if (chargeFromTo) 1 else 0, { chargeFromTo = it == 1 },
+                        )
+                        Muted(stringResource(R.string.tr_charge_note))
+                    }
+                }
                 Input(note, { note = it }, label = stringResource(R.string.cust_note))
                 GradButton(stringResource(R.string.ord_save), Brand.BlueGrad, Modifier.fillMaxWidth()) {
                     val p = amount.toPaisa() ?: 0
+                    val c = (charge.toPaisa() ?: 0).coerceAtLeast(0)
                     scope.launch {
-                        val n = app.repo.moveMoney(kind, if (needsFrom) from else null, if (needsTo) to else null, p, note, who.staffId)
-                        message = if (n == null) ctx.getString(R.string.cash_bank_bad) else { amount = ""; note = ""; ctx.getString(R.string.ret_saved, n) }
+                        val f = from; val t = to
+                        val n = if (kind == MoveKind.TRANSFER && c > 0 && f != null && t != null) {
+                            app.repo.transferWithCharge(f, t, p, c, if (chargeFromTo) t else f, note, who.staffId)
+                        } else app.repo.moveMoney(kind, if (needsFrom) from else null, if (needsTo) to else null, p, note, who.staffId)
+                        message = if (n == null) ctx.getString(R.string.cash_bank_bad) else { amount = ""; note = ""; charge = ""; ctx.getString(R.string.ret_saved, n) }
                     }
                 }
                 message?.let { T(it, 14.sp, FontWeight.SemiBold) }
@@ -212,7 +231,10 @@ fun LoansScreen(go: (String) -> Unit, onBack: () -> Unit) {
                 Panel(stringResource(R.string.loan_new), Brand.OrangeGrad, PanelColors.Orange) {
                     Segmented(listOf(stringResource(R.string.loan_taken), stringResource(R.string.loan_given)), given, { given = it })
                     Input(party, { party = it }, label = stringResource(R.string.loan_party))
-                    Input(phone, { phone = it }, label = stringResource(R.string.onb_phone), keyboard = KeyboardType.Phone)
+                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Input(phone, { phone = it }, Modifier.weight(1f), label = stringResource(R.string.onb_phone), keyboard = KeyboardType.Phone)
+                        com.bongshaltech.erpinventory.ui.components.ContactPickButton({ p, n -> phone = p; if (party.isBlank()) party = n })
+                    }
                     Input(amount, { amount = it }, label = stringResource(R.string.loan_amount), keyboard = KeyboardType.Decimal)
                     MethodChips(method) { method = it }
                     Input(note, { note = it }, label = stringResource(R.string.cust_note))

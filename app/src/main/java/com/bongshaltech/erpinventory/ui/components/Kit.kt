@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.SolidColor
@@ -146,27 +147,30 @@ object PanelColors {
     val Purple = Color(0xFFE9D5FF)
 }
 
-/** White top bar, 56dp, with an optional back arrow. */
+/** Icons inside the gradient [Header] are white; elsewhere they follow the text colour. */
+val LocalHeaderTint = androidx.compose.runtime.compositionLocalOf { Color.Unspecified }
+
+/** Top bar in the accent gradient, 56dp, with an optional back arrow. */
 @Composable
 fun Header(title: String, onBack: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
     Row(
-        Modifier.fillMaxWidth().softShadow(RoundedCornerShape(0.dp), 6.dp).background(Ui.c.card).statusBarsPadding()
+        Modifier.fillMaxWidth().softShadow(RoundedCornerShape(0.dp), 6.dp).background(Brand.HeaderGrad).statusBarsPadding()
             .height(56.dp).padding(start = if (onBack != null) 4.dp else 16.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         if (onBack != null) Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
-            Icon(Icons.AutoMirrored.Outlined.ArrowBackIos, stringResource(R.string.back), tint = Ui.c.text, modifier = Modifier.size(18.dp))
+            Icon(Icons.AutoMirrored.Outlined.ArrowBackIos, stringResource(R.string.back), tint = Color.White, modifier = Modifier.size(18.dp))
         }
-        T(title, 18.sp, FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1)
-        actions()
+        T(title, 18.sp, FontWeight.Bold, Color.White, Modifier.weight(1f), maxLines = 1, shadow = true)
+        androidx.compose.runtime.CompositionLocalProvider(LocalHeaderTint provides Color.White) { actions() }
     }
 }
 
 @Composable
 fun HeaderIcon(icon: ImageVector, label: String, onClick: () -> Unit) {
     Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-        Icon(icon, label, tint = Ui.c.text, modifier = Modifier.size(22.dp))
+        Icon(icon, label, tint = LocalHeaderTint.current.takeOrElse { Ui.c.text }, modifier = Modifier.size(22.dp))
     }
 }
 
@@ -280,7 +284,7 @@ fun Toggle(on: Boolean, onChange: (Boolean) -> Unit, width: Dp = 44.dp, height: 
     val knob = height - 6.dp
     Row(
         Modifier.width(width).height(height).clip(CircleShape)
-            .background(if (on) SolidColor(Brand.Blue) else SolidColor(if (Ui.c.dark) Ui.c.inputBorder else Color(0xFFD1D5DB)))
+            .background(if (on) Brand.BlueGrad else SolidColor(if (Ui.c.dark) Ui.c.inputBorder else Color(0xFFD1D5DB)))
             .clickable { onChange(!on) }.padding(3.dp),
         horizontalArrangement = if (on) Arrangement.End else Arrangement.Start,
     ) { Box(Modifier.size(knob).shadow(2.dp, CircleShape).clip(CircleShape).background(Color.White)) }
@@ -311,10 +315,10 @@ fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
         options.forEachIndexed { i, label ->
             val on = i == selected
             Box(
-                Modifier.height(30.dp).clip(RoundedCornerShape(6.dp)).background(if (on) Ui.c.card else Color.Transparent)
+                Modifier.height(30.dp).clip(RoundedCornerShape(6.dp)).let { if (on) it.background(Brand.BlueGrad) else it }
                     .clickable { onSelect(i) }.padding(horizontal = 9.dp),
                 contentAlignment = Alignment.Center,
-            ) { T(label, 12.sp, if (on) FontWeight.SemiBold else FontWeight.Normal, if (on) Ui.c.text else Ui.c.label) }
+            ) { T(label, 12.sp, if (on) FontWeight.SemiBold else FontWeight.Normal, if (on) Color.White else Ui.c.label) }
         }
     }
 }
@@ -332,7 +336,7 @@ fun TintIcon(icon: ImageVector, tint: Tint, size: Dp = 44.dp, iconSize: Dp = 22.
 /** Round avatar with initials on the blue-to-mint gradient. */
 @Composable
 fun Initials(name: String, size: Dp = 44.dp, fontSize: TextUnit = 15.sp) {
-    Box(Modifier.size(size).clip(CircleShape).background(Brush.linearGradient(listOf(Brand.Blue, Brand.Mint))), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size).clip(CircleShape).background(Brush.linearGradient(listOf(Brand.Blue, Brand.Pop))), contentAlignment = Alignment.Center) {
         T(initialsOf(name), fontSize, FontWeight.Bold, Color.White)
     }
 }
@@ -381,13 +385,16 @@ fun BottomNav(current: Tab, onTab: (Tab) -> Unit) {
     ) {
         items.forEach { (tab, icon, label) ->
             val on = tab == current
-            val color = if (on) Brand.Link else Ui.c.muted
+            val color = if (on) Brand.Blue else Ui.c.muted
             Column(
                 Modifier.weight(1f).fillMaxWidth().height(64.dp).clickable { if (!on) onTab(tab) },
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Icon(icon, null, tint = color, modifier = Modifier.size(22.dp))
+                Box(
+                    Modifier.width(52.dp).height(30.dp).clip(CircleShape).let { if (on) it.background(Brand.BlueGrad) else it },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(icon, null, tint = if (on) Color.White else color, modifier = Modifier.size(21.dp)) }
                 Spacer(Modifier.height(3.dp))
                 T(stringResource(label), 11.sp, if (on) FontWeight.SemiBold else FontWeight.Normal, color, maxLines = 1)
             }

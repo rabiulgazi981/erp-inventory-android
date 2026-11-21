@@ -311,10 +311,13 @@ fun CustomerEditScreen(id: Long, onDone: () -> Unit) {
         ) {
             Panel(stringResource(R.string.panel_customer), Brand.BlueGrad, PanelColors.Blue) {
                 Input(name, { name = it }, label = stringResource(R.string.sale_customer_name), error = required.takeIf { tried && name.isBlank() })
-                Input(
-                    phone, { phone = it.filter(Char::isDigit).take(14) }, label = stringResource(R.string.onb_phone), keyboard = KeyboardType.Phone,
-                    error = required.takeIf { tried && phone.length < 6 },
-                )
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Input(
+                        phone, { phone = it.filter(Char::isDigit).take(14) }, Modifier.weight(1f), label = stringResource(R.string.onb_phone), keyboard = KeyboardType.Phone,
+                        error = required.takeIf { tried && phone.length < 6 },
+                    )
+                    com.bongshaltech.erpinventory.ui.components.ContactPickButton({ p, n -> phone = p; if (name.isBlank()) name = n })
+                }
                 Input(address, { address = it }, label = stringResource(R.string.cust_address))
                 if (areasOn || area.isNotBlank()) Input(area, { area = it }, label = stringResource(R.string.cust_area))
                 if (limitOn || limit.isNotBlank()) Input(limit, { limit = it.filter(Char::isDigit).take(9) }, label = stringResource(R.string.cust_credit_limit),

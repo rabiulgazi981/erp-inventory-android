@@ -35,8 +35,11 @@ class Converters {
         InvestorEntity::class, LedgerAccountEntity::class, JournalEntryEntity::class, JournalLineEntity::class, RecurringExpenseEntity::class,
         RecipeEntity::class, RecipeItemEntity::class, WorkOrderEntity::class, WorkLineEntity::class, KotEntity::class,
         CourierParcelEntity::class,
+        PurchasePayEntity::class, TailorWorkerEntity::class, TailorMeasureEntity::class, TailorOrderEntity::class, TailorItemEntity::class,
+        TailorTaskEntity::class, WorkerPayEntity::class, GLineEntity::class, GWorkerEntity::class, GStyleEntity::class, GOrderEntity::class,
+        GCellEntity::class, GOutputEntity::class, GIssueEntity::class,
     ],
-    version = 23,
+    version = 24,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -67,6 +70,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun kitchen(): KitchenDao
     abstract fun couriers(): CourierDao
     abstract fun reportSet(): ReportSetDao
+    abstract fun tailor(): TailorDao
+    abstract fun garments(): GarmentDao
 
     companion object {
         // Schema changes must be additive migrations: shop data on the phone is never wiped.
@@ -498,12 +503,107 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_23_24 = object : Migration(23, 24) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Product codes P0001… for every existing product, in the order they were made.
+                db.execSQL("ALTER TABLE product ADD COLUMN code TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE product ADD COLUMN groupId INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE product ADD COLUMN variant TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE product ADD COLUMN service INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE product SET code = 'P' || substr('0000' || (SELECT COUNT(*) FROM product p2 WHERE p2.id <= product.id), -4, 4) WHERE (SELECT COUNT(*) FROM product p2 WHERE p2.id <= product.id) < 10000")
+                db.execSQL("UPDATE product SET code = 'P' || (SELECT COUNT(*) FROM product p2 WHERE p2.id <= product.id) WHERE code = ''")
+                db.execSQL("INSERT OR REPLACE INTO doc_counter (type, year, last) VALUES ('PRODUCT_CODE', 0, (SELECT COUNT(*) FROM product))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_product_code` ON `product` (`code`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_product_groupId` ON `product` (`groupId`)")
+                db.execSQL("ALTER TABLE mfs_wallet ADD COLUMN kind TEXT NOT NULL DEFAULT 'AGENT'")
+                db.execSQL("UPDATE mfs_wallet SET kind = 'PERSONAL' WHERE personal = 1")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `purchase_pay` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `purchaseId` INTEGER NOT NULL, `method` TEXT NOT NULL, `amountPaisa` INTEGER NOT NULL)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_pay_purchaseId` ON `purchase_pay` (`purchaseId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tailor_worker` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `phone` TEXT NOT NULL, " +
+                        "`rates` TEXT NOT NULL, `note` TEXT NOT NULL, `active` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tailor_measure` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `customerId` INTEGER NOT NULL, `garment` TEXT NOT NULL, " +
+                        "`measurements` TEXT NOT NULL, `notes` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_tailor_measure_customerId_garment` ON `tailor_measure` (`customerId`, `garment`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tailor_order` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, `customerId` INTEGER NOT NULL, " +
+                        "`saleId` INTEGER NOT NULL, `deliveryDay` INTEGER, `status` TEXT NOT NULL, `note` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `deliveredAt` INTEGER)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tailor_order_saleId` ON `tailor_order` (`saleId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tailor_order_customerId` ON `tailor_order` (`customerId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tailor_order_status` ON `tailor_order` (`status`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tailor_item` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `orderId` INTEGER NOT NULL, `garment` TEXT NOT NULL, " +
+                        "`garmentName` TEXT NOT NULL, `qty` INTEGER NOT NULL, `makingPaisa` INTEGER NOT NULL, `measurements` TEXT NOT NULL, `style` TEXT NOT NULL, " +
+                        "`fabricProductId` INTEGER, `fabricName` TEXT NOT NULL, `fabricMilli` INTEGER NOT NULL, `fabricPricePaisa` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`orderId`) REFERENCES `tailor_order`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tailor_item_orderId` ON `tailor_item` (`orderId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tailor_task` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `orderId` INTEGER NOT NULL, `itemId` INTEGER NOT NULL, " +
+                        "`workerId` INTEGER NOT NULL, `task` TEXT NOT NULL, `qty` INTEGER NOT NULL, `ratePaisa` INTEGER NOT NULL, `amountPaisa` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tailor_task_orderId` ON `tailor_task` (`orderId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tailor_task_workerId` ON `tailor_task` (`workerId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `worker_pay` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `trade` TEXT NOT NULL, `workerId` INTEGER NOT NULL, " +
+                        "`number` TEXT NOT NULL, `type` TEXT NOT NULL, `amountPaisa` INTEGER NOT NULL, `method` TEXT NOT NULL, `note` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_worker_pay_trade_workerId` ON `worker_pay` (`trade`, `workerId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `g_line` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `supervisor` TEXT NOT NULL, " +
+                        "`dailyTarget` INTEGER NOT NULL, `workers` INTEGER NOT NULL, `active` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `g_worker` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `phone` TEXT NOT NULL, " +
+                        "`role` TEXT NOT NULL, `lineId` INTEGER, `active` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_g_worker_lineId` ON `g_worker` (`lineId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `g_style` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `code` TEXT NOT NULL, `name` TEXT NOT NULL, `customerId` INTEGER, " +
+                        "`sizes` TEXT NOT NULL, `colors` TEXT NOT NULL, `pricePaisa` INTEGER NOT NULL, `materials` TEXT NOT NULL, `operations` TEXT NOT NULL, " +
+                        "`otherCosts` TEXT NOT NULL, `groupId` INTEGER NOT NULL, `active` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_g_style_groupId` ON `g_style` (`groupId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `g_order` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `number` TEXT NOT NULL, `styleId` INTEGER NOT NULL, `customerId` INTEGER, " +
+                        "`buyerPo` TEXT NOT NULL, `deliveryDay` INTEGER, `unitPricePaisa` INTEGER NOT NULL, `status` TEXT NOT NULL, `note` TEXT NOT NULL, " +
+                        "`wipPaisa` INTEGER NOT NULL, `writeOffPaisa` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_g_order_styleId` ON `g_order` (`styleId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_g_order_status` ON `g_order` (`status`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `g_cell` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `orderId` INTEGER NOT NULL, `size` TEXT NOT NULL, " +
+                        "`color` TEXT NOT NULL, `qty` INTEGER NOT NULL, `packed` INTEGER NOT NULL, `delivered` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`orderId`) REFERENCES `g_order`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_g_cell_orderId` ON `g_cell` (`orderId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `g_output` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `orderId` INTEGER NOT NULL, `stage` TEXT NOT NULL, " +
+                        "`lineId` INTEGER, `workerId` INTEGER, `operation` TEXT NOT NULL, `ratePaisa` INTEGER NOT NULL, `amountPaisa` INTEGER NOT NULL, " +
+                        "`size` TEXT NOT NULL, `color` TEXT NOT NULL, `qty` INTEGER NOT NULL, `rejects` INTEGER NOT NULL, `day` INTEGER NOT NULL, " +
+                        "`note` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_g_output_orderId` ON `g_output` (`orderId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_g_output_workerId` ON `g_output` (`workerId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_g_output_day` ON `g_output` (`day`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `g_issue` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `orderId` INTEGER NOT NULL, `productId` INTEGER NOT NULL, " +
+                        "`name` TEXT NOT NULL, `qtyMilli` INTEGER NOT NULL, `costPaisa` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_g_issue_orderId` ON `g_issue` (`orderId`)")
+            }
+        }
+
         fun open(context: Context): AppDatabase {
             System.loadLibrary("sqlcipher")
             val factory = SupportOpenHelperFactory(DbKey.get(context))
             return Room.databaseBuilder(context, AppDatabase::class.java, "shop.db")
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
                 .build()
         }
     }

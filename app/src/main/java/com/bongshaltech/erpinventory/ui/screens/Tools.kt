@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bongshaltech.erpinventory.R
+import com.bongshaltech.erpinventory.data.db.search
 import com.bongshaltech.erpinventory.core.sheet.ProductImport
 import com.bongshaltech.erpinventory.core.sheet.ProductRow
 import com.bongshaltech.erpinventory.core.sheet.Sheet

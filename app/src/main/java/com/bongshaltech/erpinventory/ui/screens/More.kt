@@ -32,6 +32,8 @@ import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Medication
 import androidx.compose.material.icons.outlined.Factory
 import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Checkroom
+import androidx.compose.material.icons.outlined.ContentCut
 import androidx.compose.material.icons.outlined.EventRepeat
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import com.bongshaltech.erpinventory.core.books.Recurring
@@ -226,6 +228,8 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
                     if (s?.on(Feature.MANUFACTURING) == true) ListRow(stringResource(R.string.manufacturing), Icons.Outlined.Blender, Tints.Purple, trailing = { Chevron() }) { go(Routes.RECIPES) }
                     if (s?.on(Feature.FACTORY) == true) ListRow(stringResource(R.string.factory), Icons.Outlined.Factory, Tints.Blue, trailing = { Chevron() }) { go(Routes.FACTORY) }
                     if (s?.on(Feature.REPAIR) == true) ListRow(stringResource(R.string.repair), Icons.Outlined.Build, Tints.Orange, trailing = { Chevron() }) { go(Routes.REPAIR) }
+                    if (s?.on(Feature.TAILORING) == true) ListRow(stringResource(R.string.tl_title), Icons.Outlined.ContentCut, Tints.Purple, trailing = { Chevron() }) { go(Routes.TAILOR) }
+                    if (s?.on(Feature.GARMENTS) == true) ListRow(stringResource(R.string.gm_title), Icons.Outlined.Checkroom, Tints.Pink, trailing = { Chevron() }) { go(Routes.GARMENTS) }
                     if (s?.on(Feature.SERIALS) == true) ListRow(stringResource(R.string.serials), Icons.Outlined.QrCode2, Tints.Purple, trailing = { Chevron() }) { go(Routes.SERIALS) }
                     if (s?.on(Feature.WAREHOUSES) == true) ListRow(stringResource(R.string.warehouses), Icons.Outlined.Warehouse, Tints.Grey, trailing = { Chevron() }) { go(Routes.WAREHOUSES) }
                     ListRow(stringResource(R.string.import_products), Icons.Outlined.UploadFile, Tints.Green, trailing = { Chevron() }) { go(Routes.IMPORT) }
@@ -292,6 +296,7 @@ fun MoreScreen(go: (String) -> Unit, tab: (Tab) -> Unit, signedOut: () -> Unit) 
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun BizProfileScreen(onBack: () -> Unit) {
     val app = app()
@@ -333,6 +338,15 @@ fun BizProfileScreen(onBack: () -> Unit) {
                 }
                 Input(b.name, { p = b.copy(name = it) }, label = stringResource(R.string.onb_shop_name), height = 42.dp)
                 Input(b.slogan, { p = b.copy(slogan = it) }, label = stringResource(R.string.biz_slogan), height = 42.dp)
+            }
+            Panel(stringResource(R.string.biz_type), Brand.PurpleGrad, PanelColors.Purple) {
+                val st by app.settings.settings.collectAsStateWithLifecycle(null)
+                Muted(stringResource(R.string.biz_type_note))
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    typeOptions.forEach { o ->
+                        com.bongshaltech.erpinventory.ui.components.Chip(stringResource(o.label), st?.shopType == o.type, { scope.launch { app.settings.setShopType(o.type) } })
+                    }
+                }
             }
             Panel(stringResource(R.string.biz_contact), Brand.GreenGrad, PanelColors.Green) {
                 Input(b.address, { p = b.copy(address = it) }, label = stringResource(R.string.biz_address), height = 42.dp)

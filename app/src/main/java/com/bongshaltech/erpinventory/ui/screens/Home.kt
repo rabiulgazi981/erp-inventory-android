@@ -5,6 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -129,15 +132,19 @@ fun HomeScreen(go: (String) -> Unit, tab: (Tab) -> Unit) {
 
     Column(Modifier.fillMaxSize().background(Ui.c.bg)) {
         Row(
-            Modifier.fillMaxWidth().softShadow(RoundedCornerShape(0.dp), 6.dp).background(Ui.c.card).statusBarsPadding()
-                .height(56.dp).padding(start = 16.dp, end = 8.dp),
+            Modifier.fillMaxWidth().softShadow(RoundedCornerShape(0.dp), 6.dp).background(Brand.HeaderGrad).statusBarsPadding()
+                .height(60.dp).padding(start = 16.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Image(painterResource(R.drawable.logo), "ERP Inventory", Modifier.size(width = 44.dp, height = 26.dp))
-            T(settings?.profile?.name.orEmpty(), 16.sp, FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1)
-            HeaderIcon(Icons.Outlined.QrCodeScanner, stringResource(R.string.scan)) { go(Routes.SALE_SCAN) }
-            HeaderIcon(Icons.Outlined.NotificationsNone, stringResource(R.string.notifications)) { go(Routes.SOON) }
+            Box(Modifier.clip(RoundedCornerShape(10.dp)).background(Color.White).padding(horizontal = 6.dp, vertical = 5.dp)) {
+                Image(painterResource(R.drawable.logo), "ERP Inventory", Modifier.size(width = 40.dp, height = 24.dp))
+            }
+            T(settings?.profile?.name.orEmpty(), 17.sp, FontWeight.Bold, Color.White, Modifier.weight(1f), maxLines = 1, shadow = true)
+            androidx.compose.runtime.CompositionLocalProvider(com.bongshaltech.erpinventory.ui.components.LocalHeaderTint provides Color.White) {
+                HeaderIcon(Icons.Outlined.QrCodeScanner, stringResource(R.string.scan)) { go(Routes.SALE_SCAN) }
+                HeaderIcon(Icons.Outlined.NotificationsNone, stringResource(R.string.notifications)) { go(Routes.SOON) }
+            }
         }
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp),
@@ -180,7 +187,7 @@ fun HomeScreen(go: (String) -> Unit, tab: (Tab) -> Unit) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row {
                         T(stringResource(R.string.home_recent), 15.sp, FontWeight.Bold, modifier = Modifier.weight(1f))
-                        T(stringResource(R.string.see_all), 13.sp, FontWeight.SemiBold, Brand.Link, Modifier.clickable { go(Routes.SOON) })
+                        T(stringResource(R.string.see_all), 13.sp, FontWeight.SemiBold, Brand.Link, Modifier.clickable { go(Routes.SALES) })
                     }
                     if (recent.isEmpty()) Muted(stringResource(R.string.home_no_sales), 13.sp)
                     val walkIn = stringResource(R.string.walk_in)
@@ -250,8 +257,12 @@ private fun RowScope.QuickAction(icon: ImageVector, tint: Tint, label: String, o
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        TintIcon(icon, tint)
-        T(label, 12.sp, FontWeight.Medium, maxLines = 1)
+        Box(
+            Modifier.size(50.dp).shadow(8.dp, CircleShape, ambientColor = tint.fg, spotColor = tint.fg).clip(CircleShape)
+                .background(Brush.linearGradient(listOf(tint.fg, tint.fg.copy(alpha = 0.72f)))),
+            contentAlignment = Alignment.Center,
+        ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(24.dp)) }
+        T(label, 12.sp, FontWeight.SemiBold, maxLines = 1)
     }
 }
 
