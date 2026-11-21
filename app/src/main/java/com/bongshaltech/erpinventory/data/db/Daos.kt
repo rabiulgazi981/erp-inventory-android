@@ -16,7 +16,8 @@ import kotlinx.coroutines.flow.Flow
 const val MONEY_FLOWS = """
     SELECT number, 'SALE' AS kind, createdAt, paidPaisa AS delta, method FROM sale WHERE paidPaisa > 0
     UNION ALL SELECT number, 'DUE_IN' AS kind, createdAt, amountPaisa AS delta, method FROM due_payment
-    UNION ALL SELECT number, 'PURCHASE' AS kind, createdAt, -paidPaisa AS delta, method FROM purchase WHERE paidPaisa > 0
+    UNION ALL SELECT number, 'PURCHASE' AS kind, createdAt, -paidPaisa AS delta, method FROM purchase WHERE paidPaisa > 0 AND id NOT IN (SELECT purchaseId FROM purchase_pay)
+    UNION ALL SELECT p.number, 'PURCHASE' AS kind, p.createdAt, -pp.amountPaisa AS delta, pp.method FROM purchase_pay pp JOIN purchase p ON p.id = pp.purchaseId
     UNION ALL SELECT number, 'SUPPLIER_PAY' AS kind, createdAt, -amountPaisa AS delta, method FROM supplier_payment
     UNION ALL SELECT number, 'EXPENSE' AS kind, createdAt, -amountPaisa AS delta, method FROM expense
     UNION ALL SELECT number, 'SALE_RETURN' AS kind, createdAt, -refundPaisa AS delta, method FROM sale_return WHERE refundPaisa > 0
@@ -28,11 +29,27 @@ const val MONEY_FLOWS = """
 
 @Dao
 interface ProductDao {
+    /** [code] is the product code the text stands for ("12" → "P0012"), or "". */
     @Query(
         "SELECT * FROM product WHERE active = 1 AND (:q = '' OR name LIKE '%' || :q || '%' OR barcode = :q " +
-            "OR (generic != '' AND generic LIKE '%' || :q || '%')) ORDER BY name COLLATE NOCASE"
+            "OR (generic != '' AND generic LIKE '%' || :q || '%') OR (:code != '' AND code = :code)) ORDER BY name COLLATE NOCASE"
     )
-    fun search(q: String): Flow<List<ProductEntity>>
+    fun searchBy(q: String, code: String): Flow<List<ProductEntity>>
+
+    @Query("SELECT * FROM product WHERE active = 1 AND groupId = :groupId ORDER BY id")
+    fun variants(groupId: Long): Flow<List<ProductEntity>>
+
+    @Query("SELECT * FROM product WHERE groupId = :groupId ORDER BY id")
+    suspend fun variantsNow(groupId: Long): List<ProductEntity>
+
+    @Query("SELECT id FROM product WHERE code = '' ORDER BY id")
+    suspend fun withoutCode(): List<Long>
+
+    @Query("UPDATE product SET code = :code WHERE id = :id")
+    suspend fun setCode(id: Long, code: String)
+
+    @Query("SELECT * FROM product WHERE active = 1 AND service = 1 AND name = :name LIMIT 1")
+    suspend fun serviceByName(name: String): ProductEntity?
 
     @Query("SELECT * FROM product WHERE id = :id")
     suspend fun get(id: Long): ProductEntity?
@@ -40,10 +57,10 @@ interface ProductDao {
     @Query("SELECT * FROM product")
     suspend fun allNow(): List<ProductEntity>
 
-    @Query("SELECT * FROM product WHERE active = 1 AND stockMilli <= lowStockMilli AND (:q = '' OR name LIKE '%' || :q || '%' OR barcode = :q) ORDER BY name COLLATE NOCASE")
-    fun searchLow(q: String): Flow<List<ProductEntity>>
+    @Query("SELECT * FROM product WHERE active = 1 AND service = 0 AND stockMilli <= lowStockMilli AND (:q = '' OR name LIKE '%' || :q || '%' OR barcode = :q OR (:code != '' AND code = :code)) ORDER BY name COLLATE NOCASE")
+    fun searchLowBy(q: String, code: String): Flow<List<ProductEntity>>
 
-    @Query("SELECT COUNT(*) FROM product WHERE active = 1 AND stockMilli <= lowStockMilli")
+    @Query("SELECT COUNT(*) FROM product WHERE active = 1 AND service = 0 AND stockMilli <= lowStockMilli")
     fun lowStockCount(): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM product WHERE active = 1")
@@ -74,6 +91,9 @@ interface ProductDao {
     @Query("UPDATE product SET stockMilli = stockMilli + :qtyMilli WHERE id = :id")
     suspend fun addStock(id: Long, qtyMilli: Long)
 }
+
+fun ProductDao.search(q: String) = searchBy(q, com.bongshaltech.erpinventory.core.stock.ProductCode.query(q))
+fun ProductDao.searchLow(q: String) = searchLowBy(q, com.bongshaltech.erpinventory.core.stock.ProductCode.query(q))
 
 data class AreaTotal(val area: String, val count: Int, val duePaisa: Long)
 
@@ -277,6 +297,12 @@ interface PurchaseDao {
 
     @Query("SELECT * FROM purchase WHERE id = :id")
     suspend fun get(id: Long): PurchaseEntity?
+
+    @Insert
+    suspend fun insertPays(p: List<PurchasePayEntity>)
+
+    @Query("SELECT * FROM purchase_pay WHERE purchaseId = :id ORDER BY id")
+    suspend fun pays(id: Long): List<PurchasePayEntity>
 }
 
 data class CategoryTotal(val category: String, val totalPaisa: Long)

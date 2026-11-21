@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bongshaltech.erpinventory.R
+import com.bongshaltech.erpinventory.data.db.search
 import com.bongshaltech.erpinventory.data.NewPurchase
 import com.bongshaltech.erpinventory.data.PurchaseLine
 import com.bongshaltech.erpinventory.data.PurchaseResult
@@ -79,6 +80,7 @@ import com.bongshaltech.erpinventory.ui.components.SumRow
 import com.bongshaltech.erpinventory.ui.components.T
 import com.bongshaltech.erpinventory.ui.components.TintIcon
 import com.bongshaltech.erpinventory.ui.components.WhiteButton
+import com.bongshaltech.erpinventory.ui.components.parts
 import com.bongshaltech.erpinventory.ui.qty
 import com.bongshaltech.erpinventory.ui.taka
 import com.bongshaltech.erpinventory.ui.theme.Brand
@@ -191,6 +193,9 @@ fun PurchaseNewScreen(go: (String) -> Unit, onBack: () -> Unit) {
     var method by remember { mutableStateOf(PayMethod.CASH) }
     var message by remember { mutableStateOf<String?>(null) }
     var saved by remember { mutableStateOf<PurchaseResult.Saved?>(null) }
+    // Paid from several cash / bank / wallet accounts: one box each; the rest becomes the supplier's due.
+    var split by remember { mutableStateOf(false) }
+    val splitAmounts = remember { androidx.compose.runtime.mutableStateMapOf<PayMethod, String>() }
 
     val st = app.settings.settings.collectAsStateWithLifecycle(null).value
     val pharmacy = st?.shopType == com.bongshaltech.erpinventory.data.ShopType.PHARMACY
@@ -205,10 +210,11 @@ fun PurchaseNewScreen(go: (String) -> Unit, onBack: () -> Unit) {
     val subtotal = ready.sumOf { it.totalPaisa }
     val discountPaisa = (discount.toPaisa() ?: 0).coerceIn(0, subtotal)
     val total = subtotal - discountPaisa
-    val paidPaisa = if (paid.isBlank()) total else paid.toPaisa() ?: 0
+    val paidPaisa = if (split) splitAmounts.parts().sumOf { it.second } else if (paid.isBlank()) total else paid.toPaisa() ?: 0
     val badLine = ready.any { it.qtyMilli <= 0 } || lines.any { it.expiry.isNotBlank() && com.bongshaltech.erpinventory.core.stock.Expiry.parse(it.expiry) == null }
     val dueNeeds = stringResource(R.string.pur_due_needs_supplier)
     val badQty = stringResource(R.string.pur_bad_qty)
+    val overpaid = stringResource(R.string.split_over)
 
     var fromOrder by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(Unit) {
@@ -224,7 +230,7 @@ fun PurchaseNewScreen(go: (String) -> Unit, onBack: () -> Unit) {
     }
 
     fun reset() {
-        lines.clear(); discount = ""; paid = ""; method = PayMethod.CASH; message = null
+        lines.clear(); discount = ""; paid = ""; method = PayMethod.CASH; message = null; split = false; splitAmounts.clear()
         supplier = null; sq = ""; newName = ""; newPhone = ""
     }
 
@@ -261,6 +267,7 @@ fun PurchaseNewScreen(go: (String) -> Unit, onBack: () -> Unit) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Input(newName, { newName = it }, Modifier.weight(1f), placeholder = stringResource(R.string.sup_name), height = 42.dp)
                         Input(newPhone, { newPhone = it }, Modifier.weight(1f), placeholder = stringResource(R.string.onb_phone), keyboard = KeyboardType.Phone, height = 42.dp)
+                        com.bongshaltech.erpinventory.ui.components.ContactPickButton({ p, n -> newPhone = p; if (newName.isBlank()) newName = n }, 42.dp)
                     }
                 }
             }
@@ -333,13 +340,18 @@ fun PurchaseNewScreen(go: (String) -> Unit, onBack: () -> Unit) {
                     Input(discount, { discount = it }, Modifier.width(90.dp), keyboard = KeyboardType.Decimal, height = 34.dp, alignEnd = true, placeholder = "0")
                 }
                 SumRow(stringResource(R.string.sale_total), total.taka(), strong = true)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    methods.forEach { (m, label) -> Chip(stringResource(label), method == m, { method = m }) }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    T(stringResource(R.string.pur_paid), 14.sp, color = Ui.c.muted, modifier = Modifier.weight(1f))
-                    Input(paid, { paid = it }, Modifier.width(110.dp), keyboard = KeyboardType.Decimal, height = 34.dp, alignEnd = true,
-                        placeholder = total.taka0().removePrefix("৳ "))
+                com.bongshaltech.erpinventory.ui.components.Segmented(
+                    listOf(stringResource(R.string.split_one), stringResource(R.string.split_many)), if (split) 1 else 0, { split = it == 1 },
+                )
+                if (split) com.bongshaltech.erpinventory.ui.components.SplitPayBoxes(methods, splitAmounts, total) else {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        methods.forEach { (m, label) -> Chip(stringResource(label), method == m, { method = m }) }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        T(stringResource(R.string.pur_paid), 14.sp, color = Ui.c.muted, modifier = Modifier.weight(1f))
+                        Input(paid, { paid = it }, Modifier.width(110.dp), keyboard = KeyboardType.Decimal, height = 34.dp, alignEnd = true,
+                            placeholder = total.taka0().removePrefix("৳ "))
+                    }
                 }
                 if (paidPaisa < total) SumRow(stringResource(R.string.pur_due_to_supplier), (total - paidPaisa).taka0(), strong = true, color = Brand.Red)
                 message?.let { T(it, 13.sp, FontWeight.SemiBold, Brand.Red) }
@@ -356,12 +368,13 @@ fun PurchaseNewScreen(go: (String) -> Unit, onBack: () -> Unit) {
                         NewPurchase(
                             lines = ready, discountPaisa = discountPaisa, paidPaisa = paidPaisa, method = method,
                             supplierId = supplier?.id, supplierName = if (supplier == null) newName else "", supplierPhone = newPhone,
-                            staffId = who.staffId,
+                            staffId = who.staffId, pays = if (split) splitAmounts.parts() else emptyList(),
                         )
                     )
                     when (r) {
                         is PurchaseResult.Saved -> { fromOrder?.let { app.repo.finishOrder(it, r.number) }; fromOrder = null; saved = r; message = null }
                         PurchaseResult.DueNeedsSupplier -> message = dueNeeds
+                        PurchaseResult.Overpaid -> message = overpaid
                     }
                 }
             }
@@ -444,6 +457,8 @@ fun SupplierDetailScreen(id: Long, go: (String) -> Unit, onBack: () -> Unit) {
     var method by rememberSaveable { mutableStateOf(PayMethod.CASH) }
     var note by rememberSaveable { mutableStateOf("") }
     var tried by remember { mutableStateOf(false) }
+    var split by remember { mutableStateOf(false) }
+    val splitAmounts = remember { androidx.compose.runtime.mutableStateMapOf<PayMethod, String>() }
     val savedMsg = stringResource(R.string.sup_paid_saved)
     val tooMuch = stringResource(R.string.cust_amount_too_much)
     val required = stringResource(R.string.required)
@@ -480,6 +495,24 @@ fun SupplierDetailScreen(id: Long, go: (String) -> Unit, onBack: () -> Unit) {
             }
             if (sup.duePaisa > 0) Panel(stringResource(R.string.sup_pay), Brand.OrangeGrad, PanelColors.Orange) {
                 val amountP = amount.toPaisa()
+                com.bongshaltech.erpinventory.ui.components.Segmented(
+                    listOf(stringResource(R.string.split_one), stringResource(R.string.split_many)), if (split) 1 else 0, { split = it == 1 },
+                )
+                if (split) {
+                    com.bongshaltech.erpinventory.ui.components.SplitPayBoxes(methods, splitAmounts, null)
+                    val sum = splitAmounts.parts().sumOf { it.second }
+                    if (sum > sup.duePaisa) T(tooMuch, 13.sp, FontWeight.SemiBold, Brand.Red)
+                    Input(note, { note = it }, label = stringResource(R.string.cust_note))
+                    GradButton(stringResource(R.string.sup_pay_save), Brand.OrangeGrad, Modifier.fillMaxWidth(), enabled = sum in 1..sup.duePaisa) {
+                        scope.launch {
+                            val numbers = app.repo.paySupplierSplit(sup.id, splitAmounts.parts(), note, who.staffId)
+                            if (numbers != null) {
+                                Toast.makeText(ctx, "$savedMsg · ${numbers.joinToString(", ")}", Toast.LENGTH_SHORT).show()
+                                splitAmounts.clear(); note = ""; split = false
+                            }
+                        }
+                    }
+                } else {
                 Input(
                     amount, { amount = it }, label = stringResource(R.string.sup_amount), keyboard = KeyboardType.Decimal,
                     placeholder = sup.duePaisa.taka0(),
@@ -503,6 +536,7 @@ fun SupplierDetailScreen(id: Long, go: (String) -> Unit, onBack: () -> Unit) {
                             amount = ""; note = ""; method = PayMethod.CASH; tried = false
                         }
                     }
+                }
                 }
             }
             T(stringResource(R.string.sup_history), 15.sp, FontWeight.Bold)
@@ -552,7 +586,10 @@ fun SupplierEditScreen(id: Long, onDone: () -> Unit) {
         ) {
             Panel(stringResource(R.string.pur_panel_supplier), Brand.BlueGrad, PanelColors.Blue) {
                 Input(name, { name = it }, label = stringResource(R.string.sup_name), error = required.takeIf { tried && name.isBlank() })
-                Input(phone, { phone = it.filter(Char::isDigit).take(14) }, label = stringResource(R.string.onb_phone), keyboard = KeyboardType.Phone)
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Input(phone, { phone = it.filter(Char::isDigit).take(14) }, Modifier.weight(1f), label = stringResource(R.string.onb_phone), keyboard = KeyboardType.Phone)
+                    com.bongshaltech.erpinventory.ui.components.ContactPickButton({ p, n -> phone = p; if (name.isBlank()) name = n })
+                }
                 Input(address, { address = it }, label = stringResource(R.string.cust_address))
             }
         }

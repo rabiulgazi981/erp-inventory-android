@@ -85,6 +85,19 @@ object Routes {
     const val LOOK = "look"
     const val GUIDE = "guide"
     const val TABLE = "table/{id}"
+    const val SALES = "sales"
+    const val TAILOR = "tailor"
+    const val TAILOR_NEW = "tailor_new"
+    const val TAILOR_ORDER = "tailor_order/{id}"
+    const val TAILOR_WORKERS = "tailor_workers"
+    const val GARMENTS = "garments"
+    const val GARMENT_STYLE = "garment_style/{id}"
+    const val GARMENT_ORDER_NEW = "garment_order_new"
+    const val GARMENT_ORDER = "garment_order/{id}"
+
+    fun tailorOrder(id: Long) = "tailor_order/$id"
+    fun garmentStyle(id: Long) = "garment_style/$id"
+    fun garmentOrder(id: Long) = "garment_order/$id"
 
     fun productEdit(id: Long) = "product/$id"
     fun ledger(m: com.bongshaltech.erpinventory.data.db.PayMethod) = "ledger/${m.name}"
@@ -207,6 +220,21 @@ fun ErpNavHost() {
         composable(Routes.RECURRING) { RecurringScreen(back) }
         composable(Routes.INVESTORS) { InvestorsScreen(back) }
         composable(Routes.RECIPES) { RecipesScreen(back) }
+        composable(Routes.SALES) { SalesListScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.TAILOR) { TailorScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.TAILOR_NEW) { TailorNewScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.TAILOR_ORDER, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            TailorOrderScreen(e.arguments?.getLong("id") ?: 0L, go = { nav.navigate(it) }, onBack = back)
+        }
+        composable(Routes.TAILOR_WORKERS) { TailorWorkersScreen(back) }
+        composable(Routes.GARMENTS) { GarmentsScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.GARMENT_STYLE, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            GarmentStyleScreen(e.arguments?.getLong("id") ?: 0L, back)
+        }
+        composable(Routes.GARMENT_ORDER_NEW) { GarmentOrderNewScreen(go = { nav.navigate(it) }, onBack = back) }
+        composable(Routes.GARMENT_ORDER, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            GarmentOrderScreen(e.arguments?.getLong("id") ?: 0L, back)
+        }
         composable(Routes.FACTORY) { WorkOrdersScreen(false, back) }
         composable(Routes.REPAIR) { WorkOrdersScreen(true, back) }
         composable(Routes.KITCHEN) { KitchenScreen(back) }

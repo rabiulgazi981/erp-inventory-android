@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bongshaltech.erpinventory.R
+import com.bongshaltech.erpinventory.data.db.search
 import com.bongshaltech.erpinventory.data.CartLine
 import com.bongshaltech.erpinventory.data.NewOrder
 import com.bongshaltech.erpinventory.data.OrderLine
@@ -235,7 +236,10 @@ fun OrderScreen(kind: OrderKind, id: Long, go: (String) -> Unit, onBack: () -> U
                     Muted(s.name + if (s.phone.isNotBlank()) " · ${s.phone}" else "", 14.sp,
                         Modifier.fillMaxWidth().clickable { supplierId = s.id; name = s.name; phone = s.phone }.padding(vertical = 6.dp))
                 }
-                Input(phone, { phone = it }, placeholder = stringResource(R.string.onb_phone), keyboard = KeyboardType.Phone, height = 42.dp)
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Input(phone, { phone = it }, Modifier.weight(1f), placeholder = stringResource(R.string.onb_phone), keyboard = KeyboardType.Phone, height = 42.dp)
+                    com.bongshaltech.erpinventory.ui.components.ContactPickButton({ p, n -> phone = p; if (name.isBlank()) name = n }, 42.dp)
+                }
             }
             Panel(stringResource(R.string.ord_items), Brand.GreenGrad, PanelColors.Green) {
                 if (open) {

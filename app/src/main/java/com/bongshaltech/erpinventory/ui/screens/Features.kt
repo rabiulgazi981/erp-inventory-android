@@ -12,6 +12,8 @@ import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.Blender
 import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Checkroom
+import androidx.compose.material.icons.outlined.ContentCut
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CreditScore
 import androidx.compose.material.icons.outlined.Description
@@ -67,6 +69,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bongshaltech.erpinventory.R
+import com.bongshaltech.erpinventory.data.onlyFor
 import com.bongshaltech.erpinventory.data.Feature
 import com.bongshaltech.erpinventory.ui.components.Group
 import com.bongshaltech.erpinventory.ui.components.Header
@@ -115,6 +118,8 @@ internal val featureSections: List<Pair<Int, List<FeatureRow>>> = listOf(
         FeatureRow(Feature.TABLES, R.string.tables, R.string.feat_tables_sub, Icons.Outlined.TableRestaurant, Tints.Orange),
         FeatureRow(Feature.KITCHEN, R.string.kitchen, R.string.feat_kitchen_sub, Icons.Outlined.SoupKitchen, Tints.Pink),
         FeatureRow(Feature.PRESCRIPTION, R.string.rx_title, R.string.feat_rx_sub, Icons.Outlined.MedicalServices, Tints.Teal),
+        FeatureRow(Feature.TAILORING, R.string.tl_title, R.string.feat_tailor_sub, Icons.Outlined.ContentCut, Tints.Purple),
+        FeatureRow(Feature.GARMENTS, R.string.gm_title, R.string.feat_garments_sub, Icons.Outlined.Checkroom, Tints.Pink),
     ),
     R.string.feat_sec_people to listOf(
         FeatureRow(Feature.HR, R.string.hr, R.string.feat_hr_sub, Icons.Outlined.Badge, Tints.Indigo),
@@ -156,7 +161,8 @@ fun FeaturesScreen(onBack: () -> Unit) {
                 leading = { Icon(Icons.Outlined.Search, null, tint = Ui.c.muted, modifier = Modifier.size(20.dp)) })
             val q = query.trim().lowercase()
             featureSections.forEach { (title, all) ->
-                val rows = if (q.isEmpty()) all else all.filter { r ->
+                val mine = all.filter { r -> r.f.onlyFor().let { t -> t == null || t == s?.shopType } }
+                val rows = if (q.isEmpty()) mine else mine.filter { r ->
                     ctx.getString(r.title).lowercase().contains(q) || ctx.getString(r.sub).lowercase().contains(q)
                 }
                 if (rows.isNotEmpty()) Group(stringResource(title)) {

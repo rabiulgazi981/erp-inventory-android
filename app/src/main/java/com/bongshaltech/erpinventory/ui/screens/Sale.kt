@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bongshaltech.erpinventory.R
+import com.bongshaltech.erpinventory.data.db.search
 import com.bongshaltech.erpinventory.core.promo.PromoLine
 import com.bongshaltech.erpinventory.core.promo.PromoMath
 import com.bongshaltech.erpinventory.core.promo.PromoRule
@@ -249,6 +250,7 @@ fun SaleScreen(go: (String) -> Unit, onBack: () -> Unit, startScan: Boolean = fa
             Panel(stringResource(R.string.panel_customer), Brand.BlueGrad, PanelColors.Blue) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Input(phone, { phone = it }, Modifier.weight(1f), placeholder = stringResource(R.string.sale_customer), keyboard = KeyboardType.Text, height = 42.dp)
+                    com.bongshaltech.erpinventory.ui.components.ContactPickButton({ p, n -> phone = p; if (custName.isBlank() && n.isNotBlank()) { custName = n; showName = true } }, 42.dp)
                     SquareAction(Icons.Outlined.Add, Brand.BlueGrad, stringResource(R.string.add_customer)) { showName = !showName }
                 }
                 custMatches.take(5).forEach { c ->

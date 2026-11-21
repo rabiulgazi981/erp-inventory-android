@@ -14,13 +14,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import com.bongshaltech.erpinventory.ui.theme.ThemeMode
 
-enum class ShopType { GENERAL, GROCERY, SUPER_SHOP, PHARMACY, RESTAURANT, PET_SHOP, FASHION, MOBILE, FACTORY }
+enum class ShopType { GENERAL, GROCERY, SUPER_SHOP, PHARMACY, RESTAURANT, PET_SHOP, FASHION, MOBILE, FACTORY, TAILOR, GARMENTS }
 
 /**
  * Optional modules, like the web dashboard's Settings > Features. Each is off until the owner turns it on,
  * except the module that belongs to the shop's own business type. Turning one off only hides it; no data is removed.
  */
-enum class Feature { CASH_DAY, LOANS, PROMOS, HR, ORDERS, TABLES, BATCHES, REPACK, SERIALS, WAREHOUSES, MOBILE_BANKING, INSTALLMENTS, SCALE_BARCODE, PACKS, CREDIT_LIMIT, AREAS, LOYALTY, ACCOUNTING, RECURRING, INVESTORS, MANUFACTURING, FACTORY, REPAIR, KITCHEN, PRESCRIPTION, COURIER }
+enum class Feature { CASH_DAY, LOANS, PROMOS, HR, ORDERS, TABLES, BATCHES, REPACK, SERIALS, WAREHOUSES, MOBILE_BANKING, INSTALLMENTS, SCALE_BARCODE, PACKS, CREDIT_LIMIT, AREAS, LOYALTY, ACCOUNTING, RECURRING, INVESTORS, MANUFACTURING, FACTORY, REPAIR, KITCHEN, PRESCRIPTION, COURIER, TAILORING, GARMENTS }
 
 fun defaultFeatures(type: ShopType): Set<Feature> = when (type) {
     ShopType.RESTAURANT -> setOf(Feature.TABLES, Feature.KITCHEN)
@@ -28,7 +28,16 @@ fun defaultFeatures(type: ShopType): Set<Feature> = when (type) {
     ShopType.PET_SHOP -> setOf(Feature.REPACK, Feature.PACKS)
     ShopType.MOBILE -> setOf(Feature.SERIALS)
     ShopType.FACTORY -> setOf(Feature.MANUFACTURING, Feature.FACTORY)
+    ShopType.TAILOR -> setOf(Feature.TAILORING)
+    ShopType.GARMENTS -> setOf(Feature.GARMENTS)
     else -> emptySet()
+}
+
+/** Modules that belong to one business type only, like the web dashboard: other shops never see them. */
+fun Feature.onlyFor(): ShopType? = when (this) {
+    Feature.TAILORING -> ShopType.TAILOR
+    Feature.GARMENTS -> ShopType.GARMENTS
+    else -> null
 }
 
 /** Menus the owner can allow for a staff member. */
@@ -85,7 +94,7 @@ data class AppSettings(
     /** Changes whenever someone's profile photo changes, so pictures reload. */
     val photoVersion: Long = 0,
 ) {
-    fun on(f: Feature) = f in features
+    fun on(f: Feature) = f in features && (f.onlyFor() == null || f.onlyFor() == shopType)
 
     /** "owner" or "s<staff id>": the key for this person's colour and photo. */
     val userKey: String get() = (session as? Session.Staff)?.let { "s${it.id}" } ?: "owner"
@@ -189,6 +198,14 @@ class SettingsRepo(private val context: Context) {
             val now = it[K.features] ?: defaultFeatures(type).map { d -> d.name }.toSet()
             it[K.features] = if (on) now + f.name else now - f.name
         }
+    }
+
+    /** Changes the business type. That type's own module is switched on; nothing else changes and no data is removed. */
+    suspend fun setShopType(type: ShopType) = context.store.edit {
+        val oldType = it[K.shopType]?.let { t -> runCatching { ShopType.valueOf(t) }.getOrNull() } ?: ShopType.GENERAL
+        val now = it[K.features] ?: defaultFeatures(oldType).map { d -> d.name }.toSet()
+        it[K.features] = now + defaultFeatures(type).map { d -> d.name }
+        it[K.shopType] = type.name
     }
 
     suspend fun setPrinter(address: String, name: String) = context.store.edit {
